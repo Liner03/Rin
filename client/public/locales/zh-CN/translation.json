@@ -758,5 +758,12 @@
   "sort_latest": "最新",
   "sort_popular": "热门",
   "total_tags": "共 {{count}} 个标签",
-  "anonymous": "匿名"
+  "anonymous": "匿名",
+  "archives": "归档",
+  "mirages": {
+    "copyright": "如无特殊说明，<titleLink>《{{title}}》</titleLink>为博主 {{username}} 原创，转载请注明原文链接为：<urlLink>{{url}}</urlLink>"
+  },
+  "menu": "菜单",
+  "avatar_alt": "站点头像",
+  "back_to_top": "回到顶部"
 }

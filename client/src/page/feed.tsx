@@ -1,7 +1,8 @@
-import type { Feed } from "@rin/api";
+import type { Comment, Feed } from "@rin/api";
+import type { ReactNode } from "react";
 import { useContext, useEffect, useRef, useState } from "react";
 import { Helmet } from "react-helmet";
-import { useTranslation } from "react-i18next";
+import { Trans, useTranslation } from "react-i18next";
 import ReactModal from "react-modal";
 import Popup from "reactjs-popup";
 import { Link, useLocation } from "wouter";
@@ -30,7 +31,7 @@ function extractFirstMarkdownImageUrl(content: string) {
   return stripImageUrlMetadata(match[1]);
 }
 
-export function FeedPage({ id, TOC, clean }: { id: string, TOC: () => JSX.Element, clean: (id: string) => void }) {
+export function FeedPage({ id, TOC }: { id: string, TOC: ReactNode }) {
   const { t } = useTranslation();
   const siteConfig = useSiteConfig();
   const profile = useContext(ProfileContext);
@@ -99,13 +100,12 @@ export function FeedPage({ id, TOC, clean }: { id: string, TOC: () => JSX.Elemen
           setError(error.value as string);
         } else if (data && typeof data !== "string") {
           setTimeout(() => {
-            setFeed(data as any);
+            setFeed(data);
             setTop(data.top || 0);
             const headImageUrl = extractFirstMarkdownImageUrl(data.content);
             if (headImageUrl) {
               setHeadImage(headImageUrl);
             }
-            clean(id);
           }, 0);
         }
       });
@@ -282,9 +282,18 @@ export function FeedPage({ id, TOC, clean }: { id: string, TOC: () => JSX.Elemen
                   </div>
                 )}
                 <Markdown content={feed.content} />
-                <p className="mirages-copyright">
-                  如无特殊说明 <a href={document.URL}>《{feed.title}》</a> 为博主 {feed.user?.username ?? "博主"} 原创，转载请注明原文链接为：<a href={document.URL}>{document.URL}</a>
-                </p>
+                {siteConfig.headerLayout === "mirages" && (
+                  <p className="mirages-copyright">
+                    <Trans
+                      i18nKey="mirages.copyright"
+                      values={{ title: feed.title, username: feed.user?.username ?? t("anonymous"), url: document.URL }}
+                      components={{
+                        titleLink: <a href={document.URL} />,
+                        urlLink: <a href={document.URL} />,
+                      }}
+                    />
+                  </p>
+                )}
                 <div className="mt-6 flex flex-col gap-2">
                   {hashtags.length > 0 && (
                     <div className="flex flex-row flex-wrap gap-x-2">
@@ -314,7 +323,7 @@ export function FeedPage({ id, TOC, clean }: { id: string, TOC: () => JSX.Elemen
               <div
                 className={`start-0 end-0 top-[5.5rem] sticky`}
               >
-                <TOC />
+                {TOC}
               </div>
             </div>
           </>
@@ -326,7 +335,7 @@ export function FeedPage({ id, TOC, clean }: { id: string, TOC: () => JSX.Elemen
   );
 }
 
-export function TOCHeader({ TOC }: { TOC: () => JSX.Element }) {
+export function TOCHeader({ TOC }: { TOC: ReactNode }) {
   const [isOpened, setIsOpened] = useState(false);
 
   return (
@@ -364,7 +373,7 @@ export function TOCHeader({ TOC }: { TOC: () => JSX.Element }) {
         onRequestClose={() => setIsOpened(false)}
       >
         <div className="w-[80vw] sm:w-[60vw] lg:w-[40vw] overflow-clip relative t-primary">
-          <TOC />
+          {TOC}
         </div>
       </ReactModal>
     </div>
@@ -512,22 +521,6 @@ function CommentInput({
   );
 }
 
-type Comment = {
-  id: number;
-  content: string;
-  createdAt: Date;
-  updatedAt: Date;
-  user?: {
-    id: number;
-    username: string;
-    avatar: string | null;
-    permission: number | null;
-  } | null;
-  guestName?: string;
-  guestEmail?: string;
-  guestWebsite?: string;
-};
-
 function Comments({ id }: { id: string }) {
   const config = useContext(ClientConfigContext);
   const [comments, setComments] = useState<Comment[]>([]);
@@ -542,7 +535,7 @@ function Comments({ id }: { id: string }) {
         if (error) {
           setError(error.value as string);
         } else if (data && Array.isArray(data)) {
-          setComments(data as any);
+          setComments(data);
         }
       });
   }

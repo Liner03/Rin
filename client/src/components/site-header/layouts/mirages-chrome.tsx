@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { useTranslation } from "react-i18next";
 import { useLocation } from "wouter";
 
 export function ScrollProgress() {
@@ -55,6 +56,7 @@ export function ScrollProgress() {
 }
 
 export function BackTop() {
+  const { t } = useTranslation();
   const [show, setShow] = useState(false);
 
   useEffect(() => {
@@ -69,7 +71,7 @@ export function BackTop() {
   return (
     <button
       onClick={() => window.scrollTo({ top: 0, behavior: "smooth" })}
-      aria-label="Back to top"
+      aria-label={t("back_to_top")}
       className={`fixed bottom-6 right-6 z-[899] flex h-[44px] w-[44px] cursor-pointer items-center justify-center rounded-full border border-black/10 bg-white/80 text-neutral-600 shadow-[0_2px_5px_rgba(0,0,0,0.12)] backdrop-blur transition-all duration-500 hover:border-theme hover:text-theme dark:border-white/10 dark:bg-white/10 dark:text-neutral-300 ${show ? "translate-y-0 opacity-100" : "pointer-events-none translate-y-3 opacity-0"}`}
     >
       <i className="ri-arrow-up-line ri-lg" />

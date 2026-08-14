@@ -1,12 +1,15 @@
 import { createContext, useContext, useEffect, useState } from "react";
-import { Link, useLocation } from "wouter";
 import { useTranslation } from "react-i18next";
+import { Link, useLocation } from "wouter";
 import { HeaderActions, NavBar } from "..";
-import { PreviewActions, PreviewBrand, PreviewCanvas, PreviewContent, PreviewNav } from "../preview-primitives";
-import type { HeaderLayoutDefinition } from "../layout-types";
-import { ProfileContext } from "../../../state/profile";
 import { useSiteConfig } from "../../../hooks/useSiteConfig";
+import type { Profile } from "../../../state/profile";
+import { ProfileContext } from "../../../state/profile";
+import type { HeaderLayoutDefinition } from "../layout-types";
+import { PreviewActions, PreviewBrand, PreviewCanvas, PreviewContent, PreviewNav } from "../preview-primitives";
+import { BackTop, ScrollProgress } from "./mirages-chrome";
 import { MiragesHero } from "./mirages-hero";
+import { isMiragesArticlePage, isMiragesListPage } from "./mirages-routes";
 
 const PREVIEW_ITEMS = ["Home", "Timeline", "Moments"];
 
@@ -40,7 +43,7 @@ function MiragesDrawer({ isOpen, onClose }: { isOpen: boolean; onClose: () => vo
             {siteConfig.avatar ? (
               <img
                 src={siteConfig.avatar}
-                alt="Avatar"
+                alt={t("avatar_alt")}
                 className="h-20 w-20 rounded-full border-2 border-black/10 object-cover dark:border-white/10"
               />
             ) : (
@@ -109,11 +112,12 @@ function SidebarItem({
 }
 
 function MiragesMenuButton() {
+  const { t } = useTranslation();
   const { toggle } = useMiragesSidebar();
   return (
     <button
       onClick={toggle}
-      aria-label="Menu"
+      aria-label={t("menu")}
       className="flex h-9 w-9 items-center justify-center rounded-full text-neutral-600 transition-colors hover:bg-black/5 dark:text-neutral-300 dark:hover:bg-white/10"
     >
       <i className="ri-menu-3-line ri-lg" />
@@ -125,10 +129,8 @@ function MiragesShell({ header, content, footer }: { header: React.ReactNode; co
     const [isOpen, setIsOpen] = useState(false);
     const [location] = useLocation();
     const isHome = location === "/";
-    const listPages = ["timeline", "moments", "friends", "hashtags", "hashtag"];
-    const firstSegment = location.split("/")[1] || "";
-    const isListPage = isHome || listPages.includes(firstSegment);
-    const isArticle = !isListPage && firstSegment.length > 0 && !["about", "archives", "login", "profile", "admin", "callback", "user", "search"].includes(firstSegment);
+    const isListPage = isHome || isMiragesListPage(location);
+    const isArticle = isMiragesArticlePage(location);
 
     useEffect(() => {
         setIsOpen(false);
@@ -148,6 +150,8 @@ function MiragesShell({ header, content, footer }: { header: React.ReactNode; co
     return (
         <MiragesSidebarContext.Provider value={{ isOpen, toggle: () => setIsOpen((v) => !v) }}>
             <div className="mirages-root min-h-screen">
+                <ScrollProgress />
+                <BackTop />
                 <MiragesDrawer isOpen={isOpen} onClose={() => setIsOpen(false)} />
                 {header}
                 <MiragesHero />
@@ -157,6 +161,15 @@ function MiragesShell({ header, content, footer }: { header: React.ReactNode; co
                 <div className="mirages-footer">{footer}</div>
             </div>
         </MiragesSidebarContext.Provider>
+    );
+}
+
+function MiragesHeaderActions({ children, profile, className }: { children?: React.ReactNode; profile?: Profile | null; className: string }) {
+    return (
+        <>
+            {children ? <div className="flex items-center text-sm t-primary">{children}</div> : null}
+            <HeaderActions profile={profile} className={className} />
+        </>
     );
 }
 
@@ -176,8 +189,7 @@ export const miragesLayoutDefinition: HeaderLayoutDefinition = {
           </div>
         </div>
         <div className="ml-4 flex flex-1 items-center justify-end gap-2">
-          {children ? <div className="flex items-center text-sm t-primary">{children}</div> : null}
-          <HeaderActions profile={profile} className="mirages-header-actions flex flex-row items-center gap-2" />
+          <MiragesHeaderActions children={children} profile={profile} className="mirages-header-actions flex flex-row items-center gap-2" />
         </div>
       </div>
     );
@@ -192,8 +204,7 @@ export const miragesLayoutDefinition: HeaderLayoutDefinition = {
           </Link>
         </div>
         <div className="flex shrink-0 items-center gap-1">
-          {children ? <div className="flex items-center text-sm t-primary">{children}</div> : null}
-          <HeaderActions profile={profile} className="mirages-header-actions flex flex-row items-center gap-1" />
+          <MiragesHeaderActions children={children} profile={profile} className="mirages-header-actions flex flex-row items-center gap-1" />
         </div>
       </div>
     );

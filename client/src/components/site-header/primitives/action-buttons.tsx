@@ -54,9 +54,10 @@ export function SearchButton({ className, onClose, plain = false }: { className?
         title={label}
         aria-label={label}
         className={
-          plain
+          "search-button " +
+          (plain
             ? "flex aspect-[1] items-center justify-center px-1.5 text-neutral-500 transition-colors hover:text-neutral-900 dark:text-neutral-400 dark:hover:text-neutral-100"
-            : "flex rounded-full border dark:border-neutral-600 px-2 bg-w aspect-[1] items-center justify-center t-primary bg-button"
+            : "flex rounded-full border dark:border-neutral-600 px-2 bg-w aspect-[1] items-center justify-center t-primary bg-button")
         }
       >
         <i className="ri-search-line" />

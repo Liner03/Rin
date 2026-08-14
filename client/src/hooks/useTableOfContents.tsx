@@ -17,92 +17,85 @@ const getHeaderScrollOffset = () => {
 }
 
 const useTableOfContents = (selector: string) => {
-    const intersectingListRef = useRef<boolean[]>([]) // isIntersecting array
     const [tableOfContents, setTableOfContents] = useState<TableOfContent[]>([])
     const [activeIndex, setActiveIndex] = useState(0)
     const { t } = useTranslation()
-    const io = useRef<IntersectionObserver | null>(null);
-    const mutationObserver = useRef<MutationObserver | null>(null);
-    const [ref, setRef] = useState("-1")
-    const lastRef = useRef("")
+    const ioRef = useRef<IntersectionObserver | null>(null)
+    const mutationObserverRef = useRef<MutationObserver | null>(null)
+    const debounceTimer = useRef<number | undefined>(undefined)
 
     useEffect(() => {
-        if (lastRef.current === ref) return
         const content = document.querySelector(selector)
         if (!content) return
 
         const buildToc = () => {
-            const intersectingList = intersectingListRef.current
             const headers = content.querySelectorAll<HTMLElement>(
                 'h1, h2, h3, h4, h5, h6'
             )
-            if (headers.length === 0) return
-
-            // set TableOfContents
             const tocData = Array.from(headers).map<TableOfContent>((header, i) => ({
                 index: i,
                 text: header.textContent || '',
                 marginLeft: (Number(header.tagName.charAt(1)) - 1) * 10,
-                element: header, // have to down little bit
+                element: header,
             }))
             setTableOfContents(tocData)
+            setActiveIndex((prev) => (tocData.length > 0 ? Math.min(prev, tocData.length - 1) : 0))
 
-            // create IntersectionObserver
-            if (io.current) io.current.disconnect()
-            io.current = new IntersectionObserver(
+            if (ioRef.current) ioRef.current.disconnect()
+            ioRef.current = null
+
+            if (tocData.length === 0) {
+                return
+            }
+
+            const intersectingList = new Array<boolean>(tocData.length).fill(false)
+            const observer = new IntersectionObserver(
                 (entries) => {
-                    // save isIntersecting info to array using data-id
+                    if (ioRef.current !== observer) return
                     entries.forEach(({ target, isIntersecting }) => {
-                        const idx = Number((target as HTMLElement).dataset.id || 0)
-                        intersectingList[idx] = isIntersecting
+                        const idx = Number((target as HTMLElement).dataset.id)
+                        if (idx >= 0 && idx < intersectingList.length) {
+                            intersectingList[idx] = isIntersecting
+                        }
                     })
-                    // get activeIndex
                     const currentIndex = intersectingList.findIndex((item) => item)
-                    let activeIndex = currentIndex - 1
+                    let nextActiveIndex = currentIndex - 1
                     if (currentIndex === -1) {
-                        activeIndex = intersectingList.length - 1
+                        nextActiveIndex = intersectingList.length - 1
                     } else if (currentIndex === 0) {
-                        activeIndex = 0
+                        nextActiveIndex = 0
                     }
-                    setActiveIndex(activeIndex)
+                    setActiveIndex(nextActiveIndex)
                 },
                 { rootMargin: "-20% 0px 10000px 0px", threshold: 0 }
             )
-            intersectingList.length = 0 // reset array
+            ioRef.current = observer
             headers.forEach((header, i) => {
-                if (header.getAttribute('data-id') !== null) return
-                header.setAttribute('data-id', i.toString()) // set data-id
-                intersectingList.push(false) // increase array length
-                io.current!.observe(header) // register to observe
+                header.setAttribute('data-id', i.toString())
+                observer.observe(header)
             })
         }
 
-        // 首次尝试
         buildToc()
 
-        // Markdown 是异步渲染的：监听内容变化，标题出现后重建
-        if (mutationObserver.current) mutationObserver.current.disconnect()
-        mutationObserver.current = new MutationObserver(() => {
-            buildToc()
+        // Markdown renders asynchronously: watch for content changes and rebuild
+        // once the headers appear (debounced to avoid thrashing during rendering)
+        if (mutationObserverRef.current) mutationObserverRef.current.disconnect()
+        mutationObserverRef.current = new MutationObserver(() => {
+            window.clearTimeout(debounceTimer.current)
+            debounceTimer.current = window.setTimeout(buildToc, 120)
         })
-        mutationObserver.current.observe(content, { childList: true, subtree: true })
+        mutationObserverRef.current.observe(content, { childList: true, subtree: true, characterData: true })
 
-        lastRef.current = ref
         return () => {
-            if (io.current) io.current.disconnect()
-            if (mutationObserver.current) mutationObserver.current.disconnect()
+            window.clearTimeout(debounceTimer.current)
+            if (ioRef.current) ioRef.current.disconnect()
+            if (mutationObserverRef.current) mutationObserverRef.current.disconnect()
         }
-    }, [ref])
+    }, [selector])
 
-    const cleanup = (newId: string) => {
-        // 用递增时间戳强制触发 effect 重扫（绕过 lastRef 短路问题）
-        setRef(`${newId}:${Date.now()}`)
-        if (io.current) io.current.disconnect()
-    }
-
-    return {
-        TOC: () => (
-            <nav className="toc-nav">
+    const TOC = (
+        <nav className="toc-nav">
                 <p className="mb-4 text-[13px] font-semibold uppercase tracking-[0.14em] text-neutral-400 dark:text-neutral-500">
                     {t("index.title")}
                 </p>
@@ -139,8 +132,9 @@ const useTableOfContents = (selector: string) => {
                     ))}
                 </ul>
             </nav>
-        ), cleanup
-    }
+    )
+
+    return { TOC }
 }
 
 export default useTableOfContents

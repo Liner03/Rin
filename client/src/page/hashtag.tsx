@@ -5,39 +5,15 @@ import { FeedCard } from "../components/feed_card"
 import { Waiting } from "../components/loading"
 import { client } from "../app/runtime"
 
+import type { TagDetail } from "@rin/api";
 import { useSiteConfig } from "../hooks/useSiteConfig";
-import { siteName } from "../utils/constants"
-
-
-type FeedsData = {
-    name: string;
-    id: number;
-    createdAt: Date;
-    updatedAt: Date;
-    feeds: {
-        hashtags: {
-            name: string;
-            id: number;
-        }[];
-        id: number;
-        title: string | null;
-        summary: string;
-        content: string;
-        createdAt: Date;
-        updatedAt: Date;
-        user: {
-            id: number;
-            username: string;
-            avatar: string | null;
-        };
-    }[] | undefined;
-}
+import { siteName } from "../utils/constants";
 
 export function HashtagPage({ name }: { name: string }) {
     const { t } = useTranslation()
     const siteConfig = useSiteConfig();
     const [status, setStatus] = useState<'loading' | 'idle'>('idle')
-    const [hashtag, setHashtag] = useState<FeedsData>()
+    const [hashtag, setHashtag] = useState<TagDetail>()
     const feedListClass = siteConfig.feedLayout === "masonry" ? "wauto columns-1 gap-5 md:columns-2" : "wauto flex flex-col";
     const hashtagFeeds = Array.isArray(hashtag?.feeds) ? hashtag.feeds : [];
     const ref = useRef("")
@@ -45,7 +21,7 @@ export function HashtagPage({ name }: { name: string }) {
         const nameDecoded = decodeURI(name)
         client.tag.get(nameDecoded).then(({ data }) => {
             if (data) {
-                setHashtag(data as any)
+                setHashtag(data)
                 setStatus('idle')
             }
         })
@@ -80,7 +56,7 @@ export function HashtagPage({ name }: { name: string }) {
                     </div>
                     <Waiting for={status === 'idle'}>
                         <div className={feedListClass}>
-                            {hashtagFeeds.map(({ id, ...feed }: any) => (
+                            {hashtagFeeds.map(({ id, ...feed }) => (
                                 <FeedCard key={id} id={id} {...feed} />
                             ))}
                         </div>

@@ -40,8 +40,7 @@ body.mirages-layout-active .mirages-root [class*="z-40"] {
 [data-color-mode="dark"] body.mirages-layout-active .mirages-root [class*="z-40"] {
   background: rgba(44, 42, 42, 0.7) !important;
 }
-body.mirages-layout-active .mirages-root .mirages-header-actions button[aria-label*="搜索"],
-body.mirages-layout-active .mirages-root .mirages-header-actions button[title*="搜索"] {
+body.mirages-layout-active .mirages-root .mirages-header-actions .search-button {
   width: 40px !important;
   height: 40px !important;
   border-radius: 100% !important;
@@ -50,7 +49,7 @@ body.mirages-layout-active .mirages-root .mirages-header-actions button[title*="
   color: #333 !important;
   padding: 0 !important;
 }
-[data-color-mode="dark"] body.mirages-layout-active .mirages-root .mirages-header-actions button[aria-label*="搜索"] {
+[data-color-mode="dark"] body.mirages-layout-active .mirages-root .mirages-header-actions .search-button {
   background: #3a3a3a !important;
   color: #eee !important;
 }

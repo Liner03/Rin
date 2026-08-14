@@ -758,5 +758,12 @@
   "sort_latest": "Latest",
   "sort_popular": "Popular",
   "total_tags": "Total {{count}} tags",
-  "anonymous": "Anonymous"
+  "anonymous": "Anonymous",
+  "archives": "Archives",
+  "mirages": {
+    "copyright": "Unless otherwise specified, <titleLink>“{{title}}”</titleLink> is an original article by {{username}}. When reposting, please include the original link: <urlLink>{{url}}</urlLink>"
+  },
+  "menu": "Menu",
+  "avatar_alt": "Site avatar",
+  "back_to_top": "Back to top"
 }

@@ -1,22 +1,12 @@
 import { useEffect, useState } from "react";
-import { useLocation } from "wouter";
 import { useTranslation } from "react-i18next";
+import { useLocation } from "wouter";
 import { client } from "../../../app/runtime";
 import { useSiteConfig } from "../../../hooks/useSiteConfig";
-
-const STATIC_TITLES: Record<string, string> = {
-  timeline: "时间轴",
-  moments: "动态",
-  friends: "朋友们",
-  hashtags: "标签",
-  login: "登录",
-  profile: "个人中心",
-  about: "关于",
-  archives: "归档",
-};
+import { firstSegmentOf, isMiragesArticlePage, miragesStaticTitleKey } from "./mirages-routes";
 
 export function MiragesHero() {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const siteConfig = useSiteConfig();
   const [location] = useLocation();
   const [feed, setFeed] = useState<{ title: string; createdAt: string; user?: { username?: string }; hashtags?: { name: string }[]; pv?: number } | null>(null);
@@ -24,9 +14,10 @@ export function MiragesHero() {
   const isHome = location === "/";
   const isFeedRoute = location.startsWith("/feed/");
   const isTagRoute = location.startsWith("/hashtag/");
-  const firstSegment = location.split("/")[1] || "";
-  const staticTitle = STATIC_TITLES[firstSegment];
-  const isArticlePage = isFeedRoute || (!isTagRoute && !staticTitle && firstSegment.length > 0 && firstSegment !== "admin" && firstSegment !== "callback" && firstSegment !== "user" && firstSegment !== "search" && firstSegment !== "login" && firstSegment !== "profile");
+  const firstSegment = firstSegmentOf(location);
+  const staticTitleKey = miragesStaticTitleKey(firstSegment);
+  const staticTitle = staticTitleKey ? t(staticTitleKey) : undefined;
+  const isArticlePage = isFeedRoute || isMiragesArticlePage(location);
 
   useEffect(() => {
     setFeed(null);
@@ -62,8 +53,11 @@ export function MiragesHero() {
   }
 
   const formatDate = (iso: string) => {
-    const d = new Date(iso);
-    return `${d.getFullYear()} 年 ${String(d.getMonth() + 1).padStart(2, "0")} 月 ${String(d.getDate()).padStart(2, "0")} 日`;
+    const date = new Date(iso);
+    if (Number.isNaN(date.getTime())) {
+      return "";
+    }
+    return new Intl.DateTimeFormat(i18n.language, { year: "numeric", month: "long", day: "numeric" }).format(date);
   };
 
   const categoryName = feed?.hashtags?.[0]?.name || "";
