@@ -182,12 +182,16 @@ type MiragesCardBodyProps = Omit<FeedCardProps, "preview" | "variant" | "summary
 };
 
 function MiragesCardBody({ id, title, avatar, draft, listed, top, hashtags, createdAt, updatedAt }: MiragesCardBodyProps) {
-    const background = avatar ? undefined : gradientForFeed(id);
+    const siteConfig = useSiteConfig();
+    // 无封面图时：优先使用站点首页 banner 图，其次确定性渐变
+    const background = avatar ? undefined : (siteConfig.heroImage
+        ? `url(${siteConfig.heroImage})`
+        : gradientForFeed(id));
 
     return (
         <div
             className="relative mb-5 mt-4 h-[200px] w-full overflow-hidden rounded-[5px] shadow-[0_1px_1px_rgba(0,0,0,0.1)] transition-all duration-300 hover:-translate-y-1 hover:scale-[1.05] hover:shadow-[0_22px_43px_rgba(0,0,0,0.15)] md:mb-[20px] md:mt-[32px] md:h-[248px]"
-            style={background ? { background } : undefined}
+            style={background ? { backgroundImage: background, backgroundSize: "cover", backgroundPosition: "center" } : undefined}
         >
             {avatar ? (
                 <SmartImage

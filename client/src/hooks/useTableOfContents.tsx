@@ -123,14 +123,14 @@ const useTableOfContents = (selector: string) => {
         ? null
         : (
             <nav className="toc-nav">
-                <p className="mb-4 text-[13px] font-semibold uppercase tracking-[0.14em] text-neutral-400 dark:text-neutral-500">
+                <p className="mb-3 text-[12px] font-semibold uppercase tracking-[0.14em] text-neutral-400 dark:text-neutral-500">
                     {t("index.title")}
                 </p>
-                <ul className="space-y-[3px] border-l border-black/10 dark:border-white/10">
+                <ul className="space-y-px border-l border-black/10 dark:border-white/10">
                     {tableOfContents.map((item) => (
                         <li
                             key={`toc$${item.index}`}
-                            className={`group relative cursor-pointer text-[13px] leading-6 transition-colors duration-150 ${
+                            className={`group relative cursor-pointer text-[12px] leading-5 transition-colors duration-150 ${
                                 activeIndex === item.index
                                     ? "font-medium text-theme"
                                     : "text-neutral-600 hover:text-neutral-900 dark:text-neutral-400 dark:hover:text-neutral-100"
@@ -145,11 +145,11 @@ const useTableOfContents = (selector: string) => {
                             }}
                         >
                             <span
-                                className={`absolute -left-px top-1/2 h-3.5 w-0.5 -translate-y-1/2 rounded-full bg-theme transition-opacity duration-150 ${
+                                className={`absolute -left-px top-1/2 h-3 w-0.5 -translate-y-1/2 rounded-full bg-theme transition-opacity duration-150 ${
                                     activeIndex === item.index ? "opacity-100" : "opacity-0"
                                 }`}
                             />
-                            <span className={`block py-1 transition-colors ${activeIndex === item.index ? "text-theme" : ""}`}>
+                            <span className={`block py-0.5 transition-colors ${activeIndex === item.index ? "text-theme" : ""}`}>
                                 {item.text}
                             </span>
                         </li>
