@@ -32,8 +32,14 @@ export function isContentProtected(content: { password: string | null }): boolea
     return Boolean(content.password);
 }
 
-export function isScheduled(content: { status: string; createdAt: Date }): boolean {
-    return content.status === CONTENT_STATUS.PUBLISH && content.createdAt.getTime() > Date.now();
+export function isScheduled(content: { status: string; createdAt: Date | string }): boolean {
+    if (content.status !== CONTENT_STATUS.PUBLISH) {
+        return false;
+    }
+    const time = typeof content.createdAt === "string"
+        ? new Date(content.createdAt).getTime()
+        : content.createdAt.getTime();
+    return time > Date.now();
 }
 
 export function canViewContent(
@@ -96,11 +102,14 @@ export async function getTagsForContent(db: DB, contentId: number) {
         columns: {},
         with: {
             meta: {
-                columns: { id: true, name: true },
+                columns: { id: true, name: true, type: true },
             },
         },
     });
-    return rows.map(({ meta }) => meta).filter((meta: any) => meta.type === "tag");
+    return rows
+        .map(({ meta }) => meta)
+        .filter((meta) => meta.type === "tag")
+        .map((meta) => ({ id: meta.id, name: meta.name }));
 }
 
 export async function getCategoriesForContent(db: DB, contentId: number) {
@@ -109,17 +118,21 @@ export async function getCategoriesForContent(db: DB, contentId: number) {
         columns: {},
         with: {
             meta: {
-                columns: { id: true, name: true, slug: true },
+                columns: { id: true, name: true, slug: true, type: true },
             },
         },
     });
-    return rows.map(({ meta }) => meta).filter((meta: any) => meta.type === "category");
+    return rows
+        .map(({ meta }) => meta)
+        .filter((meta) => meta.type === "category")
+        .map((meta) => ({ id: meta.id, name: meta.name, slug: meta.slug }));
 }
 
 export async function refreshMetaCounts(db: DB, metaIds: number[]) {
     if (metaIds.length === 0) {
         return;
     }
+    const now = Math.floor(Date.now() / 1000);
     const counts = await db.select({
         metaId: metas.id,
         total: sql<number>`(
@@ -128,7 +141,7 @@ export async function refreshMetaCounts(db: DB, metaIds: number[]) {
             WHERE relationships.meta_id = metas.id
             AND contents.type = 'post'
             AND contents.status = 'publish'
-            AND contents.created_at <= ${new Date()}
+            AND contents.created_at <= ${now}
         )`,
     }).from(metas).where(inArray(metas.id, metaIds));
 

@@ -63,7 +63,7 @@ export function PageService(): Hono {
         const unlocked = isContentUnlocked(page, cookies);
         if (page.password && !unlocked) {
             if (admin) {
-                return c.json(page);
+                return c.json(serializePageDetail(page));
             }
             return c.json({
                 id: page.id,
@@ -75,7 +75,7 @@ export function PageService(): Hono {
             });
         }
 
-        return c.json(page);
+        return c.json(serializePageDetail(page));
     });
 
     // POST /page - 创建页面
@@ -233,4 +233,14 @@ function parseCookies(header: string | null | undefined): Record<string, string>
         if (key) cookies[key] = rest.join('=');
     }
     return cookies;
+}
+
+// 详情序列化：text -> content，password 不下发
+function serializePageDetail(page: any) {
+    const { text, password, ...rest } = page;
+    return {
+        ...rest,
+        content: text,
+        locked: false,
+    };
 }

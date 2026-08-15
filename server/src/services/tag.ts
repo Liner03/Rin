@@ -81,11 +81,14 @@ async function getTagsForContentLike(db: DB, contentId: number) {
         columns: {},
         with: {
             meta: {
-                columns: { id: true, name: true },
+                columns: { id: true, name: true, type: true },
             },
         },
     });
-    return rows.map(({ meta }) => meta).filter((meta: any) => meta.type === "tag");
+    return rows
+        .map(({ meta }) => meta)
+        .filter((meta) => meta.type === "tag")
+        .map((meta) => ({ id: meta.id, name: meta.name }));
 }
 
 export async function bindTagsToContent(db: DB, contentId: number, tags: string[]) {
