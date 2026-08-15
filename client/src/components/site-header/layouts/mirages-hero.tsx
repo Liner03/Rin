@@ -3,13 +3,14 @@ import { useTranslation } from "react-i18next";
 import { useLocation } from "wouter";
 import { client } from "../../../app/runtime";
 import { useSiteConfig } from "../../../hooks/useSiteConfig";
+import { extractFirstMarkdownImageUrl } from "../../../utils/image-upload";
 import { firstSegmentOf, isMiragesArticlePage, miragesStaticTitleKey } from "./mirages-routes";
 
 export function MiragesHero() {
   const { t, i18n } = useTranslation();
   const siteConfig = useSiteConfig();
   const [location] = useLocation();
-  const [feed, setFeed] = useState<{ title: string; createdAt: string; user?: { username?: string }; hashtags?: { name: string }[]; pv?: number } | null>(null);
+  const [feed, setFeed] = useState<{ title: string; createdAt: string; user?: { username?: string }; hashtags?: { name: string }[]; pv?: number; coverImage?: string } | null>(null);
 
   const isHome = location === "/";
   const isFeedRoute = location.startsWith("/feed/");
@@ -30,7 +31,14 @@ export function MiragesHero() {
       .get(id)
       .then(({ data }) => {
         if (!cancelled && data && typeof data !== "string") {
-          setFeed({ title: data.title || "", createdAt: data.createdAt, user: data.user, hashtags: data.hashtags, pv: data.pv });
+          setFeed({
+            title: data.title || "",
+            createdAt: data.createdAt,
+            user: data.user,
+            hashtags: data.hashtags,
+            pv: data.pv,
+            coverImage: (data as any).cover || extractFirstMarkdownImageUrl(data.content),
+          });
         }
       })
       .catch(() => {});
@@ -67,11 +75,13 @@ export function MiragesHero() {
       <div
         className="absolute inset-0 bg-cover bg-center"
         style={{
-          backgroundImage: isHome && siteConfig.heroImage
-            ? `linear-gradient(rgba(0,0,0,0.55), rgba(0,0,0,0.55)), url(${siteConfig.heroImage})`
-            : isHome && siteConfig.avatar
-              ? `linear-gradient(rgba(0,0,0,0.55), rgba(0,0,0,0.55)), url(${siteConfig.avatar})`
-              : "linear-gradient(135deg, #1e1e1f 0%, #2c2a2a 100%)",
+          backgroundImage: isArticlePage && feed?.coverImage
+            ? `linear-gradient(rgba(0,0,0,0.55), rgba(0,0,0,0.55)), url(${feed.coverImage})`
+            : isHome && siteConfig.heroImage
+              ? `linear-gradient(rgba(0,0,0,0.55), rgba(0,0,0,0.55)), url(${siteConfig.heroImage})`
+              : isHome && siteConfig.avatar
+                ? `linear-gradient(rgba(0,0,0,0.55), rgba(0,0,0,0.55)), url(${siteConfig.avatar})`
+                : "linear-gradient(135deg, #1e1e1f 0%, #2c2a2a 100%)",
         }}
       />
       <div className="relative z-10 px-6 text-center">

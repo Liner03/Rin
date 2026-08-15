@@ -21,16 +21,7 @@ import { Input } from "../components/input";
 import { Tips } from "../components/tips";
 import mermaid from "mermaid";
 import { AdjacentSection } from "../components/adjacent_feed.tsx";
-import { stripImageUrlMetadata } from "../utils/image-upload";
-
-function extractFirstMarkdownImageUrl(content: string) {
-  const match = /!\[.*?\]\((\S+?)(?:\s+"[^"]*")?\)/.exec(content);
-  if (!match) {
-    return undefined;
-  }
-
-  return stripImageUrlMetadata(match[1]);
-}
+import { extractFirstMarkdownImageUrl } from "../utils/image-upload";
 
 export function FeedPage({ id, TOC }: { id: string, TOC: ReactNode }) {
   const { t } = useTranslation();

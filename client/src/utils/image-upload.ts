@@ -77,6 +77,15 @@ export function stripImageUrlMetadata(url?: string | null) {
   return parseImageUrlMetadata(url).src;
 }
 
+// 提取 markdown 正文中的第一张图片 URL（去除 #blurhash 等元数据后缀）
+export function extractFirstMarkdownImageUrl(content: string) {
+  const match = /!\[.*?\]\((\S+?)(?:\s+"[^"]*")?\)/.exec(content);
+  if (!match) {
+    return undefined;
+  }
+  return stripImageUrlMetadata(match[1]);
+}
+
 export function buildMarkdownImage(fileName: string, url: string, metadata: ImageMetadata = {}) {
   const safeAlt = fileName.replace(/[[\]]/g, "");
   const safeUrl = url.replace(/\s/g, "%20");
