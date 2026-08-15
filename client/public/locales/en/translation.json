@@ -113,7 +113,8 @@
     "login_link": "Sign in to comment",
     "login_hint": "Sign in to join the discussion",
     "actions": "Comment actions",
-    "count": "Comments ({{count}})"
+    "count": "Comments ({{count}})",
+    "email_invalid": "Please enter a valid email address"
   },
   "comparison": "Comparison",
   "confirm": "Confirm",

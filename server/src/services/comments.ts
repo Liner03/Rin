@@ -21,7 +21,7 @@ export function CommentService(): Hono {
                     columns: { id: true, username: true, avatar: true, permission: true }
                 }
             },
-            orderBy: [asc(comments.createdAt)]
+            orderBy: [asc(comments.createdAt), asc(comments.id)]
         }));
         
         // 将结果统一为前端兼容格式：登录用户用 user 字段，游客用 guestName 等

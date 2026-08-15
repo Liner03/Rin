@@ -113,7 +113,8 @@
     "login_link": "登入後評論",
     "login_hint": "登入後參與討論",
     "actions": "評論操作",
-    "count": "評論（{{count}}）"
+    "count": "評論（{{count}}）",
+    "email_invalid": "請輸入有效的信箱地址"
   },
   "comparison": "比較",
   "confirm": "確認",

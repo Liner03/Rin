@@ -113,7 +113,8 @@
     "login_link": "ログインしてコメント",
     "login_hint": "ログインして議論に参加",
     "actions": "コメント操作",
-    "count": "コメント（{{count}}）"
+    "count": "コメント（{{count}}）",
+    "email_invalid": "有効なメールアドレスを入力してください"
   },
   "comparison": "対比",
   "confirm": "確認",

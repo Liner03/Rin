@@ -473,6 +473,11 @@ function CommentInput({
         setSubmitting(false);
         return;
       }
+      if (guestEmail.trim() && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(guestEmail.trim())) {
+        setError(t("comment.email_invalid"));
+        setSubmitting(false);
+        return;
+      }
       client.comment
         .create(parseInt(id), {
           content,
@@ -517,7 +522,7 @@ function CommentInput({
               type="button"
               disabled={submitting}
               onClick={submit}
-              className="min-h-11 rounded-xl bg-theme px-5 py-2 text-sm font-semibold text-white transition-colors hover:bg-theme-hover active:bg-theme-active disabled:cursor-not-allowed disabled:opacity-60"
+              className="min-h-11 rounded-xl bg-theme-hover px-5 py-2 text-sm font-semibold text-white transition-colors hover:bg-theme-active active:bg-theme-active disabled:cursor-not-allowed disabled:opacity-60"
             >
               {t("comment.submit")}
             </button>
@@ -588,7 +593,7 @@ function CommentInput({
                 type="button"
                 disabled={submitting}
                 onClick={submit}
-                className="min-h-11 rounded-xl bg-theme px-5 py-2 text-sm font-semibold text-white transition-colors hover:bg-theme-hover active:bg-theme-active disabled:cursor-not-allowed disabled:opacity-60"
+                className="min-h-11 rounded-xl bg-theme-hover px-5 py-2 text-sm font-semibold text-white transition-colors hover:bg-theme-active active:bg-theme-active disabled:cursor-not-allowed disabled:opacity-60"
               >
                 {t("comment.submit")}
               </button>

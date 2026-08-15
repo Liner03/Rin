@@ -113,7 +113,8 @@
     "login_link": "登录后评论",
     "login_hint": "登录后参与讨论",
     "actions": "评论操作",
-    "count": "评论（{{count}}）"
+    "count": "评论（{{count}}）",
+    "email_invalid": "请输入有效的邮箱地址"
   },
   "comparison": "对比",
   "confirm": "确认",
