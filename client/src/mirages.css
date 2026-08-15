@@ -80,12 +80,10 @@ body.mirages-layout-active .mirages-root [class*="z-40"] a[href="/hashtags"],
 body.mirages-layout-active .mirages-root [class*="z-40"] a[href="/friends"],
 body.mirages-layout-active .mirages-root [class*="z-40"] a[href="/about"] {
   font-size: 16px !important;
-  color: rgba(0, 0, 0, 0.9) !important;
   padding: 8px !important;
 }
 body.mirages-layout-active .mirages-root [class*="z-40"] a[href="/"]:not([aria-label="home"]) {
   font-size: 16px !important;
-  color: rgba(0, 0, 0, 0.9) !important;
   padding: 8px !important;
 }
 body.mirages-layout-active .mirages-root [class*="z-40"] button {
@@ -159,8 +157,19 @@ body.mirages-layout-active .mirages-content .w-80.hidden > div {
     width: 240px !important;
   }
 }
-body.mirages-layout-active .mirages-content div[class*="justify-center"].ani-show {
-  animation: none !important;
+/* 页面入场：Mirages 下禁用弹跳动画，改为轻微淡入（保持克制） */
+body.mirages-layout-active .mirages-content div[class*="justify-center"].ani-show,
+body.mirages-layout-active .mirages-content .ani-show,
+body.mirages-layout-active .mirages-content .ani-show-fast {
+  animation: rin-fade-in 0.3s ease forwards !important;
+}
+@keyframes rin-fade-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
 }
 
 /* 文章页卡片：透明无边框 */

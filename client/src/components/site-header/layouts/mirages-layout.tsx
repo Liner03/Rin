@@ -194,7 +194,7 @@ export const miragesLayoutDefinition: HeaderLayoutDefinition = {
         </div>
         <div className="flex min-w-0 flex-1 items-center justify-center">
           <div className="flex min-w-max items-center gap-0 text-[16px]">
-            <NavBar menu={false} itemClassName="px-2 py-2 text-[16px] text-black/90 dark:text-white/90 hover:text-theme duration-300" />
+            <NavBar menu={false} itemClassName="px-2 py-2 text-[16px] hover:text-theme duration-300" />
           </div>
         </div>
         <div className="ml-4 flex flex-1 items-center justify-end gap-2">
