@@ -176,7 +176,7 @@ body.mirages-layout-active .mirages-content div[class*="justify-center"].ani-sho
   padding: 0 !important;
 }
 
-/* 文章页头部：隐藏重复的日期/标题，管理按钮悬浮右上角 */
+/* 文章页头部：隐藏重复的日期/标题，管理按钮右对齐（不悬浮，避免遮挡正文标题） */
 .mirages-content article.rounded-2xl > .flex.justify-between {
   position: relative !important;
 }
@@ -184,10 +184,7 @@ body.mirages-layout-active .mirages-content div[class*="justify-center"].ani-sho
   display: none !important;
 }
 .mirages-content article.rounded-2xl > .flex.justify-between > .pt-2 {
-  position: absolute !important;
-  right: 0 !important;
-  top: 0 !important;
-  z-index: 20 !important;
+  margin-left: auto !important;
 }
 
 /* 正文排版：16px / 28.8px / #202020 */
