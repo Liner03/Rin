@@ -393,26 +393,6 @@ body.mirages-layout-active .mirages-content [class*="sm:grid-cols-2"] p {
   color: #777 !important;
 }
 
-/* ---------------- 评论区 ---------------- */
-
-body.mirages-layout-active .mirages-content article ~ div textarea,
-body.mirages-layout-active .mirages-content article ~ div input {
-  background: transparent !important;
-  border: 2px solid #ececec !important;
-  border-radius: 5px !important;
-  padding: 7px 8.4px !important;
-  font-size: 14px !important;
-}
-body.mirages-layout-active .mirages-content article ~ div button[class*="bg-theme"],
-body.mirages-layout-active .mirages-content article ~ div button {
-  background: rgb(var(--theme-rgb)) !important;
-  color: #fff !important;
-  border: none !important;
-  border-radius: 5px !important;
-  padding: 0 16px !important;
-  font-size: 14px !important;
-}
-
 /* ---------------- 页脚 ---------------- */
 
 .mirages-root .mirages-footer {

@@ -418,7 +418,7 @@ function CommentInput({
   const [guestName, setGuestName] = useState("");
   const [guestEmail, setGuestEmail] = useState("");
   const [guestWebsite, setGuestWebsite] = useState("");
-  const [moreOpen, setMoreOpen] = useState(false);
+  const [moreOpen, setMoreOpen] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState(false);
@@ -551,7 +551,7 @@ function CommentInput({
           <button
             type="button"
             onClick={() => setMoreOpen((open) => !open)}
-            className="mt-2 self-start text-[13px] text-neutral-400 transition-colors hover:text-theme"
+            className="mt-2 self-start text-[13px] text-neutral-400 transition-colors hover:text-theme dark:hover:text-theme"
           >
             {moreOpen ? t("comment.less_options") : t("comment.more_options")}
           </button>
@@ -645,7 +645,7 @@ function Comments({ id }: { id: string }) {
             </div>
           )}
           {!error && comments.length === 0 && (
-            <p className="py-6 text-center text-[13px] text-neutral-400 dark:text-neutral-500">
+            <p className="py-6 text-center text-[13px] text-neutral-400 dark:text-neutral-400">
               {t("comment.empty_state")}
             </p>
           )}
@@ -697,7 +697,7 @@ function CommentItem({
       })
   }
   return (
-    <div className="flex flex-row items-start gap-3 border-b border-dashed border-black/5 py-4 last:border-b-0 dark:border-white/5">
+    <div className="flex flex-row items-start gap-3 border-b border-dashed border-black/10 py-4 last:border-b-0 dark:border-white/10">
       <img
         src={commenterAvatar}
         alt={commenterName}
@@ -721,7 +721,7 @@ function CommentItem({
           )}
           <span
             title={new Date(comment.createdAt).toLocaleString()}
-            className="text-xs text-neutral-400 dark:text-neutral-500"
+            className="text-xs text-neutral-400 dark:text-neutral-400"
           >
             {timeago(comment.createdAt)}
           </span>
