@@ -114,6 +114,9 @@ export async function bindTagsToContent(db: DB, contentId: number, tags: string[
                 name: normalized,
                 slug: generateSlug(normalized),
             }).returning({ insertedId: metas.id });
+            if (result.length === 0) {
+                throw new Error('Failed to insert');
+            }
             meta = { id: result[0].insertedId };
         }
 

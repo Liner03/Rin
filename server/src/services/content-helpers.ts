@@ -1,5 +1,4 @@
-import { and, eq, inArray, lte } from "drizzle-orm";
-import { sql } from "drizzle-orm";
+import { and, eq, inArray, lte, sql } from "drizzle-orm";
 import type { AppContext, DB } from "../core/hono-types";
 import { contents, metas, relationships } from "../db/schema";
 import { profileAsync } from "../core/server-timing";
@@ -66,9 +65,9 @@ export function isContentUnlocked(
 export function parseCookies(header: string | null | undefined): Record<string, string> {
     const cookies: Record<string, string> = {};
     if (!header) return cookies;
-    for (const part of header.split(';')) {
-        const [key, ...rest] = part.trim().split('=');
-        if (key) cookies[key] = rest.join('=');
+    for (const part of header.split(";")) {
+        const [key, ...rest] = part.trim().split("=");
+        if (key) cookies[key] = rest.join("=");
     }
     return cookies;
 }

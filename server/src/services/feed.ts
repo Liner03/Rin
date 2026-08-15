@@ -1,6 +1,6 @@
 import { and, asc, count, desc, eq, gt, like, lt, or, sql } from "drizzle-orm";
 import { Hono } from "hono";
-import type { Variables } from "../core/hono-types";
+import type { DB, Variables } from "../core/hono-types";
 import { profileAsync } from "../core/server-timing";
 import { contents, visits, visitStats } from "../db/schema";
 import { HyperLogLog } from "../utils/hyperloglog";
@@ -53,9 +53,7 @@ async function initWPModules() {
     }
 }
 
-type ContentRow = typeof contents.$inferSelect;
-
-async function findPostByIdentifier(db: any, idOrSlug: string) {
+async function findPostByIdentifier(db: DB, idOrSlug: string) {
     const id_num = parseFeedId(idOrSlug);
     if (id_num !== null) {
         return db.query.contents.findFirst({
@@ -222,7 +220,9 @@ export function FeedService(): Hono<{
             return c.text('User ID is required', 400);
         }
 
-        const finalStatus = draft ? CONTENT_STATUS.DRAFT : (status || (listed === false ? CONTENT_STATUS.HIDDEN : CONTENT_STATUS.PUBLISH));
+        const finalStatus = draft
+            ? CONTENT_STATUS.DRAFT
+            : (status || (listed === false ? CONTENT_STATUS.HIDDEN : CONTENT_STATUS.PUBLISH));
         const finalSlug = slug || await getUniqueSlug(db, generateSlug(title));
         const passwordHash = password ? await hashContentPassword(password) : "";
 
@@ -358,7 +358,8 @@ export function FeedService(): Hono<{
 
     // POST /feed/:id/unlock - 密码解锁
     app.post('/:id/unlock', createContentUnlockHandler(async (db, id) => {
-        return findPostByIdentifier(db, id);
+        const feed = await findPostByIdentifier(db, id);
+        return feed ?? null;
     }));
 
     // GET /feed/adjacent/:id
@@ -406,11 +407,11 @@ export function FeedService(): Hono<{
             return null;
         }
 
-        const baseWhere = (field: any, op: any) => and(eq(contents.type, CONTENT_TYPE.POST), publishedWhere(), op(field, created_at));
+        const baseWhere = (field: any, op: typeof lt) => and(eq(contents.type, CONTENT_TYPE.POST), publishedWhere(), op(field, created_at));
 
         async function loadAdjacentFeed(
             direction: "previous_feed" | "next_feed",
-            where: any,
+            where: ReturnType<typeof baseWhere>,
             order: any,
         ) {
             const cached = await profileAsync(c, `feed_adjacent_${direction === "previous_feed" ? "prev" : "next"}_cache`, () => cache.getBySuffix(`${direction}_${id_num}`));
