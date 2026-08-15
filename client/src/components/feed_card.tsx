@@ -104,7 +104,7 @@ function FeedCardImage({ src, variant }: { src: string; variant: FeedCardVariant
         <SmartImage
             src={src}
             frameClassName={imageFrameClass}
-            imgClassName="absolute inset-0 h-full w-full object-cover object-center"
+            imgClassName="absolute inset-0 h-full w-full object-cover object-center hover:scale-105 duration-300"
         />
     );
 }
@@ -190,7 +190,7 @@ function MiragesCardBody({ id, title, avatar, draft, listed, top, hashtags, crea
 
     return (
         <div
-            className="relative mb-5 mt-4 h-[200px] w-full overflow-hidden rounded-[5px] shadow-[0_1px_1px_rgba(0,0,0,0.1)] transition-shadow duration-300 hover:shadow-[0_8px_20px_rgba(0,0,0,0.08)] md:mb-[20px] md:mt-[32px] md:h-[248px]"
+            className="relative mb-5 mt-4 h-[200px] w-full overflow-hidden rounded-[5px] shadow-[0_1px_1px_rgba(0,0,0,0.1)] transition-all duration-300 hover:-translate-y-1 hover:scale-[1.05] hover:shadow-[0_22px_43px_rgba(0,0,0,0.15)] md:mb-[20px] md:mt-[32px] md:h-[248px]"
             style={background ? { backgroundImage: background, backgroundSize: "cover", backgroundPosition: "center" } : undefined}
         >
             {avatar ? (
@@ -199,7 +199,7 @@ function MiragesCardBody({ id, title, avatar, draft, listed, top, hashtags, crea
                     imgClassName="absolute inset-0 h-full w-full object-cover object-center transition-opacity duration-300"
                 />
             ) : null}
-            <div className="absolute inset-0 bg-black/25" />
+            <div className="absolute inset-0 bg-black/25 transition-colors duration-300 hover:bg-black/40" />
             <div className="absolute inset-0 flex items-center justify-center">
                 <div className="px-8 text-center">
                     <h2 className="mb-3 text-[25px] font-normal leading-snug text-white text-pretty">{title}</h2>
