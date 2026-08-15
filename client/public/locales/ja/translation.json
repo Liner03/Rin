@@ -10,7 +10,9 @@
     "queue_status_description": "AI 要約キューの進行状況、最近のタスク結果、失敗内容を確認します。",
     "settings_description": "サイトの挙動、連携設定、公開ルールを一か所で管理します。",
     "title": "管理画面",
-    "writing_description": "非公開の管理ワークスペースから記事を作成、編集、公開します。"
+    "writing_description": "非公開の管理ワークスペースから記事を作成、編集、公開します。",
+    "pages_description": "独立ページを管理",
+    "categories_description": "カテゴリーを管理"
   },
   "compat_tasks": {
     "title": "互換タスク",
@@ -756,5 +758,22 @@
   },
   "menu": "メニュー",
   "avatar_alt": "サイトのアバター",
-  "back_to_top": "トップに戻る"
+  "back_to_top": "トップに戻る",
+  "password": "パスワード",
+  "password_required": "このコンテンツはパスワードで保護されています",
+  "unlock": "解除",
+  "pages": {
+    "title": "ページ",
+    "order": "順序",
+    "no_parent": "親なし",
+    "view": "表示",
+    "empty": "ページがありません"
+  },
+  "categories": {
+    "title": "カテゴリー",
+    "name": "名前",
+    "description": "説明",
+    "posts": "記事数",
+    "empty": "カテゴリーがありません"
+  }
 }

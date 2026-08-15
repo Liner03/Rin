@@ -10,7 +10,10 @@ import { getHeaderLayoutDefinition } from "../components/site-header/layout-regi
 import { Tips, TipsPage } from "../components/tips";
 import useTableOfContents from "../hooks/useTableOfContents";
 import { useSiteConfig } from "../hooks/useSiteConfig";
+import { AdminCategoriesPage } from "../page/admin-categories";
+import { AdminPagesPage } from "../page/admin-pages";
 import { CallbackPage } from "../page/callback";
+import { CategoryPage } from "../page/category";
 import { CompatTasksPage } from "../page/compat-tasks";
 import { ErrorPage } from "../page/error";
 import { FeedPage, TOCHeader } from "../page/feed";
@@ -21,6 +24,7 @@ import { HashtagPage } from "../page/hashtag";
 import { HashtagsPage } from "../page/hashtags";
 import { LoginPage } from "../page/login";
 import { MomentsPage } from "../page/moments";
+import { PagePage } from "../page/page-detail";
 import { ProfilePage } from "../page/profile";
 import { QueueStatusPage } from "../page/queue-status";
 import { SearchPage } from "../page/search";
@@ -60,6 +64,14 @@ export function AppRoutes() {
         {(params) => <HashtagPage name={params.name || ""} />}
       </AppRoute>
 
+      <AppRoute path="/category/:slug">
+        {(params) => <CategoryPage slug={params.slug || ""} />}
+      </AppRoute>
+
+      <AppRoute path="/page/:slug">
+        {(params) => <PagePage slug={params.slug || ""} />}
+      </AppRoute>
+
       <AppRoute path="/search/:keyword">
         {(params) => <SearchPage keyword={params.keyword || ""} />}
       </AppRoute>
@@ -86,6 +98,14 @@ export function AppRoutes() {
 
       <AdminRoute path="/admin/writing/:id" requirePermission title={t("writing")} description={t("admin.writing_description")}>
         {({ id }) => <WritingPage id={tryInt(0, id)} />}
+      </AdminRoute>
+
+      <AdminRoute path="/admin/pages" requirePermission title={t("pages.title")} description={t("admin.pages_description")}>
+        <AdminPagesPage />
+      </AdminRoute>
+
+      <AdminRoute path="/admin/categories" requirePermission title={t("categories.title")} description={t("admin.categories_description")}>
+        <AdminCategoriesPage />
       </AdminRoute>
 
       <AppRoute path="/callback">

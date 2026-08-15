@@ -10,7 +10,9 @@
     "queue_status_description": "查看 AI 摘要队列进度、最近任务结果和失败信息。",
     "settings_description": "在统一的后台空间中管理站点行为、集成配置和发布规则。",
     "title": "后台管理",
-    "writing_description": "在独立的管理工作区中编写、编辑和发布内容。"
+    "writing_description": "在独立的管理工作区中编写、编辑和发布内容。",
+    "pages_description": "管理独立页面",
+    "categories_description": "管理分类"
   },
   "compat_tasks": {
     "title": "兼容任务",
@@ -765,5 +767,22 @@
   },
   "menu": "菜单",
   "avatar_alt": "站点头像",
-  "back_to_top": "回到顶部"
+  "back_to_top": "回到顶部",
+  "password": "密码",
+  "password_required": "此内容受密码保护",
+  "unlock": "解锁",
+  "pages": {
+    "title": "页面",
+    "order": "排序",
+    "no_parent": "无上级页面",
+    "view": "查看",
+    "empty": "还没有页面"
+  },
+  "categories": {
+    "title": "分类",
+    "name": "名称",
+    "description": "描述",
+    "posts": "文章数",
+    "empty": "还没有分类"
+  }
 }

@@ -21,6 +21,8 @@ async function publish({
   content,
   summary,
   tags,
+  categories,
+  password,
   draft,
   createdAt,
   onCompleted,
@@ -31,6 +33,8 @@ async function publish({
   content: string;
   summary: string;
   tags: string[];
+  categories: number[];
+  password: string;
   draft: boolean;
   alias?: string;
   createdAt?: Date;
@@ -45,6 +49,8 @@ async function publish({
       content,
       summary,
       tags,
+      categories,
+      password: password || undefined,
       listed,
       draft,
       createdAt: createdAt?.toISOString(),
@@ -71,6 +77,8 @@ async function update({
   content,
   summary,
   tags,
+  categories,
+  password,
   listed,
   draft,
   createdAt,
@@ -84,6 +92,8 @@ async function update({
   content?: string;
   summary?: string;
   tags?: string[];
+  categories?: number[];
+  password?: string;
   draft?: boolean;
   createdAt?: Date;
   onCompleted?: () => void;
@@ -98,6 +108,8 @@ async function update({
       content,
       summary,
       tags,
+      categories,
+      password: password === undefined ? undefined : password || "",
       listed,
       draft,
       createdAt: createdAt?.toISOString(),
@@ -125,6 +137,9 @@ export function WritingPage({ id }: { id?: number }) {
   const [summary, setSummary] = cache.useCache("summary", "");
   const [tags, setTags] = cache.useCache("tags", "");
   const [alias, setAlias] = cache.useCache("alias", "");
+  const [password, setPassword] = useState("");
+  const [categories, setCategories] = useState<number[]>([]);
+  const [categoryList, setCategoryList] = useState<Array<{ id: number; name: string; parent: number }>>([]);
   const [draft, setDraft] = useState(false);
   const [listed, setListed] = useState(true);
   const [content, setContent] = cache.useCache("content", "");
@@ -147,6 +162,8 @@ export function WritingPage({ id }: { id?: number }) {
         summary,
         alias,
         tags: tagsplit,
+        categories,
+        password,
         draft,
         listed,
         createdAt,
@@ -170,6 +187,8 @@ export function WritingPage({ id }: { id?: number }) {
         content,
         summary,
         tags: tagsplit,
+        categories,
+        password,
         draft,
         alias,
         listed,
@@ -183,6 +202,12 @@ export function WritingPage({ id }: { id?: number }) {
   }
 
   useEffect(() => {
+    client.category.list().then(({ data }) => {
+      if (data) setCategoryList(data);
+    });
+  }, []);
+
+  useEffect(() => {
     if (id) {
       client.feed
         .get(id)
@@ -191,9 +216,11 @@ export function WritingPage({ id }: { id?: number }) {
             if (title == "" && data.title) setTitle(data.title);
             if (tags == "" && Array.isArray(data.hashtags))
               setTags(data.hashtags.map(({ name }: {name: string}) => `#${name}`).join(" "));
-            if (alias == "" && (data as any).alias) setAlias((data as any).alias);
+            if (alias == "" && data.slug) setAlias(data.slug);
             if (content == "") setContent(data.content);
             if (summary == "") setSummary((data as any).summary || "");
+            if (Array.isArray(data.categories))
+              setCategories(data.categories.map(({ id }: {id: number}) => id));
             setListed((data as any).listed === 1);
             setDraft((data as any).draft === 1);
             setCreatedAt(new Date(data.createdAt));
@@ -279,6 +306,13 @@ export function WritingPage({ id }: { id?: number }) {
             />
             <Input
               id={id}
+              value={password}
+              setValue={setPassword}
+              placeholder={t("password")}
+              variant="flat"
+            />
+            <Input
+              id={id}
               value={tags}
               setValue={setTags}
               placeholder={t("tags")}
@@ -286,6 +320,23 @@ export function WritingPage({ id }: { id?: number }) {
               className="lg:col-span-2"
             />
           </div>
+
+          {categoryList.length > 0 && (
+            <div className="mt-5">
+              <p className="mb-2 text-xs font-semibold uppercase tracking-[0.18em] text-theme/70">{t("categories")}</p>
+              <div className="flex flex-wrap gap-2">
+                {buildCategoryTree(categoryList).map((category) => (
+                  <CategoryCheckbox
+                    key={category.id}
+                    category={category}
+                    depth={0}
+                    selected={categories}
+                    setSelected={setCategories}
+                  />
+                ))}
+              </div>
+            </div>
+          )}
 
           <div className="mt-5 grid gap-2 sm:gap-3 xl:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_minmax(18rem,2fr)]">
             <FlatMetaRow
@@ -342,5 +393,70 @@ export function WritingPage({ id }: { id?: number }) {
       </div>
       <AlertUI />
     </>
+  );
+}
+
+type CategoryNode = { id: number; name: string; parent: number; children: CategoryNode[] };
+
+function buildCategoryTree(list: Array<{ id: number; name: string; parent: number }>): CategoryNode[] {
+  const nodes = new Map<number, CategoryNode>();
+  for (const item of list) {
+    nodes.set(item.id, { ...item, children: [] });
+  }
+  const roots: CategoryNode[] = [];
+  for (const node of nodes.values()) {
+    const parent = nodes.get(node.parent);
+    if (parent && node.parent !== 0) {
+      parent.children.push(node);
+    } else {
+      roots.push(node);
+    }
+  }
+  return roots;
+}
+
+function CategoryCheckbox({
+  category,
+  depth,
+  selected,
+  setSelected,
+}: {
+  category: CategoryNode;
+  depth: number;
+  selected: number[];
+  setSelected: (value: number[]) => void;
+}) {
+  const toggle = () => {
+    if (selected.includes(category.id)) {
+      setSelected(selected.filter((id) => id !== category.id));
+    } else {
+      setSelected([...selected, category.id]);
+    }
+  };
+  return (
+    <div style={{ marginLeft: depth * 16 }}>
+      <label className="flex cursor-pointer items-center gap-1.5 py-0.5">
+        <input
+          type="checkbox"
+          checked={selected.includes(category.id)}
+          onChange={toggle}
+          className="h-3.5 w-3.5 rounded border-neutral-300 text-theme focus:ring-theme"
+        />
+        <span className="text-sm text-neutral-700 dark:text-neutral-300">{category.name}</span>
+      </label>
+      {category.children.length > 0 && (
+        <div className="flex flex-col gap-0.5">
+          {category.children.map((child) => (
+            <CategoryCheckbox
+              key={child.id}
+              category={child}
+              depth={depth + 1}
+              selected={selected}
+              setSelected={setSelected}
+            />
+          ))}
+        </div>
+      )}
+    </div>
   );
 }

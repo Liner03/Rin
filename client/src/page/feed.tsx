@@ -17,6 +17,7 @@ import { useSiteConfig } from "../hooks/useSiteConfig";
 import { siteName } from "../utils/constants";
 import { timeago } from "../utils/timeago";
 import { Button } from "../components/button";
+import { Input } from "../components/input";
 import { Tips } from "../components/tips";
 import mermaid from "mermaid";
 import { AdjacentSection } from "../components/adjacent_feed.tsx";
@@ -38,6 +39,8 @@ export function FeedPage({ id, TOC }: { id: string, TOC: ReactNode }) {
   const [feed, setFeed] = useState<Feed>();
   const [error, setError] = useState<string>();
   const [headImage, setHeadImage] = useState<string>();
+  const [password, setPassword] = useState("");
+  const [unlockError, setUnlockError] = useState("");
   const ref = useRef("");
   const [, setLocation] = useLocation();
   const { showAlert, AlertUI } = useAlert();
@@ -93,6 +96,7 @@ export function FeedPage({ id, TOC }: { id: string, TOC: ReactNode }) {
     setFeed(undefined);
     setError(undefined);
     setHeadImage(undefined);
+    setUnlockError("");
     client.feed
       .get(id)
       .then(({ data, error }) => {
@@ -111,6 +115,28 @@ export function FeedPage({ id, TOC }: { id: string, TOC: ReactNode }) {
       });
     ref.current = id;
   }, [id]);
+  async function unlock() {
+    if (!feed) return;
+    const { error } = await client.feed.unlock(feed.id, password);
+    if (error) {
+      setUnlockError(error.value as string);
+    } else {
+      setUnlockError("");
+      setFeed(undefined);
+      client.feed.get(id).then(({ data }) => {
+        if (data && typeof data !== "string") {
+          setTimeout(() => {
+            setFeed(data);
+            setTop(data.top || 0);
+            const headImageUrl = extractFirstMarkdownImageUrl(data.content);
+            if (headImageUrl) {
+              setHeadImage(headImageUrl);
+            }
+          }, 0);
+        }
+      });
+    }
+  }
   useEffect(() => {
     mermaid.initialize({
       startOnLoad: false,
@@ -179,7 +205,16 @@ export function FeedPage({ id, TOC }: { id: string, TOC: ReactNode }) {
             </div>
           </>
         )}
-        {feed && !error && (
+        {feed && !error && feed.locked && (
+          <div className="flex flex-col wauto rounded-2xl bg-w m-2 p-8 items-center justify-center space-y-3 text-center">
+            <h1 className="text-xl font-bold t-primary">{feed.title}</h1>
+            <p className="text-sm text-neutral-500 dark:text-neutral-400">{t("password_required")}</p>
+            <Input value={password} setValue={setPassword} placeholder={t("password")} variant="flat" className="w-full max-w-xs" />
+            {unlockError && <p className="text-sm text-red-500">{unlockError}</p>}
+            <Button title={t("unlock")} onClick={unlock} />
+          </div>
+        )}
+        {feed && !error && !feed.locked && (
           <>
             <div className="xl:w-64" />
             <main className="wauto">

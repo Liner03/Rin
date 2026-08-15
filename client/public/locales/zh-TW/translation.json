@@ -10,7 +10,9 @@
     "queue_status_description": "查看 AI 摘要佇列進度、最近任務結果與失敗資訊。",
     "settings_description": "在統一的後台空間中管理站點行為、整合配置與發佈規則。",
     "title": "後台管理",
-    "writing_description": "在獨立的管理工作區中編寫、編輯並發佈內容。"
+    "writing_description": "在獨立的管理工作區中編寫、編輯並發佈內容。",
+    "pages_description": "管理獨立頁面",
+    "categories_description": "管理分類"
   },
   "compat_tasks": {
     "title": "相容任務",
@@ -765,5 +767,22 @@
   },
   "menu": "選單",
   "avatar_alt": "站點頭像",
-  "back_to_top": "回到頂部"
+  "back_to_top": "回到頂部",
+  "password": "密碼",
+  "password_required": "此內容受密碼保護",
+  "unlock": "解鎖",
+  "pages": {
+    "title": "頁面",
+    "order": "排序",
+    "no_parent": "無上級頁面",
+    "view": "查看",
+    "empty": "還沒有頁面"
+  },
+  "categories": {
+    "title": "分類",
+    "name": "名稱",
+    "description": "描述",
+    "posts": "文章數",
+    "empty": "還沒有分類"
+  }
 }

@@ -10,7 +10,9 @@
     "queue_status_description": "Inspect AI summary queue progress, recent task results, and failures.",
     "settings_description": "Manage site behavior, integrations, and publishing rules in one place.",
     "title": "Admin",
-    "writing_description": "Write, edit, and publish content from the private management workspace."
+    "writing_description": "Write, edit, and publish content from the private management workspace.",
+    "pages_description": "Manage independent pages",
+    "categories_description": "Manage categories"
   },
   "compat_tasks": {
     "title": "Compatibility Tasks",
@@ -765,5 +767,22 @@
   },
   "menu": "Menu",
   "avatar_alt": "Site avatar",
-  "back_to_top": "Back to top"
+  "back_to_top": "Back to top",
+  "password": "Password",
+  "password_required": "This content is password protected",
+  "unlock": "Unlock",
+  "pages": {
+    "title": "Pages",
+    "order": "Order",
+    "no_parent": "No parent",
+    "view": "View",
+    "empty": "No pages yet"
+  },
+  "categories": {
+    "title": "Categories",
+    "name": "Name",
+    "description": "Description",
+    "posts": "Posts",
+    "empty": "No categories yet"
+  }
 }

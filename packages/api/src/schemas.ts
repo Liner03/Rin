@@ -15,27 +15,90 @@ export const feedCreateSchema = t.Object({
   title: t.String(),
   content: t.String(),
   summary: t.String({ optional: true }),
+  slug: t.String({ optional: true }),
   alias: t.String({ optional: true }),
+  status: t.String({ optional: true }),
   draft: t.Boolean(),
   listed: t.Boolean(),
+  password: t.String({ optional: true }),
   createdAt: t.Date({ optional: true }),
   tags: t.Array(t.String()),
+  categories: t.Array(t.Number(), { optional: true }),
+  top: t.Numeric({ optional: true }),
 });
 
 export const feedUpdateSchema = t.Object({
   title: t.String({ optional: true }),
+  slug: t.String({ optional: true }),
   alias: t.String({ optional: true }),
   content: t.String({ optional: true }),
   summary: t.String({ optional: true }),
-  listed: t.Boolean(),
+  listed: t.Boolean({ optional: true }),
   draft: t.Boolean({ optional: true }),
+  status: t.String({ optional: true }),
+  password: t.String({ optional: true }),
   createdAt: t.Date({ optional: true }),
   tags: t.Array(t.String(), { optional: true }),
+  categories: t.Array(t.Number(), { optional: true }),
   top: t.Numeric({ optional: true }),
+});
+
+export const feedUnlockSchema = t.Object({
+  password: t.String(),
 });
 
 export const feedSetTopSchema = t.Object({
   top: t.Numeric(),
+});
+
+// ============================================================================
+// Page Schemas
+// ============================================================================
+
+export const pageCreateSchema = t.Object({
+  title: t.String(),
+  content: t.String(),
+  slug: t.String({ optional: true }),
+  status: t.String({ optional: true }),
+  password: t.String({ optional: true }),
+  parent: t.Numeric({ optional: true }),
+  order: t.Numeric({ optional: true }),
+  template: t.String({ optional: true }),
+});
+
+export const pageUpdateSchema = t.Object({
+  title: t.String({ optional: true }),
+  content: t.String({ optional: true }),
+  slug: t.String({ optional: true }),
+  status: t.String({ optional: true }),
+  password: t.String({ optional: true }),
+  parent: t.Numeric({ optional: true }),
+  order: t.Numeric({ optional: true }),
+  template: t.String({ optional: true }),
+});
+
+export const pageUnlockSchema = t.Object({
+  password: t.String(),
+});
+
+// ============================================================================
+// Category Schemas
+// ============================================================================
+
+export const categoryCreateSchema = t.Object({
+  name: t.String(),
+  slug: t.String({ optional: true }),
+  description: t.String({ optional: true }),
+  parent: t.Numeric({ optional: true }),
+  order: t.Numeric({ optional: true }),
+});
+
+export const categoryUpdateSchema = t.Object({
+  name: t.String({ optional: true }),
+  slug: t.String({ optional: true }),
+  description: t.String({ optional: true }),
+  parent: t.Numeric({ optional: true }),
+  order: t.Numeric({ optional: true }),
 });
 
 // ============================================================================
