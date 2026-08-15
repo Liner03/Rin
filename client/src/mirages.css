@@ -415,3 +415,53 @@ body.mirages-layout-active .mirages-footer footer .text-sm {
 body.mirages-layout-active .mirages-footer footer button {
   display: none !important;
 }
+
+/* ---------------- 暗色模式覆盖：正文/标题/引用/代码/边框 ---------------- */
+
+[data-color-mode="dark"] body.mirages-layout-active,
+[data-color-mode="dark"] .mirages-root .mirages-content {
+  color: #d6d6d6 !important;
+}
+[data-color-mode="dark"] .mirages-content .toc-content {
+  color: #d6d6d6 !important;
+}
+[data-color-mode="dark"] .mirages-content .toc-content ul,
+[data-color-mode="dark"] .mirages-content .toc-content ol,
+[data-color-mode="dark"] .mirages-content .toc-content table,
+[data-color-mode="dark"] .mirages-content .toc-content strong,
+[data-color-mode="dark"] .mirages-content .toc-content th,
+[data-color-mode="dark"] .mirages-content .toc-content td {
+  color: #d6d6d6 !important;
+}
+[data-color-mode="dark"] .mirages-content .toc-content blockquote {
+  color: #b5b5b5 !important;
+  border-left-color: #4a4a4a !important;
+}
+[data-color-mode="dark"] .mirages-content .toc-content code {
+  color: #e2e2e2 !important;
+  background: rgba(255, 255, 255, 0.08) !important;
+}
+[data-color-mode="dark"] .mirages-content .toc-content hr {
+  background: #3f3f3f !important;
+}
+[data-color-mode="dark"] .mirages-content .toc-content th,
+[data-color-mode="dark"] .mirages-content .toc-content td {
+  border-color: #444 !important;
+}
+[data-color-mode="dark"] .mirages-content article [class*="text-purple-600"],
+[data-color-mode="dark"] .mirages-content article [class*="text-purple-500"] {
+  color: #b5b5b5 !important;
+}
+[data-color-mode="dark"] .mirages-copyright {
+  color: #999 !important;
+}
+[data-color-mode="dark"] .mirages-copyright a {
+  border-bottom-color: #4a4a4a !important;
+}
+[data-color-mode="dark"] body.mirages-layout-active .mirages-content [class*="sm:grid-cols-2"] {
+  border-top-color: #3f3f3f !important;
+}
+[data-color-mode="dark"] body.mirages-layout-active .mirages-content [class*="sm:grid-cols-2"] h1,
+[data-color-mode="dark"] body.mirages-layout-active .mirages-content [class*="sm:grid-cols-2"] p {
+  color: #b5b5b5 !important;
+}
