@@ -94,15 +94,6 @@ export function FeedsPage() {
                             }
                         </div>
                     </div>
-                    {listState === 'normal' && siteConfig.heroImage && (
-                        <div className="wauto mb-2 overflow-hidden rounded-2xl">
-                            <img
-                                src={siteConfig.heroImage}
-                                alt={t("hero_image_alt")}
-                                className="h-48 w-full object-cover sm:h-64 md:h-80"
-                            />
-                        </div>
-                    )}
                     <Waiting for={status === 'idle'}>
                         <div className={feedListClass}>
                             {currentFeedData.map(({ id, ...feed }) => (

@@ -67,9 +67,11 @@ export function MiragesHero() {
       <div
         className="absolute inset-0 bg-cover bg-center"
         style={{
-          backgroundImage: isHome && siteConfig.avatar
-            ? `linear-gradient(rgba(0,0,0,0.55), rgba(0,0,0,0.55)), url(${siteConfig.avatar})`
-            : "linear-gradient(135deg, #1e1e1f 0%, #2c2a2a 100%)",
+          backgroundImage: isHome && siteConfig.heroImage
+            ? `linear-gradient(rgba(0,0,0,0.55), rgba(0,0,0,0.55)), url(${siteConfig.heroImage})`
+            : isHome && siteConfig.avatar
+              ? `linear-gradient(rgba(0,0,0,0.55), rgba(0,0,0,0.55)), url(${siteConfig.avatar})`
+              : "linear-gradient(135deg, #1e1e1f 0%, #2c2a2a 100%)",
         }}
       />
       <div className="relative z-10 px-6 text-center">
