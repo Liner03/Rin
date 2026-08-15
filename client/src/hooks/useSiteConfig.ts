@@ -10,12 +10,43 @@ export const SITE_CONFIG_KEYS = {
     description: "site.description",
     avatar: "site.avatar",
     heroImage: "site.hero_image",
+    keywords: "site.keywords",
+    copyright: "site.copyright",
+    rssTitle: "site.rss_title",
+    rssDescription: "site.rss_description",
+    nav: "site.nav",
     pageSize: "site.page_size",
     feedLayout: "feed.layout",
     feedCardVariant: "feed.card_variant",
     headerLayout: "header.layout",
     themeColor: "theme.color",
 } as const;
+
+export interface SiteNavItem {
+    label: string;
+    href: string;
+}
+
+// 解析 site.nav 配置（JSON 数组字符串 或 已解析的数组），非法时返回空数组
+export function parseSiteNav(raw: string | unknown[] | null | undefined): SiteNavItem[] {
+    let parsed: unknown = raw;
+    if (typeof raw === "string") {
+        if (!raw) {
+            return [];
+        }
+        try {
+            parsed = JSON.parse(raw);
+        } catch {
+            return [];
+        }
+    }
+    if (!Array.isArray(parsed)) {
+        return [];
+    }
+    return parsed
+        .filter((item) => item && typeof item.label === "string" && typeof item.href === "string")
+        .map((item) => ({ label: item.label, href: item.href }));
+}
 
 // Hook to get site configuration
 export function useSiteConfig() {
@@ -33,6 +64,9 @@ export function useSiteConfig() {
         description: config.get<string>(SITE_CONFIG_KEYS.description) || "",
         avatar: config.get<string>(SITE_CONFIG_KEYS.avatar) || "",
         heroImage: config.get<string>(SITE_CONFIG_KEYS.heroImage) || "",
+        keywords: config.get<string>(SITE_CONFIG_KEYS.keywords) || "",
+        copyright: config.get<string>(SITE_CONFIG_KEYS.copyright) || "",
+        nav: parseSiteNav(config.get<string>(SITE_CONFIG_KEYS.nav)),
         pageSize: Number.isFinite(parsedPageSize) ? parsedPageSize : 5,
         headerBehavior: config.get<string>(SITE_CONFIG_KEYS.headerBehavior) || "fixed",
         feedLayout: normalizeFeedLayout(config.get<string>(SITE_CONFIG_KEYS.feedLayout) || "list"),

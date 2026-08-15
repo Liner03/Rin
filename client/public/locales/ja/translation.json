@@ -450,6 +450,35 @@
         "title": "ホームバナー",
         "desc": "ホームページ上部に表示するバナー画像",
         "label": "バナー画像 URL"
+      },
+      "keywords": {
+        "title": "SEO キーワード",
+        "desc": "サイト全体のメタキーワード（カンマ区切り）",
+        "label": "キーワード",
+        "placeholder": "ブログ, テック, ライフ"
+      },
+      "copyright": {
+        "title": "著作権表記",
+        "desc": "フッターに表示するカスタム著作権テキスト（空欄でデフォルト）",
+        "label": "著作権",
+        "placeholder": "© 2026 名前"
+      },
+      "rss_title": {
+        "title": "RSS タイトル",
+        "desc": "フィードのタイトル（空欄でサイト名にフォールバック）",
+        "label": "RSS タイトル",
+        "placeholder": "ブログフィード"
+      },
+      "rss_description": {
+        "title": "RSS 説明",
+        "desc": "フィードの説明（空欄でサイト説明にフォールバック）",
+        "label": "RSS 説明",
+        "placeholder": "最新記事"
+      },
+      "nav": {
+        "title": "ナビゲーションメニュー",
+        "desc": "ナビゲーションメニューをカスタマイズ。1行に1項目：タイトル|/パス（空欄でデフォルト）",
+        "label": "ナビゲーション"
       }
     },
     "header_layout": {

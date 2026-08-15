@@ -459,6 +459,35 @@
         "title": "Homepage Banner",
         "desc": "Banner image displayed at the top of the homepage",
         "label": "Banner image URL"
+      },
+      "keywords": {
+        "title": "SEO Keywords",
+        "desc": "Meta keywords for the site (comma separated)",
+        "label": "Keywords",
+        "placeholder": "blog, tech, life"
+      },
+      "copyright": {
+        "title": "Copyright",
+        "desc": "Custom copyright text shown in the footer (leave empty for default)",
+        "label": "Copyright",
+        "placeholder": "© 2026 Your Name"
+      },
+      "rss_title": {
+        "title": "RSS Title",
+        "desc": "Feed title (falls back to site name)",
+        "label": "RSS title",
+        "placeholder": "My Blog Feed"
+      },
+      "rss_description": {
+        "title": "RSS Description",
+        "desc": "Feed description (falls back to site description)",
+        "label": "RSS description",
+        "placeholder": "Latest posts"
+      },
+      "nav": {
+        "title": "Navigation Menu",
+        "desc": "Customize the navigation menu. One item per line: Title|/path (empty = default menu)",
+        "label": "Navigation"
       }
     },
     "header_layout": {

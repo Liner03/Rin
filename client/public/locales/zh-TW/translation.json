@@ -459,6 +459,35 @@
         "title": "首頁橫幅",
         "desc": "顯示在首頁頂部的橫幅圖片",
         "label": "橫幅圖片 URL"
+      },
+      "keywords": {
+        "title": "SEO 關鍵詞",
+        "desc": "全站 meta 關鍵詞（逗號分隔）",
+        "label": "關鍵詞",
+        "placeholder": "部落格, 技術, 生活"
+      },
+      "copyright": {
+        "title": "版權文案",
+        "desc": "頁尾顯示的自訂版權文字（留空使用預設）",
+        "label": "版權",
+        "placeholder": "© 2026 你的名字"
+      },
+      "rss_title": {
+        "title": "RSS 標題",
+        "desc": "Feed 標題（留空回退到站點名稱）",
+        "label": "RSS 標題",
+        "placeholder": "我的部落格 Feed"
+      },
+      "rss_description": {
+        "title": "RSS 描述",
+        "desc": "Feed 描述（留空回退到站點描述）",
+        "label": "RSS 描述",
+        "placeholder": "最新文章"
+      },
+      "nav": {
+        "title": "導覽選單",
+        "desc": "自訂導覽選單。每行一項：標題|/路徑（留空使用預設選單）",
+        "label": "導覽"
       }
     },
     "header_layout": {

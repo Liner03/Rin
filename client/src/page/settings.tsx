@@ -229,6 +229,54 @@ export function Settings() {
             onError={showAlert}
           />
           <ItemInput
+            title={t("settings.site.keywords.title")}
+            description={t("settings.site.keywords.desc")}
+            configKeyTitle={t("settings.site.keywords.label")}
+            value={String(clientConfig.get("site.keywords") ?? "")}
+            placeholder={t("settings.site.keywords.placeholder")}
+            onChange={(value) => {
+              setConfigValue("client", "site.keywords", value);
+            }}
+          />
+          <ItemInput
+            title={t("settings.site.copyright.title")}
+            description={t("settings.site.copyright.desc")}
+            configKeyTitle={t("settings.site.copyright.label")}
+            value={String(clientConfig.get("site.copyright") ?? "")}
+            placeholder={t("settings.site.copyright.placeholder")}
+            onChange={(value) => {
+              setConfigValue("client", "site.copyright", value);
+            }}
+          />
+          <ItemInput
+            title={t("settings.site.rss_title.title")}
+            description={t("settings.site.rss_title.desc")}
+            configKeyTitle={t("settings.site.rss_title.label")}
+            value={String(clientConfig.get("site.rss_title") ?? "")}
+            placeholder={t("settings.site.rss_title.placeholder")}
+            onChange={(value) => {
+              setConfigValue("client", "site.rss_title", value);
+            }}
+          />
+          <ItemInput
+            title={t("settings.site.rss_description.title")}
+            description={t("settings.site.rss_description.desc")}
+            configKeyTitle={t("settings.site.rss_description.label")}
+            value={String(clientConfig.get("site.rss_description") ?? "")}
+            placeholder={t("settings.site.rss_description.placeholder")}
+            onChange={(value) => {
+              setConfigValue("client", "site.rss_description", value);
+            }}
+          />
+          <NavEditor
+            title={t("settings.site.nav.title")}
+            description={t("settings.site.nav.desc")}
+            value={String(clientConfig.get("site.nav") ?? "")}
+            onChange={(value) => {
+              setConfigValue("client", "site.nav", value);
+            }}
+          />
+          <ItemInput
             title={t("settings.site.page_size.title")}
             description={t("settings.site.page_size.desc")}
             configKeyTitle={t("settings.site.page_size.label")}
@@ -735,6 +783,96 @@ export function Settings() {
         </div>
       </Modal>
       <AlertUI />
+    </div>
+  );
+}
+
+// 导航菜单编辑器：每行 "标题|/路径"，保存为 JSON 数组
+function navToLines(json: string): string {
+  try {
+    const parsed = JSON.parse(json);
+    if (!Array.isArray(parsed)) return "";
+    return parsed
+      .filter((item) => item && typeof item.label === "string" && typeof item.href === "string")
+      .map((item) => `${item.label}|${item.href}`)
+      .join("\n");
+  } catch {
+    return "";
+  }
+}
+
+function linesToNav(text: string): string {
+  const items = text
+    .split("\n")
+    .map((line) => line.trim())
+    .filter(Boolean)
+    .map((line) => {
+      const separator = line.indexOf("|");
+      if (separator <= 0) return null;
+      const label = line.slice(0, separator).trim();
+      const href = line.slice(separator + 1).trim();
+      if (!label || !href.startsWith("/")) return null;
+      return { label, href };
+    })
+    .filter((item) => item !== null);
+  return JSON.stringify(items);
+}
+
+function NavEditor({
+  title,
+  description,
+  value,
+  onChange,
+}: {
+  title: string;
+  description: string;
+  value: string;
+  onChange: (value: string) => void;
+}) {
+  const [isOpen, setIsOpen] = useState(false);
+  const [text, setText] = useState(() => navToLines(value));
+
+  return (
+    <div className="w-full">
+      <SettingsCard>
+        <button
+          type="button"
+          className="block w-full text-left"
+          onClick={() => {
+            setIsOpen((current) => !current);
+          }}
+        >
+          <SettingsCardRow
+            header={<SettingsCardHeader title={title} description={description} />}
+            action={
+              <div className="flex items-center gap-3">
+                <span className="max-w-56 truncate text-sm text-neutral-500 dark:text-neutral-400">
+                  {text || title}
+                </span>
+                <i
+                  className={`ri-arrow-down-s-line text-lg text-neutral-400 transition-transform ${isOpen ? "rotate-180" : ""}`}
+                  aria-hidden="true"
+                />
+              </div>
+            }
+          />
+        </button>
+        {isOpen ? (
+          <SettingsCardBody>
+            <textarea
+              placeholder={"文章|/\n关于|/about"}
+              value={text}
+              onChange={(event) => {
+                setText(event.target.value);
+              }}
+              onBlur={() => {
+                onChange(linesToNav(text));
+              }}
+              className="min-h-36 w-full rounded-xl border border-black/10 bg-w px-4 py-3 text-sm t-primary outline-none transition-colors placeholder:text-neutral-400 focus:border-black/20 focus:ring-2 focus:ring-theme/10 dark:border-white/10 dark:placeholder:text-neutral-500 dark:focus:border-white/20"
+            />
+          </SettingsCardBody>
+        ) : null}
+      </SettingsCard>
     </div>
   );
 }

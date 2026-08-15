@@ -459,6 +459,35 @@
         "title": "首页横幅",
         "desc": "显示在首页顶部的横幅图片",
         "label": "横幅图片 URL"
+      },
+      "keywords": {
+        "title": "SEO 关键词",
+        "desc": "全站 meta 关键词（逗号分隔）",
+        "label": "关键词",
+        "placeholder": "博客, 技术, 生活"
+      },
+      "copyright": {
+        "title": "版权文案",
+        "desc": "页脚显示的自定义版权文字（留空使用默认）",
+        "label": "版权",
+        "placeholder": "© 2026 你的名字"
+      },
+      "rss_title": {
+        "title": "RSS 标题",
+        "desc": "Feed 标题（留空回退到站点名称）",
+        "label": "RSS 标题",
+        "placeholder": "我的博客 Feed"
+      },
+      "rss_description": {
+        "title": "RSS 描述",
+        "desc": "Feed 描述（留空回退到站点描述）",
+        "label": "RSS 描述",
+        "placeholder": "最新文章"
+      },
+      "nav": {
+        "title": "导航菜单",
+        "desc": "自定义导航菜单。每行一项：标题|/路径（留空使用默认菜单）",
+        "label": "导航"
       }
     },
     "header_layout": {

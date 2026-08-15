@@ -71,6 +71,8 @@ export function FeedsPage() {
                 <meta property="og:image" content={siteConfig.avatar} />
                 <meta property="og:type" content="article" />
                 <meta property="og:url" content={document.URL} />
+                {siteConfig.keywords && <meta name="keywords" content={siteConfig.keywords} />}
+                {siteConfig.description && <meta name="description" content={siteConfig.description} />}
             </Helmet>
             <Waiting for={feeds.draft.size + feeds.normal.size + feeds.unlisted.size > 0 || status === 'idle'}>
                 <main className="w-full flex flex-col justify-center items-center mb-8">

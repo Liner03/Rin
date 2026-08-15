@@ -66,12 +66,20 @@ function MiragesDrawer({ isOpen, onClose }: { isOpen: boolean; onClose: () => vo
         </div>
 
         <nav className="flex flex-col gap-1">
-          <SidebarItem href="/" title={t("article.title")} onClose={onClose} selectedPrefix="/feed" />
-          <SidebarItem href="/timeline" title={t("timeline")} onClose={onClose} />
-          <SidebarItem href="/moments" title={t("moments.title")} onClose={onClose} />
-          <SidebarItem href="/hashtags" title={t("hashtags")} onClose={onClose} />
-          <SidebarItem href="/friends" title={t("friends.title")} onClose={onClose} />
-          <SidebarItem href="/about" title={t("about.title")} onClose={onClose} />
+          {siteConfig.nav.length > 0 ? (
+            siteConfig.nav.map((item) => (
+              <SidebarItem key={item.href} href={item.href} title={item.label} onClose={onClose} />
+            ))
+          ) : (
+            <>
+              <SidebarItem href="/" title={t("article.title")} onClose={onClose} selectedPrefix="/feed" />
+              <SidebarItem href="/timeline" title={t("timeline")} onClose={onClose} />
+              <SidebarItem href="/moments" title={t("moments.title")} onClose={onClose} />
+              <SidebarItem href="/hashtags" title={t("hashtags")} onClose={onClose} />
+              <SidebarItem href="/friends" title={t("friends.title")} onClose={onClose} />
+              <SidebarItem href="/about" title={t("about.title")} onClose={onClose} />
+            </>
+          )}
         </nav>
 
         <div className="mt-auto flex items-center justify-center gap-3 pt-6 text-neutral-400 dark:text-neutral-500">

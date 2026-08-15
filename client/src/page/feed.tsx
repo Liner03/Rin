@@ -161,7 +161,7 @@ export function FeedPage({ id, TOC }: { id: string, TOC: ReactNode }) {
           <meta name="author" content={feed.user?.username ?? ""} />
           <meta
             name="keywords"
-            content={hashtags.map(({ name }) => name).join(", ")}
+            content={[siteConfig.keywords, hashtags.map(({ name }) => name).join(", ")].filter(Boolean).join(", ")}
           />
           <meta
             name="description"

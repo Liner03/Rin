@@ -18,6 +18,11 @@ export const CLIENT_CONFIG_DEFAULTS = new Map(
     "site.description": "A lightweight personal blogging system",
     "site.avatar": "",
     "site.hero_image": "",
+    "site.keywords": "",
+    "site.copyright": "",
+    "site.rss_title": "",
+    "site.rss_description": "",
+    "site.nav": "",
     "site.page_size": 5,
   }),
 );
