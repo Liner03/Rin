@@ -339,7 +339,7 @@ export function FeedPage({ id, TOC }: { id: string, TOC: ReactNode }) {
                   )}
                   <div className="flex flex-row items-center">
                     <img
-                      src={feed.user.avatar || "/avatar.png"}
+                      src={feed.user?.avatar || "/avatar.png"}
                       className="w-8 h-8 rounded-full"
                     />
                     <div className="ml-2">

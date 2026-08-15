@@ -33,13 +33,13 @@ export function MomentItem({
             <div className="flex justify-between">
                 <div className="flex items-center space-x-3">
                     <img 
-                        src={moment.user.avatar} 
-                        alt={moment.user.username} 
+                        src={moment.user?.avatar || ""} 
+                        alt={moment.user?.username || ""} 
                         className="w-8 h-8 rounded-full object-cover"
                     />
                     <div>
                         <p className="t-primary">
-                            {moment.user.username}
+                            {moment.user?.username || ""}
                         </p>
                         <p className="space-x-2 t-secondary text-sm"> 
                             <span title={new Date(createdAt).toLocaleString()}> 

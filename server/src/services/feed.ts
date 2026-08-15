@@ -264,7 +264,7 @@ export function FeedService(): Hono<{
         const uid = c.get('uid');
         const id = c.req.param('id');
         const id_num = parseFeedId(id);
-        const cacheKey = id_num === null ? `feed_alias_${id}` : `feed_id_${id_num}`;
+        const cacheKey = id_num === null ? `feed_detail_v2_alias_${id}` : `feed_detail_v2_id_${id_num}`;
 
         const feed = await profileAsync(c, 'feed_detail_cache_db', () => cache.getOrSet(cacheKey, async () => {
             const row = await findPostByIdentifier(db, id);
@@ -595,7 +595,7 @@ export function SearchService(): Hono<{
             return c.json({ size: 0, data: [], hasNext: false });
         }
 
-        const cacheKey = `search_${keyword}`;
+        const cacheKey = `search_v2_${keyword}`;
         const searchKeyword = `%${keyword}%`;
         const whereClause = or(
             like(contents.title, searchKeyword),
