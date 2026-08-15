@@ -25,10 +25,10 @@ const useTableOfContents = (selector: string) => {
     const debounceTimer = useRef<number | undefined>(undefined)
 
     useEffect(() => {
-        const content = document.querySelector(selector)
-        if (!content) return
+        let disposed = false
+        let setupDone = false
 
-        const buildToc = () => {
+        const buildToc = (content: Element) => {
             const headers = content.querySelectorAll<HTMLElement>(
                 'h1, h2, h3, h4, h5, h6'
             )
@@ -76,18 +76,43 @@ const useTableOfContents = (selector: string) => {
             })
         }
 
-        buildToc()
+        const setup = () => {
+            if (setupDone || disposed) return
+            const content = document.querySelector(selector)
+            if (!content) return
 
-        // Markdown renders asynchronously: watch for content changes and rebuild
-        // once the headers appear (debounced to avoid thrashing during rendering)
-        if (mutationObserverRef.current) mutationObserverRef.current.disconnect()
-        mutationObserverRef.current = new MutationObserver(() => {
-            window.clearTimeout(debounceTimer.current)
-            debounceTimer.current = window.setTimeout(buildToc, 120)
-        })
-        mutationObserverRef.current.observe(content, { childList: true, subtree: true, characterData: true })
+            setupDone = true
+            buildToc(content)
+
+            // Markdown renders asynchronously: watch for content changes and rebuild
+            // once the headers appear (debounced to avoid thrashing during rendering)
+            if (mutationObserverRef.current) mutationObserverRef.current.disconnect()
+            mutationObserverRef.current = new MutationObserver(() => {
+                window.clearTimeout(debounceTimer.current)
+                debounceTimer.current = window.setTimeout(() => {
+                    if (!disposed) {
+                        const el = document.querySelector(selector)
+                        if (el) buildToc(el)
+                    }
+                }, 120)
+            })
+            const el = document.querySelector(selector)
+            if (el) mutationObserverRef.current.observe(el, { childList: true, subtree: true, characterData: true })
+        }
+
+        // 内容容器可能异步出现（Markdown 延迟渲染），轮询等待后建立观察
+        setup()
+        const poll = window.setInterval(() => {
+            if (setupDone || disposed) {
+                window.clearInterval(poll)
+                return
+            }
+            setup()
+        }, 300)
 
         return () => {
+            disposed = true
+            window.clearInterval(poll)
             window.clearTimeout(debounceTimer.current)
             if (ioRef.current) ioRef.current.disconnect()
             if (mutationObserverRef.current) mutationObserverRef.current.disconnect()
