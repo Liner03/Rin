@@ -112,7 +112,8 @@
     "email_hint": "メールアドレスは公開されません",
     "login_link": "ログインしてコメント",
     "login_hint": "ログインして議論に参加",
-    "actions": "コメント操作"
+    "actions": "コメント操作",
+    "count": "コメント（{{count}}）"
   },
   "comparison": "対比",
   "confirm": "確認",

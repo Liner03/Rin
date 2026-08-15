@@ -404,7 +404,7 @@ export function TOCHeader({ TOC }: { TOC: ReactNode }) {
   );
 }
 
-const commentFieldClass = "w-full rounded-xl border border-black/10 bg-w px-4 py-3 text-sm t-primary outline-none transition-colors placeholder:text-neutral-400 focus:border-black/20 focus:ring-2 focus:ring-theme/10 dark:border-white/10 dark:placeholder:text-neutral-500 dark:focus:border-white/20";
+const commentFieldClass = "w-full rounded-xl border border-black/10 bg-transparent px-4 py-3 text-sm t-primary outline-none transition-colors placeholder:text-neutral-500 focus:border-black/40 focus:ring-2 focus:ring-theme/60 dark:border-white/15 dark:placeholder:text-neutral-400 dark:focus:border-white/40 dark:focus:ring-theme/70";
 
 function CommentInput({
   id,
@@ -422,6 +422,12 @@ function CommentInput({
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState(false);
+  const successTimer = useRef<number | undefined>(undefined);
+  useEffect(() => {
+    return () => {
+      window.clearTimeout(successTimer.current);
+    };
+  }, []);
   const profile = useContext(ProfileContext);
   const [, setLocation] = useLocation();
   const config = useContext(ClientConfigContext);
@@ -433,6 +439,11 @@ function CommentInput({
     else if (error === "Content is required") return t("comment.empty");
     else if (error === "Guest name is required") return t("comment.guest_name_required");
     return error;
+  }
+  function showSuccess() {
+    setSuccess(true);
+    window.clearTimeout(successTimer.current);
+    successTimer.current = window.setTimeout(() => setSuccess(false), 2500);
   }
   function submit() {
     if (submitting) return;
@@ -452,8 +463,7 @@ function CommentInput({
           } else {
             setContent("");
             setSubmitting(false);
-            setSuccess(true);
-            window.setTimeout(() => setSuccess(false), 2500);
+            showSuccess();
             onRefresh();
           }
         });
@@ -480,8 +490,7 @@ function CommentInput({
             setGuestEmail("");
             setGuestWebsite("");
             setSubmitting(false);
-            setSuccess(true);
-            window.setTimeout(() => setSuccess(false), 2500);
+            showSuccess();
             onRefresh();
           }
         });
@@ -508,7 +517,7 @@ function CommentInput({
               type="button"
               disabled={submitting}
               onClick={submit}
-              className="rounded-xl bg-theme px-5 py-2 text-sm font-medium text-white transition-colors hover:bg-theme-hover active:bg-theme-active disabled:cursor-not-allowed disabled:opacity-60"
+              className="min-h-10 rounded-xl bg-theme px-5 py-2 text-sm font-medium text-white transition-colors hover:bg-theme-hover active:bg-theme-active disabled:cursor-not-allowed disabled:opacity-60"
             >
               {t("comment.submit")}
             </button>
@@ -516,9 +525,6 @@ function CommentInput({
         </div>
       ) : guestEnabled ? (
         <div className="flex flex-col">
-          <label htmlFor="guest-name" className="mb-1 text-[13px] font-medium text-neutral-600 dark:text-neutral-400">
-            {t("comment.guest_name_placeholder")}
-          </label>
           <input
             id="guest-name"
             type="text"
@@ -550,8 +556,9 @@ function CommentInput({
           )}
           <button
             type="button"
+            aria-expanded={moreOpen}
             onClick={() => setMoreOpen((open) => !open)}
-            className="mt-2 self-start text-[13px] text-neutral-400 transition-colors hover:text-theme dark:hover:text-theme"
+            className="-mx-2 mt-2 self-start px-2 py-1 text-[13px] text-neutral-500 transition-colors hover:text-theme dark:text-neutral-400 dark:hover:text-theme"
           >
             {moreOpen ? t("comment.less_options") : t("comment.more_options")}
           </button>
@@ -564,9 +571,13 @@ function CommentInput({
             onChange={(e) => setContent(e.target.value)}
           />
           <div className="mt-3 flex flex-wrap items-center justify-between gap-3">
-            <p className="text-[12px] text-neutral-400">
+            <p className="text-[12px] text-neutral-500 dark:text-neutral-400">
               {t("comment.email_hint")} ·{" "}
-              <button type="button" onClick={() => setLocation('/login')} className="transition-colors hover:text-theme">
+              <button
+                type="button"
+                onClick={() => setLocation('/login')}
+                className="-mx-1 px-1 py-0.5 transition-colors hover:text-theme"
+              >
                 {t("comment.login_link")}
               </button>
             </p>
@@ -577,7 +588,7 @@ function CommentInput({
                 type="button"
                 disabled={submitting}
                 onClick={submit}
-                className="rounded-xl bg-theme px-5 py-2 text-sm font-medium text-white transition-colors hover:bg-theme-hover active:bg-theme-active disabled:cursor-not-allowed disabled:opacity-60"
+                className="min-h-10 rounded-xl bg-theme px-5 py-2 text-sm font-medium text-white transition-colors hover:bg-theme-hover active:bg-theme-active disabled:cursor-not-allowed disabled:opacity-60"
               >
                 {t("comment.submit")}
               </button>
@@ -626,10 +637,10 @@ function Comments({ id }: { id: string }) {
   return (
     <>
       {config.getBoolean('comment.enabled') &&
-        <section className="w-full" aria-label={t("comment.title")}>
+        <section className="w-full max-w-[642px]" aria-label={t("comment.title")}>
           <div className="flex items-center gap-3 border-t border-dashed border-black/10 pt-6 dark:border-white/10">
             <h2 className="text-[15px] font-semibold t-primary">
-              {t("comment.title")}（{comments.length}）
+              {t("comment.count", { count: comments.length })}
             </h2>
           </div>
           {error && (
@@ -645,12 +656,12 @@ function Comments({ id }: { id: string }) {
             </div>
           )}
           {!error && comments.length === 0 && (
-            <p className="py-6 text-center text-[13px] text-neutral-400 dark:text-neutral-400">
+            <p className="py-6 text-center text-[13px] text-neutral-500 dark:text-neutral-400">
               {t("comment.empty_state")}
             </p>
           )}
           {comments.length > 0 && (
-            <div className="w-full">
+            <div className="w-full divide-y divide-dashed divide-black/10 dark:divide-white/10">
               {comments.map((comment) => (
                 <CommentItem
                   key={comment.id}
@@ -697,7 +708,7 @@ function CommentItem({
       })
   }
   return (
-    <div className="flex flex-row items-start gap-3 border-b border-dashed border-black/10 py-4 last:border-b-0 dark:border-white/10">
+    <div className="flex flex-row items-start gap-3 py-4">
       <img
         src={commenterAvatar}
         alt={commenterName}
@@ -714,14 +725,14 @@ function CommentItem({
               target="_blank"
               rel="noopener noreferrer"
               aria-label={commenterName}
-              className="text-neutral-400 transition-colors hover:text-theme"
+              className="text-neutral-500 transition-colors hover:text-theme dark:text-neutral-400"
             >
               <i className="ri-external-link-line text-sm"></i>
             </a>
           )}
           <span
             title={new Date(comment.createdAt).toLocaleString()}
-            className="text-xs text-neutral-400 dark:text-neutral-400"
+            className="text-xs text-neutral-500 dark:text-neutral-400"
           >
             {timeago(comment.createdAt)}
           </span>
@@ -733,7 +744,7 @@ function CommentItem({
                 <button
                   type="button"
                   aria-label={t("comment.actions")}
-                  className="rounded-lg p-1.5 text-neutral-400 transition-colors hover:bg-secondary hover:text-theme"
+                  className="rounded-lg p-2 text-neutral-500 transition-colors hover:bg-secondary hover:text-theme dark:text-neutral-400"
                 >
                   <i className="ri-more-fill text-base"></i>
                 </button>

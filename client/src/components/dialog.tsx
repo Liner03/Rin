@@ -3,6 +3,8 @@ import { useTranslation } from "react-i18next";
 import Modal from "react-modal";
 import { Button, ButtonWithLoading } from "./button";
 
+Modal.setAppElement("#root");
+
 export type Confirm = {
     title: string;
     message: string;

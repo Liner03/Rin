@@ -112,7 +112,8 @@
     "email_hint": "邮箱不会被公开",
     "login_link": "登录后评论",
     "login_hint": "登录后参与讨论",
-    "actions": "评论操作"
+    "actions": "评论操作",
+    "count": "评论（{{count}}）"
   },
   "comparison": "对比",
   "confirm": "确认",

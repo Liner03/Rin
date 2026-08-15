@@ -112,7 +112,8 @@
     "email_hint": "Email is never published",
     "login_link": "Sign in to comment",
     "login_hint": "Sign in to join the discussion",
-    "actions": "Comment actions"
+    "actions": "Comment actions",
+    "count": "Comments ({{count}})"
   },
   "comparison": "Comparison",
   "confirm": "Confirm",

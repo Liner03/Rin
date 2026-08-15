@@ -1,6 +1,6 @@
 import { Hono } from "hono";
 import type { AppContext } from "../core/hono-types";
-import { desc, eq } from "drizzle-orm";
+import { asc, eq } from "drizzle-orm";
 import { comments, contents, users } from "../db/schema";
 import { profileAsync } from "../core/server-timing";
 import { notify } from "../utils/webhook";
@@ -21,7 +21,7 @@ export function CommentService(): Hono {
                     columns: { id: true, username: true, avatar: true, permission: true }
                 }
             },
-            orderBy: [desc(comments.createdAt)]
+            orderBy: [asc(comments.createdAt)]
         }));
         
         // 将结果统一为前端兼容格式：登录用户用 user 字段，游客用 guestName 等
