@@ -91,15 +91,15 @@ describe("useTableOfContents", () => {
     expect(items[1]).toHaveStyle({ paddingLeft: "calc(1rem + 10px)" });
   });
 
-  it("shows the empty state when no headers exist", () => {
+  it("hides the toc entirely when no headers exist", () => {
     const { container } = render(<TocHarness />);
 
-    expect(tocNav(container).getByText("index.empty.title")).toBeInTheDocument();
+    expect(container.querySelector(".toc-nav")).toBeNull();
   });
 
   it("rebuilds when headers appear after a content mutation", async () => {
     const { container, rerender } = render(<TocHarness />);
-    expect(tocNav(container).getByText("index.empty.title")).toBeInTheDocument();
+    expect(container.querySelector(".toc-nav")).toBeNull();
 
     rerender(<TocHarness content={headers} />);
 
@@ -124,9 +124,9 @@ describe("useTableOfContents", () => {
     });
 
     await waitFor(() => {
-      expect(tocNav(container).getByText("index.empty.title")).toBeInTheDocument();
+      expect(container.querySelector(".toc-nav")).toBeNull();
     });
-    expect(container.querySelectorAll(".toc-nav li")).toHaveLength(1);
+    expect(container.querySelectorAll(".toc-nav li")).toHaveLength(0);
   });
 
   it("re-observes every header on rebuild, even ones with stale data-ids", async () => {
@@ -161,7 +161,7 @@ describe("useTableOfContents", () => {
 
   it("defers rebuilds until mutations settle", async () => {
     const { container } = render(<TocHarness />);
-    expect(tocNav(container).getByText("index.empty.title")).toBeInTheDocument();
+    expect(container.querySelector(".toc-nav")).toBeNull();
 
     act(() => {
       container.querySelector<HTMLElement>(".toc-content")!.appendChild(document.createElement("h1"));
@@ -169,11 +169,10 @@ describe("useTableOfContents", () => {
       FakeMutationObserver.last?.trigger();
     });
 
-    expect(tocNav(container).getByText("index.empty.title")).toBeInTheDocument();
+    expect(container.querySelector(".toc-nav")).toBeNull();
 
     await waitFor(() => {
-      expect(tocNav(container).queryByText("index.empty.title")).toBeNull();
+      expect(container.querySelectorAll(".toc-nav li")).toHaveLength(1);
     });
-    expect(container.querySelectorAll(".toc-nav li")).toHaveLength(1);
   });
 });

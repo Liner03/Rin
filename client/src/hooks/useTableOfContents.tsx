@@ -94,15 +94,14 @@ const useTableOfContents = (selector: string) => {
         }
     }, [selector])
 
-    const TOC = (
-        <nav className="toc-nav">
+    const TOC = tableOfContents.length === 0
+        ? null
+        : (
+            <nav className="toc-nav">
                 <p className="mb-4 text-[13px] font-semibold uppercase tracking-[0.14em] text-neutral-400 dark:text-neutral-500">
                     {t("index.title")}
                 </p>
                 <ul className="space-y-[3px] border-l border-black/10 dark:border-white/10">
-                    {tableOfContents.length === 0 && (
-                        <li className="py-1.5 pl-4 text-[13px] leading-6 text-neutral-400 dark:text-neutral-500">{t("index.empty.title")}</li>
-                    )}
                     {tableOfContents.map((item) => (
                         <li
                             key={`toc$${item.index}`}
@@ -132,7 +131,7 @@ const useTableOfContents = (selector: string) => {
                     ))}
                 </ul>
             </nav>
-    )
+        )
 
     return { TOC }
 }

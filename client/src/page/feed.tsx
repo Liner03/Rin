@@ -365,6 +365,10 @@ export function FeedPage({ id, TOC }: { id: string, TOC: ReactNode }) {
 export function TOCHeader({ TOC }: { TOC: ReactNode }) {
   const [isOpened, setIsOpened] = useState(false);
 
+  if (!TOC) {
+    return null;
+  }
+
   return (
     <div className="shrink-0 lg:hidden">
       <button
