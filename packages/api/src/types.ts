@@ -27,6 +27,7 @@ export interface Feed {
   type: ContentType;
   title: string | null;
   content: string;
+  summary?: string;
   slug: string | null;
   status: ContentStatus;
   /** 文章封面图（手动设置，为空时服务端自动提取正文首图） */

@@ -91,12 +91,7 @@ export function FeedPage({ id, TOC }: { id: string, TOC: ReactNode }) {
           });
       })
   }
-  useEffect(() => {
-    if (ref.current == id) return;
-    setFeed(undefined);
-    setError(undefined);
-    setHeadImage(undefined);
-    setUnlockError("");
+  function loadFeedState(id: string) {
     client.feed
       .get(id)
       .then(({ data, error }) => {
@@ -106,13 +101,21 @@ export function FeedPage({ id, TOC }: { id: string, TOC: ReactNode }) {
           setTimeout(() => {
             setFeed(data);
             setTop(data.top || 0);
-            const headImageUrl = (data as any).cover || extractFirstMarkdownImageUrl(data.content);
+            const headImageUrl = data.cover || extractFirstMarkdownImageUrl(data.content);
             if (headImageUrl) {
               setHeadImage(headImageUrl);
             }
           }, 0);
         }
       });
+  }
+  useEffect(() => {
+    if (ref.current == id) return;
+    setFeed(undefined);
+    setError(undefined);
+    setHeadImage(undefined);
+    setUnlockError("");
+    loadFeedState(id);
     ref.current = id;
   }, [id]);
   async function unlock() {
@@ -123,18 +126,7 @@ export function FeedPage({ id, TOC }: { id: string, TOC: ReactNode }) {
     } else {
       setUnlockError("");
       setFeed(undefined);
-      client.feed.get(id).then(({ data }) => {
-        if (data && typeof data !== "string") {
-          setTimeout(() => {
-            setFeed(data);
-            setTop(data.top || 0);
-            const headImageUrl = (data as any).cover || extractFirstMarkdownImageUrl(data.content);
-            if (headImageUrl) {
-              setHeadImage(headImageUrl);
-            }
-          }, 0);
-        }
-      });
+      loadFeedState(id);
     }
   }
   useEffect(() => {

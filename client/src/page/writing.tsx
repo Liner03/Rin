@@ -230,13 +230,13 @@ export function WritingPage({ id }: { id?: number }) {
               setTags(data.hashtags.map(({ name }: {name: string}) => `#${name}`).join(" "));
             if (alias == "" && data.slug) setAlias(data.slug);
             if (content == "") setContent(data.content);
-            if (summary == "") setSummary((data as any).summary || "");
-            if (cover == "" && (data as any).cover) setCover((data as any).cover);
+            if (summary == "") setSummary(data.summary || "");
+            if (cover == "" && data.cover) setCover(data.cover);
             if (Array.isArray(data.categories))
               setCategories(data.categories.map(({ id }: {id: number}) => id));
-            setHasPassword(Boolean((data as any).hasPassword));
-            setListed((data as any).listed === 1);
-            setDraft((data as any).draft === 1);
+            setHasPassword(Boolean(data.hasPassword));
+            setListed(data.listed === 1);
+            setDraft(data.draft === 1);
             setCreatedAt(new Date(data.createdAt));
           }
         });

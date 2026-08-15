@@ -91,6 +91,7 @@ export const categoryCreateSchema = t.Object({
   description: t.String({ optional: true }),
   parent: t.Numeric({ optional: true }),
   order: t.Numeric({ optional: true }),
+  listed: t.Boolean({ optional: true }),
 });
 
 export const categoryUpdateSchema = t.Object({
@@ -99,6 +100,7 @@ export const categoryUpdateSchema = t.Object({
   description: t.String({ optional: true }),
   parent: t.Numeric({ optional: true }),
   order: t.Numeric({ optional: true }),
+  listed: t.Boolean({ optional: true }),
 });
 
 // ============================================================================

@@ -83,6 +83,8 @@ function contentToFeedList(feed: any) {
         summary: feed.summary.length > 0 ? feed.summary : plainText.length > 100 ? plainText.slice(0, 100) : plainText,
         hashtags: feed.hashtags || [],
         categories: feed.categories || [],
+        draft: feed.status === CONTENT_STATUS.DRAFT ? 1 : 0,
+        listed: feed.status === CONTENT_STATUS.HIDDEN ? 0 : 1,
         avatar,
     };
 }
@@ -111,7 +113,8 @@ export function FeedService(): Hono<{
 
         const page_num = (page ? parseInt(page) > 0 ? parseInt(page) : 1 : 1) - 1;
         const limit_num = limit ? parseInt(limit) > 50 ? 50 : parseInt(limit) : 20;
-        const cacheKey = `feeds_${type}_${page_num}_${limit_num}`;
+        // 缓存按角色区分：admin 与非 admin 的查询条件不同
+        const cacheKey = `feeds_${admin ? "admin_" : ""}${type}_${page_num}_${limit_num}`;
         const cached = await profileAsync(c, 'feed_list_cache_get', () => cache.get(cacheKey));
 
         if (cached && (cached.t === undefined || Date.now() - cached.t < LIST_CACHE_TTL)) {
@@ -474,9 +477,17 @@ export function FeedService(): Hono<{
         }
 
         const contentChanged = content && content !== feed.text;
-        const finalStatus = draft !== undefined
-            ? (draft ? CONTENT_STATUS.DRAFT : CONTENT_STATUS.PUBLISH)
-            : (status || (listed === false ? CONTENT_STATUS.HIDDEN : feed.status));
+        // draft=true 强制草稿；draft=false 时按显式 status / listed / 原状态推导，
+        // 避免编辑 hidden 文章时被悄悄改回 publish
+        const finalStatus = draft
+            ? CONTENT_STATUS.DRAFT
+            : (status
+                ? status
+                : listed === false
+                    ? CONTENT_STATUS.HIDDEN
+                    : feed.status === CONTENT_STATUS.DRAFT
+                        ? CONTENT_STATUS.PUBLISH
+                        : feed.status);
         const isDraft = finalStatus === CONTENT_STATUS.DRAFT;
         const shouldQueueAISummary = (contentChanged && !isDraft) || (!isDraft && feed.status === CONTENT_STATUS.DRAFT && !feed.ai_summary);
         const updateTime = new Date();
@@ -602,7 +613,8 @@ export function SearchService(): Hono<{
             return c.json({ size: 0, data: [], hasNext: false });
         }
 
-        const cacheKey = `search_v2_${keyword}`;
+        // 缓存按角色区分：admin 与非 admin 的查询条件不同（密码过滤/隐藏分类）
+        const cacheKey = `search_v2_${admin ? "admin_" : ""}${keyword}`;
         const searchKeyword = `%${keyword}%`;
         const whereClause = or(
             like(contents.title, searchKeyword),

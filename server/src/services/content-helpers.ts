@@ -1,7 +1,7 @@
 import { and, eq, inArray, lte, sql } from "drizzle-orm";
 import type { AppContext, DB } from "../core/hono-types";
-import { contents, metas, relationships } from "../db/schema";
 import { profileAsync } from "../core/server-timing";
+import { contents, metas, relationships } from "../db/schema";
 
 export const CONTENT_TYPE = {
     POST: "post",
@@ -84,7 +84,7 @@ export function isPubliclyListed(content: { status: string; createdAt: Date | st
 }
 
 // 详情序列化：text -> content，password 不下发，附加兼容字段
-export function serializeContentDetail(content: any, extra: Record<string, unknown> = {}) {
+export function serializeContentDetail(content: typeof contents.$inferSelect, extra: Record<string, unknown> = {}) {
     const { text, password, ...rest } = content;
     return {
         ...rest,
@@ -158,7 +158,7 @@ export async function getTagsForContents(db: DB, contentIds: number[]) {
     const map = new Map<number, Array<{ id: number; name: string }>>();
     for (const [contentId, metaList] of rows) {
         const tags = metaList
-            .filter((meta) => meta.type === "tag")
+            .filter((meta) => meta.type === 'tag')
             .map((meta) => ({ id: meta.id, name: meta.name }));
         if (tags.length > 0) {
             map.set(contentId, tags);
@@ -172,7 +172,7 @@ export async function getCategoriesForContents(db: DB, contentIds: number[]) {
     const map = new Map<number, Array<{ id: number; name: string; slug: string | null }>>();
     for (const [contentId, metaList] of rows) {
         const categories = metaList
-            .filter((meta) => meta.type === "category")
+            .filter((meta) => meta.type === 'category')
             .map((meta) => ({ id: meta.id, name: meta.name, slug: meta.slug }));
         if (categories.length > 0) {
             map.set(contentId, categories);
