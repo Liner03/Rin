@@ -3,12 +3,7 @@
    对齐 Typecho Mirages 7.10.6 主题的视觉样式
    ============================================================ */
 
-/* 主题色：Mirages 默认 #1abc9c（绿松石） */
-.mirages-root {
-  --theme-rgb: 26 188 156;
-  --theme-hover-rgb: 21 150 125;
-  --theme-active-rgb: 17 120 100;
-}
+/* 主题色：跟随后台 theme.color 配置（不覆盖 --theme-rgb，避免布局内全部变绿） */
 
 /* 字体：Merriweather / Open Sans / PingFang SC 字体栈 */
 body.mirages-layout-active,
@@ -312,14 +307,14 @@ body.mirages-layout-active .mirages-content div[class*="justify-center"].ani-sho
 
 /* 正文链接：主题色 + 虚线下划线 + hover 动画 */
 .mirages-content .toc-content a {
-  color: #1abc9c !important;
+  color: rgb(var(--theme-rgb)) !important;
   text-decoration: none !important;
   border-bottom: 1px dashed #eee !important;
   transition: color 0.3s ease, border-color 0.3s ease !important;
 }
 .mirages-content .toc-content a:hover {
-  color: #1abc9c !important;
-  border-bottom-color: #1abc9c !important;
+  color: rgb(var(--theme-hover-rgb)) !important;
+  border-bottom-color: rgb(var(--theme-hover-rgb)) !important;
 }
 
 /* AI 摘要卡片（原站：浅灰底 + 8px 圆角 + 轻阴影） */
@@ -375,7 +370,7 @@ body.mirages-layout-active .mirages-content div[class*="justify-center"].ani-sho
   border-top: 1px dashed #eee !important;
 }
 .mirages-copyright a {
-  color: #1abc9c !important;
+  color: rgb(var(--theme-rgb)) !important;
   border-bottom: 1px dashed #eee !important;
   text-decoration: none !important;
 }
@@ -410,7 +405,7 @@ body.mirages-layout-active .mirages-content article ~ div input {
 }
 body.mirages-layout-active .mirages-content article ~ div button[class*="bg-theme"],
 body.mirages-layout-active .mirages-content article ~ div button {
-  background: #1abc9c !important;
+  background: rgb(var(--theme-rgb)) !important;
   color: #fff !important;
   border: none !important;
   border-radius: 5px !important;
