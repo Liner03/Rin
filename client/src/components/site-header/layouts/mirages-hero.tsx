@@ -67,22 +67,17 @@ export function MiragesHero() {
       <div
         className="absolute inset-0 bg-cover bg-center"
         style={{
-          backgroundImage: isHome && siteConfig.avatar
-            ? `linear-gradient(rgba(0,0,0,0.55), rgba(0,0,0,0.55)), url(${siteConfig.avatar})`
-            : "linear-gradient(135deg, #1e1e1f 0%, #2c2a2a 100%)",
+          backgroundImage: isHome && siteConfig.heroImage
+            ? `linear-gradient(rgba(0,0,0,0.55), rgba(0,0,0,0.55)), url(${siteConfig.heroImage})`
+            : isHome && siteConfig.avatar
+              ? `linear-gradient(rgba(0,0,0,0.55), rgba(0,0,0,0.55)), url(${siteConfig.avatar})`
+              : "linear-gradient(135deg, #1e1e1f 0%, #2c2a2a 100%)",
         }}
       />
       <div className="relative z-10 px-6 text-center">
         <h1 className="text-[28px] font-normal text-white md:text-[40px]">{title}</h1>
         {isHome && siteConfig.description ? (
           <p className="mt-4 text-sm text-neutral-200 md:text-[15px]">{siteConfig.description}</p>
-        ) : null}
-        {isHome && siteConfig.heroImage ? (
-          <img
-            src={siteConfig.heroImage}
-            alt={t("hero_image_alt")}
-            className="mx-auto mt-6 h-48 w-full max-w-2xl rounded-2xl object-cover md:h-64"
-          />
         ) : null}
         {isArticlePage && feed ? (
           <p className="mt-4 text-[13px] text-white/90 md:text-[13px]">
