@@ -157,19 +157,11 @@ body.mirages-layout-active .mirages-content .w-80.hidden > div {
     width: 240px !important;
   }
 }
-/* 页面入场：Mirages 下禁用弹跳动画，改为轻微淡入（保持克制） */
+/* 页面入场：Mirages 下禁用动画（静态克制） */
 body.mirages-layout-active .mirages-content div[class*="justify-center"].ani-show,
 body.mirages-layout-active .mirages-content .ani-show,
 body.mirages-layout-active .mirages-content .ani-show-fast {
-  animation: rin-fade-in 0.3s ease forwards !important;
-}
-@keyframes rin-fade-in {
-  from {
-    opacity: 0;
-  }
-  to {
-    opacity: 1;
-  }
+  animation: none !important;
 }
 
 /* 文章页卡片：透明无边框 */
