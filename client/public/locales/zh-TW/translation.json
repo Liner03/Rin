@@ -454,6 +454,11 @@
         "title": "分頁大小",
         "desc": "設定文章列表每頁顯示的數量",
         "label": "每頁文章數量"
+      },
+      "hero_image": {
+        "title": "首頁橫幅",
+        "desc": "顯示在首頁頂部的橫幅圖片",
+        "label": "橫幅圖片 URL"
       }
     },
     "header_layout": {
@@ -776,14 +781,27 @@
     "order": "排序",
     "no_parent": "無上級頁面",
     "view": "查看",
-    "empty": "還沒有頁面"
+    "empty": "還沒有頁面",
+    "vs_posts_hint": "頁面是獨立頁面（如「關於」「友鏈」），透過 /page/... 訪問，不進首頁文章流，支援父子層級與排序。文章請在「寫作」中管理。"
   },
   "categories": {
     "title": "分類",
     "name": "名稱",
     "description": "描述",
     "posts": "文章數",
-    "empty": "還沒有分類"
+    "empty": "還沒有分類",
+    "listed": "出現在首頁",
+    "listed_hint": "取消勾選後，該分類下的文章將不出現在首頁文章流",
+    "hidden": "首頁隱藏"
   },
-  "password_remove": "移除密碼"
+  "password_remove": "移除密碼",
+  "cover": {
+    "title": "封面圖",
+    "placeholder": "封面圖 URL（留空時自動使用正文第一張圖）",
+    "extract": "從正文提取",
+    "clear": "清除",
+    "preview": "封面預覽",
+    "not_found": "正文中未找到圖片"
+  },
+  "hero_image_alt": "首頁橫幅"
 }

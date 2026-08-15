@@ -10,6 +10,7 @@ export const contents = sqliteTable("contents", {
     title: text("title").default("").notNull(),
     slug: text("slug"),
     text: text("text").default("").notNull(),
+    cover: text("cover"),
     summary: text("summary").default("").notNull(),
     ai_summary: text("ai_summary").default("").notNull(),
     ai_summary_status: text("ai_summary_status").default("idle").notNull(),
@@ -39,6 +40,7 @@ export const metas = sqliteTable("metas", {
     count: integer("count").default(0).notNull(),
     order: integer("order").default(0).notNull(),
     parent: integer("parent").default(0).notNull(),
+    listed: integer("listed").default(1).notNull(),
     createdAt: created_at,
     updatedAt: updated_at,
 }, (table) => ({

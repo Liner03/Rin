@@ -43,6 +43,7 @@ export function createMockDB() {
             title TEXT DEFAULT '' NOT NULL,
             slug TEXT UNIQUE,
             text TEXT DEFAULT '' NOT NULL,
+            cover TEXT,
             summary TEXT DEFAULT '' NOT NULL,
             ai_summary TEXT DEFAULT '' NOT NULL,
             ai_summary_status TEXT DEFAULT 'idle' NOT NULL,
@@ -72,6 +73,7 @@ export function createMockDB() {
             count INTEGER DEFAULT 0 NOT NULL,
             "order" INTEGER DEFAULT 0 NOT NULL,
             parent INTEGER DEFAULT 0 NOT NULL,
+            listed INTEGER DEFAULT 1 NOT NULL,
             created_at INTEGER DEFAULT (unixepoch()),
             updated_at INTEGER DEFAULT (unixepoch()),
             UNIQUE(slug, type)

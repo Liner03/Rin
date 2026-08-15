@@ -454,6 +454,11 @@
         "title": "Page Size",
         "desc": "Set the number of articles displayed per page in the list",
         "label": "Articles per page"
+      },
+      "hero_image": {
+        "title": "Homepage Banner",
+        "desc": "Banner image displayed at the top of the homepage",
+        "label": "Banner image URL"
       }
     },
     "header_layout": {
@@ -776,14 +781,27 @@
     "order": "Order",
     "no_parent": "No parent",
     "view": "View",
-    "empty": "No pages yet"
+    "empty": "No pages yet",
+    "vs_posts_hint": "Pages are standalone pages (e.g. About, Friends) served at /page/... They are NOT part of the homepage feed, and support parent-child hierarchy and ordering. Posts are managed in Writing."
   },
   "categories": {
     "title": "Categories",
     "name": "Name",
     "description": "Description",
     "posts": "Posts",
-    "empty": "No categories yet"
+    "empty": "No categories yet",
+    "listed": "Show on homepage",
+    "listed_hint": "Uncheck to hide posts in this category from the homepage feed",
+    "hidden": "hidden from homepage"
   },
-  "password_remove": "Remove password"
+  "password_remove": "Remove password",
+  "cover": {
+    "title": "Cover Image",
+    "placeholder": "Cover image URL (falls back to first image in content)",
+    "extract": "Extract from content",
+    "clear": "Clear",
+    "preview": "Cover preview",
+    "not_found": "No image found in content"
+  },
+  "hero_image_alt": "Site banner"
 }

@@ -454,6 +454,11 @@
         "title": "分页大小",
         "desc": "设置文章列表每页显示的数量",
         "label": "每页文章数"
+      },
+      "hero_image": {
+        "title": "首页横幅",
+        "desc": "显示在首页顶部的横幅图片",
+        "label": "横幅图片 URL"
       }
     },
     "header_layout": {
@@ -776,14 +781,27 @@
     "order": "排序",
     "no_parent": "无上级页面",
     "view": "查看",
-    "empty": "还没有页面"
+    "empty": "还没有页面",
+    "vs_posts_hint": "页面是独立页面（如「关于」「友链」），通过 /page/... 访问，不进首页文章流，支持父子层级与排序。文章请在「写作」中管理。"
   },
   "categories": {
     "title": "分类",
     "name": "名称",
     "description": "描述",
     "posts": "文章数",
-    "empty": "还没有分类"
+    "empty": "还没有分类",
+    "listed": "出现在首页",
+    "listed_hint": "取消勾选后，该分类下的文章将不出现在首页文章流",
+    "hidden": "首页隐藏"
   },
-  "password_remove": "移除密码"
+  "password_remove": "移除密码",
+  "cover": {
+    "title": "封面图",
+    "placeholder": "封面图 URL（留空时自动使用正文第一张图）",
+    "extract": "从正文提取",
+    "clear": "清除",
+    "preview": "封面预览",
+    "not_found": "正文中未找到图片"
+  },
+  "hero_image_alt": "首页横幅"
 }

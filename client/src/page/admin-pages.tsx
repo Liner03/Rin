@@ -93,6 +93,9 @@ export function AdminPagesPage() {
 
   return (
     <div className="flex flex-col gap-4">
+      <div className="rounded-2xl border border-black/10 bg-secondary/50 px-4 py-3 text-sm leading-6 text-neutral-600 dark:border-white/10 dark:text-neutral-400">
+        {t("pages.vs_posts_hint")}
+      </div>
       <FlatPanel className="p-4">
         <p className="text-sm font-semibold t-primary">{editingId ? t("update.title") : t("publish.title")}</p>
         <div className="mt-4 flex flex-col gap-3">
@@ -148,37 +151,95 @@ export function AdminPagesPage() {
           {pages.length === 0 && (
             <p className="py-6 text-center text-sm text-neutral-500 dark:text-neutral-400">{t("pages.empty")}</p>
           )}
-          {pages.map((page) => (
-            <div key={page.id} className="flex items-center gap-3 py-3">
-              <div className="min-w-0 flex-1">
-                <p className="truncate text-sm font-medium t-primary">{page.title}</p>
-                <p className="truncate text-xs text-neutral-500 dark:text-neutral-400">
-                  /page/{page.slug} · {page.status}
-                </p>
-              </div>
-              <Link
-                href={`/page/${page.slug || page.id}`}
-                className="rounded-lg px-3 py-1.5 text-sm text-theme hover:bg-neutral-100 dark:hover:bg-white/5"
-              >
-                {t("pages.view")}
-              </Link>
-              <button
-                onClick={() => edit(page)}
-                className="rounded-lg px-3 py-1.5 text-sm t-primary hover:bg-neutral-100 dark:hover:bg-white/5"
-              >
-                {t("update.title")}
-              </button>
-              <button
-                onClick={() => remove(page)}
-                className="rounded-lg px-3 py-1.5 text-sm text-red-500 hover:bg-red-50 dark:hover:bg-red-500/10"
-              >
-                {t("delete.title")}
-              </button>
-            </div>
+          {buildPageTree(pages).map((page) => (
+            <PageRow key={page.id} node={page} depth={0} onEdit={edit} onDelete={remove} />
           ))}
         </div>
       </FlatPanel>
       <AlertUI />
+    </div>
+  );
+}
+
+type PageNode = Page & { children: PageNode[] };
+
+function buildPageTree(list: Page[]): PageNode[] {
+  const nodes = new Map<number, PageNode>();
+  for (const item of list) {
+    nodes.set(item.id, { ...item, children: [] });
+  }
+  const roots: PageNode[] = [];
+  for (const node of nodes.values()) {
+    const parent = nodes.get(node.parent);
+    if (parent && node.parent !== 0) {
+      parent.children.push(node);
+    } else {
+      roots.push(node);
+    }
+  }
+  return roots;
+}
+
+function PageRow({
+  node,
+  depth,
+  onEdit,
+  onDelete,
+}: {
+  node: PageNode;
+  depth: number;
+  onEdit: (page: Page) => void;
+  onDelete: (page: Page) => void;
+}) {
+  const { t } = useTranslation();
+  return (
+    <div className="flex flex-col">
+      <div className="flex items-center gap-3 py-3" style={{ marginLeft: depth * 20 }}>
+        <div className="min-w-0 flex-1">
+          <p className="truncate text-sm font-medium t-primary">
+            {depth > 0 ? "└ " : ""}{node.title}
+            {node.status === "draft" && (
+              <span className="ml-2 rounded-full bg-neutral-200 px-2 py-0.5 text-[10px] font-medium text-neutral-500 dark:bg-white/10 dark:text-neutral-400">
+                {t("draft")}
+              </span>
+            )}
+          </p>
+          <p className="truncate text-xs text-neutral-500 dark:text-neutral-400">
+            /page/{node.slug || node.id} · {t("pages.order")}: {node.order}
+          </p>
+        </div>
+        <Link
+          href={`/page/${node.slug || node.id}`}
+          className="rounded-lg px-3 py-1.5 text-sm text-theme hover:bg-neutral-100 dark:hover:bg-white/5"
+        >
+          {t("pages.view")}
+        </Link>
+        <button
+          onClick={() => onEdit(node)}
+          className="rounded-lg px-3 py-1.5 text-sm t-primary hover:bg-neutral-100 dark:hover:bg-white/5"
+        >
+          {t("update.title")}
+        </button>
+        <button
+          onClick={() => onDelete(node)}
+          className="rounded-lg px-3 py-1.5 text-sm text-red-500 hover:bg-red-50 dark:hover:bg-red-500/10"
+        >
+          {t("delete.title")}
+        </button>
+      </div>
+      {node.children.length > 0 && (
+        <div className="flex flex-col">
+          {node.children.map((child) => (
+            <PageRow
+              key={child.id}
+              node={child}
+              depth={depth + 1}
+              onEdit={onEdit}
+              onDelete={onDelete}
+            />
+          ))}
+        </div>
+      )}
     </div>
   );
 }

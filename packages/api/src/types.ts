@@ -29,6 +29,8 @@ export interface Feed {
   content: string;
   slug: string | null;
   status: ContentStatus;
+  /** 文章封面图（手动设置，为空时服务端自动提取正文首图） */
+  cover?: string | null;
   /** 兼容字段：draft 状态 */
   draft: number;
   /** 兼容字段：hidden 时 list 为 0 */
@@ -95,6 +97,7 @@ export interface CreateFeedRequest {
   draft: boolean;
   listed: boolean;
   password?: string;
+  cover?: string;
   createdAt?: string;
   tags: string[];
   categories?: number[];
@@ -112,6 +115,7 @@ export interface UpdateFeedRequest {
   draft?: boolean;
   status?: ContentStatus;
   password?: string;
+  cover?: string;
   createdAt?: string;
   tags?: string[];
   categories?: number[];
@@ -198,6 +202,8 @@ export interface Category {
   count: number;
   order: number;
   parent: number;
+  /** 是否出现在首页文章流（0 = 该分类下文章不进首页） */
+  listed: number;
   createdAt: string;
   updatedAt: string;
 }
@@ -226,6 +232,7 @@ export interface CreateCategoryRequest {
   description?: string;
   parent?: number;
   order?: number;
+  listed?: boolean;
 }
 
 export interface UpdateCategoryRequest {
@@ -234,6 +241,7 @@ export interface UpdateCategoryRequest {
   description?: string;
   parent?: number;
   order?: number;
+  listed?: boolean;
 }
 
 // ============================================================================

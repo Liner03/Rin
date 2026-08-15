@@ -217,6 +217,17 @@ export function Settings() {
             }}
             onError={showAlert}
           />
+          <ItemImageInput
+            title={t("settings.site.hero_image.title")}
+            description={t("settings.site.hero_image.desc")}
+            configKeyTitle={t("settings.site.hero_image.label")}
+            value={String(clientConfig.get("site.hero_image") ?? "")}
+            placeholder={String(clientConfig.default("site.hero_image") ?? t("settings.site.hero_image.label"))}
+            onChange={(value) => {
+              setConfigValue("client", "site.hero_image", value);
+            }}
+            onError={showAlert}
+          />
           <ItemInput
             title={t("settings.site.page_size.title")}
             description={t("settings.site.page_size.desc")}

@@ -16,6 +16,7 @@ export function AdminCategoriesPage() {
   const [description, setDescription] = useState("");
   const [parent, setParent] = useState(0);
   const [order, setOrder] = useState(0);
+  const [listed, setListed] = useState(true);
 
   const loadCategories = useCallback(async () => {
     const { data } = await client.category.list();
@@ -33,6 +34,7 @@ export function AdminCategoriesPage() {
     setDescription("");
     setParent(0);
     setOrder(0);
+    setListed(true);
   }
 
   async function save() {
@@ -46,6 +48,7 @@ export function AdminCategoriesPage() {
       description,
       parent,
       order,
+      listed,
     };
     const { error } = editingId
       ? await client.category.update(editingId, body)
@@ -76,6 +79,7 @@ export function AdminCategoriesPage() {
     setDescription(category.description || "");
     setParent(category.parent);
     setOrder(category.order);
+    setListed(category.listed === 1);
   }
 
   const tree = buildCategoryTree(categories);
@@ -101,6 +105,16 @@ export function AdminCategoriesPage() {
             </select>
             <Input value={String(order)} setValue={(v) => setOrder(parseInt(v) || 0)} placeholder={t("pages.order")} variant="flat" />
           </div>
+          <label className="flex cursor-pointer items-center gap-2 sm:col-span-2">
+            <input
+              type="checkbox"
+              checked={listed}
+              onChange={(e) => setListed(e.target.checked)}
+              className="h-3.5 w-3.5 rounded border-neutral-300 text-theme focus:ring-theme"
+            />
+            <span className="text-sm t-primary">{t("categories.listed")}</span>
+            <span className="text-xs text-neutral-500 dark:text-neutral-400">{t("categories.listed_hint")}</span>
+          </label>
         </div>
         <div className="mt-4 flex gap-3">
           <button
@@ -174,7 +188,14 @@ function CategoryRow({
     <div className="flex flex-col">
       <div className="flex items-center gap-3 py-2.5" style={{ marginLeft: depth * 20 }}>
         <div className="min-w-0 flex-1">
-          <p className="truncate text-sm font-medium t-primary">{node.name}</p>
+          <p className="truncate text-sm font-medium t-primary">
+            {node.name}
+            {node.listed === 0 && (
+              <span className="ml-2 rounded-full bg-neutral-200 px-2 py-0.5 text-[10px] font-medium text-neutral-500 dark:bg-white/10 dark:text-neutral-400">
+                {t("categories.hidden")}
+              </span>
+            )}
+          </p>
           <p className="truncate text-xs text-neutral-500 dark:text-neutral-400">
             {node.slug} · {t("categories.posts")}: {node.count}
           </p>

@@ -23,6 +23,7 @@ async function publish({
   tags,
   categories,
   password,
+  cover,
   draft,
   createdAt,
   onCompleted,
@@ -35,6 +36,7 @@ async function publish({
   tags: string[];
   categories: number[];
   password: string;
+  cover: string;
   draft: boolean;
   alias?: string;
   createdAt?: Date;
@@ -51,6 +53,7 @@ async function publish({
       tags,
       categories,
       password: password || undefined,
+      cover: cover || undefined,
       listed,
       draft,
       createdAt: createdAt?.toISOString(),
@@ -79,6 +82,7 @@ async function update({
   tags,
   categories,
   password,
+  cover,
   listed,
   draft,
   createdAt,
@@ -95,6 +99,7 @@ async function update({
   categories?: number[];
   /** 空字符串表示清除密码，undefined 表示保持不变 */
   password?: string;
+  cover?: string;
   draft?: boolean;
   createdAt?: Date;
   onCompleted?: () => void;
@@ -111,6 +116,7 @@ async function update({
       tags,
       categories,
       password,
+      cover,
       listed,
       draft,
       createdAt: createdAt?.toISOString(),
@@ -141,6 +147,7 @@ export function WritingPage({ id }: { id?: number }) {
   const [password, setPassword] = useState("");
   const [hasPassword, setHasPassword] = useState(false);
   const [removePassword, setRemovePassword] = useState(false);
+  const [cover, setCover] = cache.useCache("cover", "");
   const [categories, setCategories] = useState<number[]>([]);
   const [categoryList, setCategoryList] = useState<Array<{ id: number; name: string; parent: number }>>([]);
   const [draft, setDraft] = useState(false);
@@ -167,6 +174,7 @@ export function WritingPage({ id }: { id?: number }) {
         tags: tagsplit,
         categories,
         password: removePassword ? "" : password || undefined,
+        cover,
         draft,
         listed,
         createdAt,
@@ -192,6 +200,7 @@ export function WritingPage({ id }: { id?: number }) {
         tags: tagsplit,
         categories,
         password,
+        cover,
         draft,
         alias,
         listed,
@@ -222,6 +231,7 @@ export function WritingPage({ id }: { id?: number }) {
             if (alias == "" && data.slug) setAlias(data.slug);
             if (content == "") setContent(data.content);
             if (summary == "") setSummary((data as any).summary || "");
+            if (cover == "" && (data as any).cover) setCover((data as any).cover);
             if (Array.isArray(data.categories))
               setCategories(data.categories.map(({ id }: {id: number}) => id));
             setHasPassword(Boolean((data as any).hasPassword));
@@ -339,6 +349,49 @@ export function WritingPage({ id }: { id?: number }) {
             />
           </div>
 
+          <div className="mt-5">
+            <p className="mb-2 text-xs font-semibold uppercase tracking-[0.18em] text-theme/70">{t("cover.title")}</p>
+            <div className="flex flex-col gap-2 sm:flex-row">
+              <Input
+                id={id}
+                value={cover}
+                setValue={setCover}
+                placeholder={t("cover.placeholder")}
+                variant="flat"
+              />
+              <button
+                type="button"
+                onClick={() => {
+                  const extracted = extractFirstImageUrl(content);
+                  if (extracted) {
+                    setCover(extracted);
+                  } else {
+                    showAlert(t("cover.not_found"));
+                  }
+                }}
+                className="shrink-0 rounded-xl border border-black/10 bg-secondary px-4 py-2 text-sm t-primary transition-colors hover:bg-neutral-100 dark:border-white/10 dark:hover:bg-white/5"
+              >
+                {t("cover.extract")}
+              </button>
+              {cover && (
+                <button
+                  type="button"
+                  onClick={() => setCover("")}
+                  className="shrink-0 rounded-xl border border-black/10 bg-secondary px-4 py-2 text-sm t-primary transition-colors hover:bg-neutral-100 dark:border-white/10 dark:hover:bg-white/5"
+                >
+                  {t("cover.clear")}
+                </button>
+              )}
+            </div>
+            {cover && (
+              <img
+                src={cover}
+                alt={t("cover.preview")}
+                className="mt-3 h-40 w-full rounded-xl border border-black/10 object-cover dark:border-white/10"
+              />
+            )}
+          </div>
+
           {categoryList.length > 0 && (
             <div className="mt-5">
               <p className="mb-2 text-xs font-semibold uppercase tracking-[0.18em] text-theme/70">{t("categories.title")}</p>
@@ -415,6 +468,11 @@ export function WritingPage({ id }: { id?: number }) {
 }
 
 type CategoryNode = { id: number; name: string; parent: number; children: CategoryNode[] };
+
+function extractFirstImageUrl(content: string): string | null {
+  const match = content.match(/!\[[^\]]*\]\((https?:\/\/[^)\s]+)\)/);
+  return match ? match[1] : null;
+}
 
 function buildCategoryTree(list: Array<{ id: number; name: string; parent: number }>): CategoryNode[] {
   const nodes = new Map<number, CategoryNode>();

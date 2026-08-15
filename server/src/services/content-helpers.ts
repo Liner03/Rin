@@ -133,6 +133,17 @@ export function publishedWhere(now = new Date()) {
     return and(eq(contents.status, CONTENT_STATUS.PUBLISH), lte(contents.createdAt, now));
 }
 
+// 排除"隐藏分类"（listed=0）下文章的条件：该文章属于任一隐藏分类则排除
+export function excludeHiddenCategoryWhere() {
+    return sql`NOT EXISTS (
+        SELECT 1 FROM relationships
+        JOIN metas ON metas.id = relationships.meta_id
+        WHERE relationships.content_id = contents.id
+        AND metas.type = 'category'
+        AND metas.listed = 0
+    )`;
+}
+
 export async function getTagsForContent(db: DB, contentId: number) {
     const map = await getTagsForContents(db, [contentId]);
     return map.get(contentId) || [];

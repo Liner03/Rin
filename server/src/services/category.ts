@@ -33,6 +33,7 @@ export function CategoryService(): Hono {
             count: category.count,
             order: category.order,
             parent: category.parent,
+            listed: category.listed,
             createdAt: category.createdAt,
             updatedAt: category.updatedAt,
         }));
@@ -101,7 +102,7 @@ export function CategoryService(): Hono {
         const cache = c.get('cache');
         const admin = c.get('admin');
         const body = await profileAsync(c, 'category_create_parse', () => c.req.json());
-        const { name, slug, description, parent, order } = body;
+        const { name, slug, description, parent, order, listed } = body;
 
         if (!admin) {
             return c.text('Permission denied', 403);
@@ -118,6 +119,7 @@ export function CategoryService(): Hono {
             description: description || "",
             parent: parent || 0,
             order: order || 0,
+            listed: listed === undefined ? 1 : (listed ? 1 : 0),
         }).returning({ insertedId: metas.id }));
 
         await profileAsync(c, 'category_create_cache_invalidate', () => cache.deletePrefix('category_'));
@@ -135,7 +137,7 @@ export function CategoryService(): Hono {
         const admin = c.get('admin');
         const id = parseInt(c.req.param('id'));
         const body = await profileAsync(c, 'category_update_parse', () => c.req.json());
-        const { name, slug, description, parent, order } = body;
+        const { name, slug, description, parent, order, listed } = body;
 
         if (!admin) {
             return c.text('Permission denied', 403);
@@ -154,6 +156,7 @@ export function CategoryService(): Hono {
             description,
             parent,
             order,
+            listed: listed === undefined ? undefined : (listed ? 1 : 0),
         }).where(eq(metas.id, id)));
 
         await profileAsync(c, 'category_update_cache_invalidate', () => cache.deletePrefix('category_'));

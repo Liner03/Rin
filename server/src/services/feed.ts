@@ -14,6 +14,7 @@ import {
     CONTENT_TYPE,
     canViewContent,
     createContentUnlockHandler,
+    excludeHiddenCategoryWhere,
     generateSlug,
     getCategoriesForContents,
     getTagsForContents,
@@ -76,7 +77,7 @@ async function findPostByIdentifier(db: any, idOrSlug: string) {
 const LIST_CACHE_TTL = 5 * 60 * 1000;
 
 function contentToFeedList(feed: any) {
-    const avatar = extractImageWithMetadata(feed.text);
+    const avatar = feed.cover || extractImageWithMetadata(feed.text);
     const plainText = stripMarkdown(feed.text);
     const { text, password, ...rest } = feed;
     return {
@@ -124,7 +125,10 @@ export function FeedService(): Hono<{
             : type === 'unlisted'
                 ? eq(contents.status, CONTENT_STATUS.HIDDEN)
                 : publishedWhere();
-        const where = and(eq(contents.type, CONTENT_TYPE.POST), typeWhere);
+        // 非 admin 的首页列表排除"隐藏分类"下的文章
+        const where = admin
+            ? and(eq(contents.type, CONTENT_TYPE.POST), typeWhere)
+            : and(eq(contents.type, CONTENT_TYPE.POST), typeWhere, excludeHiddenCategoryWhere());
 
         const size = await profileAsync(c, 'feed_list_count', () => db.select({ count: count() }).from(contents).where(where));
 
@@ -191,7 +195,7 @@ export function FeedService(): Hono<{
         const admin = c.get('admin');
         const uid = c.get('uid');
         const body = await profileAsync(c, 'feed_create_parse', () => c.req.json());
-        const { title, slug, listed, content, summary, draft, tags, categories, createdAt, status, password, top } = body;
+        const { title, slug, listed, content, summary, draft, tags, categories, createdAt, status, password, top, cover } = body;
 
         if (!admin) {
             return c.text('Permission denied', 403);
@@ -226,6 +230,7 @@ export function FeedService(): Hono<{
             type: CONTENT_TYPE.POST,
             title,
             text: content,
+            cover: cover || null,
             summary,
             ai_summary: "",
             ai_summary_status: "idle",
@@ -452,7 +457,7 @@ export function FeedService(): Hono<{
         const uid = c.get('uid');
         const id = c.req.param('id');
         const body = await profileAsync(c, 'feed_update_parse', () => c.req.json());
-        const { title, listed, content, summary, slug, draft, top, tags, categories, createdAt, status, password } = body;
+        const { title, listed, content, summary, slug, draft, top, tags, categories, createdAt, status, password, cover } = body;
 
         const id_num = parseInt(id);
         const feed = await profileAsync(c, 'feed_update_lookup', () => db.query.contents.findFirst({
@@ -482,6 +487,7 @@ export function FeedService(): Hono<{
         await profileAsync(c, 'feed_update_db', () => db.update(contents).set({
             title,
             text: content,
+            cover,
             summary,
             ai_summary: shouldQueueAISummary ? "" : undefined,
             ai_summary_status: isDraft ? "idle" : undefined,

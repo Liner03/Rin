@@ -106,7 +106,7 @@ export function FeedPage({ id, TOC }: { id: string, TOC: ReactNode }) {
           setTimeout(() => {
             setFeed(data);
             setTop(data.top || 0);
-            const headImageUrl = extractFirstMarkdownImageUrl(data.content);
+            const headImageUrl = (data as any).cover || extractFirstMarkdownImageUrl(data.content);
             if (headImageUrl) {
               setHeadImage(headImageUrl);
             }
@@ -128,7 +128,7 @@ export function FeedPage({ id, TOC }: { id: string, TOC: ReactNode }) {
           setTimeout(() => {
             setFeed(data);
             setTop(data.top || 0);
-            const headImageUrl = extractFirstMarkdownImageUrl(data.content);
+            const headImageUrl = (data as any).cover || extractFirstMarkdownImageUrl(data.content);
             if (headImageUrl) {
               setHeadImage(headImageUrl);
             }
