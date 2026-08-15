@@ -1,9 +1,9 @@
-import { and, eq } from "drizzle-orm";
+import { and, desc, eq, or } from "drizzle-orm";
 import { Hono } from "hono";
-import type { DB } from "../core/hono-types";
+import type { AppContext, DB } from "../core/hono-types";
 import { profileAsync } from "../core/server-timing";
-import { feedHashtags, hashtags } from "../db/schema";
-import type { AppContext } from "../core/hono-types";
+import { contents, metas, relationships } from "../db/schema";
+import { generateSlug, refreshMetaCounts } from "./content-helpers";
 
 export function TagService(): Hono {
     const app = new Hono();
@@ -11,18 +11,20 @@ export function TagService(): Hono {
     // GET /tag
     app.get('/', async (c: AppContext) => {
         const db = c.get('db');
-        
-        const tag_list = await profileAsync(c, 'tag_list_db', () => db.query.hashtags.findMany({
-            with: {
-                feeds: { columns: { feedId: true } }
-            }
+
+        const tag_list = await profileAsync(c, 'tag_list_db', () => db.query.metas.findMany({
+            where: eq(metas.type, 'tag'),
+            orderBy: [desc(metas.count)],
         }));
-        
+
         const result = tag_list.map((tag: any) => ({
-            ...tag,
-            feeds: tag.feeds.length
+            id: tag.id,
+            name: tag.name,
+            count: tag.count,
+            createdAt: tag.createdAt,
+            updatedAt: tag.updatedAt,
         }));
-        
+
         return c.json(result);
     });
 
@@ -31,75 +33,89 @@ export function TagService(): Hono {
         const db = c.get('db');
         const admin = c.get('admin');
         const nameDecoded = decodeURI(c.req.param('name'));
-        
-        const tag = await profileAsync(c, 'tag_detail_db', () => db.query.hashtags.findFirst({
-            where: eq(hashtags.name, nameDecoded),
-            with: {
-                feeds: {
-                    with: {
-                        feed: {
-                            columns: {
-                                id: true, title: true, summary: true, content: true, 
-                                createdAt: true, updatedAt: true, draft: false, listed: false
-                            },
-                            with: {
-                                user: { columns: { id: true, username: true, avatar: true } },
-                                hashtags: {
-                                    columns: {},
-                                    with: { hashtag: { columns: { id: true, name: true } } }
-                                }
-                            },
-                            where: (feeds: any) => admin ? undefined : and(eq(feeds.draft, 0), eq(feeds.listed, 1))
-                        } as any
-                    }
-                }
-            }
+
+        const tag = await profileAsync(c, 'tag_detail_db', () => db.query.metas.findFirst({
+            where: and(eq(metas.type, 'tag'), or(eq(metas.name, nameDecoded), eq(metas.slug, nameDecoded))),
         }));
-        
-        const tagFeeds = tag?.feeds.map((tagFeed: any) => {
-            if (!tagFeed.feed) return null;
-            return {
-                ...tagFeed.feed,
-                hashtags: tagFeed.feed.hashtags.map((hashtag: any) => hashtag.hashtag)
-            };
-        }).filter((feed: any) => feed !== null);
-        
+
         if (!tag) {
             return c.text('Not found', 404);
         }
-        
+
+        const relationships_rows = await profileAsync(c, 'tag_detail_rels', () => db.query.relationships.findMany({
+            where: eq(relationships.metaId, tag.id),
+            columns: {},
+            with: {
+                content: {
+                    columns: {
+                        id: true, title: true, summary: true, content: true, slug: true,
+                        createdAt: true, updatedAt: true, status: true,
+                    },
+                    with: {
+                        user: { columns: { id: true, username: true, avatar: true } },
+                    },
+                },
+            },
+        }));
+
+        const tagFeeds = [];
+        for (const row of relationships_rows) {
+            const feed = row.content;
+            if (!feed || feed.status !== 'publish') continue;
+            if (!admin && feed.createdAt.getTime() > Date.now()) continue;
+            const tags = await profileAsync(c, 'tag_detail_tags', () => getTagsForContentLike(db, feed.id));
+            tagFeeds.push({ ...feed, hashtags: tags });
+        }
+
         return c.json({ ...tag, feeds: tagFeeds });
     });
 
     return app;
 }
 
-export async function bindTagToPost(db: DB, feedId: number, tags: string[]) {
-    await db.delete(feedHashtags).where(eq(feedHashtags.feedId, feedId));
-    
+async function getTagsForContentLike(db: DB, contentId: number) {
+    const rows = await db.query.relationships.findMany({
+        where: eq(relationships.contentId, contentId),
+        columns: {},
+        with: {
+            meta: {
+                columns: { id: true, name: true },
+                where: (meta: { type: any }) => eq(meta.type, "tag"),
+            },
+        },
+    });
+    return rows.map(({ meta }) => meta);
+}
+
+export async function bindTagsToContent(db: DB, contentId: number, tags: string[]) {
+    const metaIds = new Set<number>();
+
+    await db.delete(relationships).where(eq(relationships.contentId, contentId));
+
     for (const tag of tags) {
-        const tagId = await getTagIdOrCreate(db, tag);
-        await db.insert(feedHashtags).values({
-            feedId: feedId,
-            hashtagId: tagId
+        const normalized = tag.trim();
+        if (!normalized) continue;
+
+        let meta = await db.query.metas.findFirst({
+            where: and(eq(metas.type, 'tag'), eq(metas.name, normalized)),
         });
-    }
-}
 
-async function getTagByName(db: DB, name: string) {
-    return await db.query.hashtags.findFirst({ where: eq(hashtags.name, name) });
-}
-
-async function getTagIdOrCreate(db: DB, name: string) {
-    const tag = await getTagByName(db, name);
-    if (tag) {
-        return tag.id;
-    } else {
-        const result = await db.insert(hashtags).values({ name }).returning({ insertedId: hashtags.id });
-        if (result.length === 0) {
-            throw new Error('Failed to insert');
-        } else {
-            return result[0].insertedId;
+        if (!meta) {
+            const result = await db.insert(metas).values({
+                type: 'tag',
+                name: normalized,
+                slug: generateSlug(normalized),
+            }).returning({ insertedId: metas.id });
+            meta = { id: result[0].insertedId } as any;
         }
+
+        metaIds.add(meta.id);
+        await db.insert(relationships).values({ contentId, metaId: meta.id });
     }
+
+    await refreshMetaCounts(db, Array.from(metaIds));
+}
+
+function inArrayForTags(tags: string[]) {
+    return inArray(metas.name, tags.map((tag) => tag.trim()).filter(Boolean));
 }
