@@ -29,6 +29,13 @@ export function ScrollRestoration() {
   const scrollMap = useRef<ScrollMap>(loadScrollMap());
   const restored = useRef(false);
 
+  // 关闭浏览器原生滚动恢复，避免与我们的恢复冲突
+  useEffect(() => {
+    if ("scrollRestoration" in window.history) {
+      window.history.scrollRestoration = "manual";
+    }
+  }, []);
+
   // 点击站内链接时保存当前滚动位置（导航发生前）
   useEffect(() => {
     const handler = (event: MouseEvent) => {
@@ -46,18 +53,32 @@ export function ScrollRestoration() {
     };
   }, []);
 
-  // 路由切换后：恢复历史位置或回到顶部
+  // 路由切换后：平滑恢复历史位置或回到顶部
   useEffect(() => {
     const saved = scrollMap.current[location];
     restored.current = false;
     if (typeof saved === "number") {
+      const prefersReducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+      const doScroll = () => {
+        if (restored.current) return;
+        restored.current = true;
+        window.scrollTo({ top: saved, behavior: prefersReducedMotion ? "auto" : "smooth" });
+        // 兜底：smooth 被环境禁用/中断时（如后台标签页），短延时后若未到位则直接跳转
+        if (!prefersReducedMotion) {
+          window.setTimeout(() => {
+            const maxScroll = document.documentElement.scrollHeight - window.innerHeight;
+            if (maxScroll >= saved && Math.abs(window.scrollY - saved) > 50) {
+              window.scrollTo(0, saved);
+            }
+          }, 800);
+        }
+      };
       // 页面异步渲染，内容未就绪（可滚动高度不足）时重试，最多 500ms
       const tryRestore = (attempt = 0) => {
         if (restored.current) return;
         const maxScroll = document.documentElement.scrollHeight - window.innerHeight;
         if (saved <= maxScroll || attempt >= 5) {
-          restored.current = true;
-          window.scrollTo(0, saved);
+          doScroll();
         } else {
           window.setTimeout(() => tryRestore(attempt + 1), 100);
         }
