@@ -17,96 +17,124 @@ const getHeaderScrollOffset = () => {
 }
 
 const useTableOfContents = (selector: string) => {
-    const intersectingListRef = useRef<boolean[]>([]) // isIntersecting array
     const [tableOfContents, setTableOfContents] = useState<TableOfContent[]>([])
     const [activeIndex, setActiveIndex] = useState(0)
     const { t } = useTranslation()
-    const io = useRef<IntersectionObserver | null>(null);
-    const [ref, setRef] = useState("-1")
-    const lastRef = useRef("")
+    const ioRef = useRef<IntersectionObserver | null>(null)
+    const mutationObserverRef = useRef<MutationObserver | null>(null)
+    const debounceTimer = useRef<number | undefined>(undefined)
 
     useEffect(() => {
-        if (lastRef.current === ref) return
         const content = document.querySelector(selector)
         if (!content) return
-        const intersectingList = intersectingListRef.current
-        const headers = content.querySelectorAll<HTMLElement>(
-            'h1, h2, h3, h4, h5, h6'
-        ) // all headers
 
-        // set TableOfContents
-        const tocData = Array.from(headers).map<TableOfContent>((header, i) => ({
-            index: i,
-            text: header.textContent || '',
-            marginLeft: (Number(header.tagName.charAt(1)) - 1) * 10,
-            element: header, // have to down little bit
-        }))
-        setTableOfContents(tocData)
+        const buildToc = () => {
+            const headers = content.querySelectorAll<HTMLElement>(
+                'h1, h2, h3, h4, h5, h6'
+            )
+            const tocData = Array.from(headers).map<TableOfContent>((header, i) => ({
+                index: i,
+                text: header.textContent || '',
+                marginLeft: (Number(header.tagName.charAt(1)) - 1) * 10,
+                element: header,
+            }))
+            setTableOfContents(tocData)
+            setActiveIndex((prev) => (tocData.length > 0 ? Math.min(prev, tocData.length - 1) : 0))
 
-        // create IntersectionObserver
-        if (io.current) io.current.disconnect()
-        io.current = new IntersectionObserver(
-            (entries) => {
-                // save isIntersecting info to array using data-id
-                entries.forEach(({ target, isIntersecting }) => {
-                    const idx = Number((target as HTMLElement).dataset.id || 0)
-                    intersectingList[idx] = isIntersecting
-                })
-                // get activeIndex
-                const currentIndex = intersectingList.findIndex((item) => item)
-                let activeIndex = currentIndex - 1
-                if (currentIndex === -1) {
-                    activeIndex = intersectingList.length - 1
-                } else if (currentIndex === 0) {
-                    activeIndex = 0
-                }
-                setActiveIndex(activeIndex)
-            },
-            { rootMargin: "-20% 0px 10000px 0px", threshold: 0 }
-        )
-        intersectingList.length = 0 // reset array
-        headers.forEach((header, i) => {
-            if (header.getAttribute('data-id') !== null) return
-            header.setAttribute('data-id', i.toString()) // set data-id
-            intersectingList.push(false) // increase array length
-            io.current!.observe(header) // register to observe
-        })
-        lastRef.current = ref
-        return () => {
-            if (io.current) io.current.disconnect()
+            if (ioRef.current) ioRef.current.disconnect()
+            ioRef.current = null
+
+            if (tocData.length === 0) {
+                return
+            }
+
+            const intersectingList = new Array<boolean>(tocData.length).fill(false)
+            const observer = new IntersectionObserver(
+                (entries) => {
+                    if (ioRef.current !== observer) return
+                    entries.forEach(({ target, isIntersecting }) => {
+                        const idx = Number((target as HTMLElement).dataset.id)
+                        if (idx >= 0 && idx < intersectingList.length) {
+                            intersectingList[idx] = isIntersecting
+                        }
+                    })
+                    const currentIndex = intersectingList.findIndex((item) => item)
+                    let nextActiveIndex = currentIndex - 1
+                    if (currentIndex === -1) {
+                        nextActiveIndex = intersectingList.length - 1
+                    } else if (currentIndex === 0) {
+                        nextActiveIndex = 0
+                    }
+                    setActiveIndex(nextActiveIndex)
+                },
+                { rootMargin: "-20% 0px 10000px 0px", threshold: 0 }
+            )
+            ioRef.current = observer
+            headers.forEach((header, i) => {
+                header.setAttribute('data-id', i.toString())
+                observer.observe(header)
+            })
         }
-    }, [ref])
 
-    const cleanup = (newId: string) => {
-        if (lastRef.current === newId) return
-        setRef(newId)
-        if (io.current) io.current.disconnect()
-    }
+        buildToc()
 
-    return {
-        TOC: () => (<div className='rounded-2xl bg-w py-4 px-4 t-primary'>
-            <h2 className="text-lg font-bold">{t("index.title")}</h2>
-            <ul className="max-h-[calc(100vh-10.25rem)] overflow-auto" style={{ scrollbarWidth: "none" }}>
-                {tableOfContents.length === 0 && <li>{t("index.empty.title")}</li>}
-                {tableOfContents.map((item) => (
-                    <li
-                        key={`toc$${item.index}`}
-                        className={`cursor-pointer hover:opacity-50 ${activeIndex === item.index ? "text-theme" : ""}`}
-                        style={{ marginLeft: item.marginLeft }}
-                        onClick={() => {
-                            const top = item.element.getBoundingClientRect().top + window.scrollY - getHeaderScrollOffset()
-                            window.scrollTo({
-                                top: Math.max(top, 0),
-                                behavior: 'smooth'
-                            })
-                        }}
-                    >
-                        {item.text}
-                    </li>
-                ))}
-            </ul>
-        </div>), cleanup
-    }
+        // Markdown renders asynchronously: watch for content changes and rebuild
+        // once the headers appear (debounced to avoid thrashing during rendering)
+        if (mutationObserverRef.current) mutationObserverRef.current.disconnect()
+        mutationObserverRef.current = new MutationObserver(() => {
+            window.clearTimeout(debounceTimer.current)
+            debounceTimer.current = window.setTimeout(buildToc, 120)
+        })
+        mutationObserverRef.current.observe(content, { childList: true, subtree: true, characterData: true })
+
+        return () => {
+            window.clearTimeout(debounceTimer.current)
+            if (ioRef.current) ioRef.current.disconnect()
+            if (mutationObserverRef.current) mutationObserverRef.current.disconnect()
+        }
+    }, [selector])
+
+    const TOC = (
+        <nav className="toc-nav">
+                <p className="mb-4 text-[13px] font-semibold uppercase tracking-[0.14em] text-neutral-400 dark:text-neutral-500">
+                    {t("index.title")}
+                </p>
+                <ul className="space-y-[3px] border-l border-black/10 dark:border-white/10">
+                    {tableOfContents.length === 0 && (
+                        <li className="py-1.5 pl-4 text-[13px] leading-6 text-neutral-400 dark:text-neutral-500">{t("index.empty.title")}</li>
+                    )}
+                    {tableOfContents.map((item) => (
+                        <li
+                            key={`toc$${item.index}`}
+                            className={`group relative cursor-pointer text-[13px] leading-6 transition-colors duration-150 ${
+                                activeIndex === item.index
+                                    ? "font-medium text-theme"
+                                    : "text-neutral-600 hover:text-neutral-900 dark:text-neutral-400 dark:hover:text-neutral-100"
+                            }`}
+                            style={{ paddingLeft: `calc(1rem + ${item.marginLeft}px)` }}
+                            onClick={() => {
+                                const top = item.element.getBoundingClientRect().top + window.scrollY - getHeaderScrollOffset()
+                                window.scrollTo({
+                                    top: Math.max(top, 0),
+                                    behavior: 'smooth'
+                                })
+                            }}
+                        >
+                            <span
+                                className={`absolute -left-px top-1/2 h-3.5 w-0.5 -translate-y-1/2 rounded-full bg-theme transition-opacity duration-150 ${
+                                    activeIndex === item.index ? "opacity-100" : "opacity-0"
+                                }`}
+                            />
+                            <span className={`block py-1 transition-colors ${activeIndex === item.index ? "text-theme" : ""}`}>
+                                {item.text}
+                            </span>
+                        </li>
+                    ))}
+                </ul>
+            </nav>
+    )
+
+    return { TOC }
 }
 
 export default useTableOfContents

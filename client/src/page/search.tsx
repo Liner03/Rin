@@ -7,21 +7,16 @@ import { Waiting } from "../components/loading"
 import { client } from "../app/runtime"
 
 import { useSiteConfig } from "../hooks/useSiteConfig";
+import type { FeedListResponse } from "@rin/api";
 import { siteName } from "../utils/constants"
 import { tryInt } from "../utils/int"
-
-type FeedsData = {
-    size: number,
-    data: any[],
-    hasNext: boolean
-}
 
 export function SearchPage({ keyword }: { keyword: string }) {
     const { t } = useTranslation()
     const siteConfig = useSiteConfig();
     const query = new URLSearchParams(useSearch());
     const [status, setStatus] = useState<'loading' | 'idle'>('idle')
-    const [feeds, setFeeds] = useState<FeedsData>()
+    const [feeds, setFeeds] = useState<FeedListResponse>()
     const page = tryInt(1, query.get("page"))
     const limit = tryInt(siteConfig.pageSize, query.get("limit"))
     const feedListClass = siteConfig.feedLayout === "masonry" ? "wauto columns-1 gap-5 md:columns-2" : "wauto flex flex-col";
@@ -71,7 +66,7 @@ export function SearchPage({ keyword }: { keyword: string }) {
                     </div>
                     <Waiting for={status === 'idle'}>
                         <div className={feedListClass}>
-                            {feedData.map(({ id, ...feed }: any) => (
+                            {feedData.map(({ id, ...feed }) => (
                                 <FeedCard key={id} id={id} {...feed} />
                             ))}
                         </div>

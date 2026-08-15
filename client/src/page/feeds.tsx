@@ -1,3 +1,4 @@
+import type { FeedListResponse } from "@rin/api";
 import { useContext, useEffect, useRef, useState } from "react"
 import { Helmet } from 'react-helmet'
 import { Link, useSearch } from "wouter"
@@ -11,16 +12,10 @@ import { siteName } from "../utils/constants"
 import { tryInt } from "../utils/int"
 import { useTranslation } from "react-i18next";
 
-type FeedsData = {
-    size: number,
-    data: any[],
-    hasNext: boolean
-}
-
 type FeedType = 'draft' | 'unlisted' | 'normal'
 
 type FeedsMap = {
-    [key in FeedType]: FeedsData
+    [key in FeedType]: FeedListResponse
 }
 
 export function FeedsPage() {
@@ -101,21 +96,21 @@ export function FeedsPage() {
                     </div>
                     <Waiting for={status === 'idle'}>
                         <div className={feedListClass}>
-                            {currentFeedData.map(({ id, ...feed }: any) => (
+                            {currentFeedData.map(({ id, ...feed }) => (
                                 <FeedCard key={id} id={id} {...feed} />
                             ))}
                         </div>
                         <div className="wauto flex flex-row items-center mt-4 ani-show">
                             {page > 1 &&
                                 <Link href={`/?type=${listState}&page=${(page - 1)}`}
-                                    className={`text-sm font-normal rounded-full px-4 py-2 text-white bg-theme`}>
+                                    className={`text-sm font-normal rounded-full px-4 py-2 text-white bg-theme mirages-pager-btn`}>
                                     {t('previous')}
                                 </Link>
                             }
                             <div className="flex-1" />
                             {currentFeeds.hasNext &&
                                 <Link href={`/?type=${listState}&page=${(page + 1)}`}
-                                    className={`text-sm font-normal rounded-full px-4 py-2 text-white bg-theme`}>
+                                    className={`text-sm font-normal rounded-full px-4 py-2 text-white bg-theme mirages-pager-btn`}>
                                     {t('next')}
                                 </Link>
                             }

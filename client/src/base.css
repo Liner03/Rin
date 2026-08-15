@@ -42,6 +42,15 @@
       @apply w-full md:w-7/12 lg:w-8/12 duration-300;
     }
 
+    .mirages-content .wauto,
+    .mirages-content .writeauto {
+      @apply w-full !important;
+    }
+
+    .mirages-content > div.sm\:mx-8 {
+      @apply mx-0 !important;
+    }
+
     .scrollbar-none {
       -ms-overflow-style: none;
       scrollbar-width: none;
