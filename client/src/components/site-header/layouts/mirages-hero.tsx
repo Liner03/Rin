@@ -37,7 +37,7 @@ export function MiragesHero() {
             user: data.user,
             hashtags: data.hashtags,
             pv: data.pv,
-            coverImage: (data as any).cover || extractFirstMarkdownImageUrl(data.content),
+            coverImage: data.cover || extractFirstMarkdownImageUrl(data.content),
           });
         }
       })

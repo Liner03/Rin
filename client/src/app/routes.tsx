@@ -1,4 +1,4 @@
-import type { ReactNode } from "react";
+import { lazy, Suspense, type ReactNode } from "react";
 import { useContext } from "react";
 import type { DefaultParams, PathPattern } from "wouter";
 import { Route, Switch } from "wouter";
@@ -10,30 +10,32 @@ import { getHeaderLayoutDefinition } from "../components/site-header/layout-regi
 import { Tips, TipsPage } from "../components/tips";
 import useTableOfContents from "../hooks/useTableOfContents";
 import { useSiteConfig } from "../hooks/useSiteConfig";
-import { AdminCategoriesPage } from "../page/admin-categories";
-import { AdminPagesPage } from "../page/admin-pages";
-import { CallbackPage } from "../page/callback";
-import { CategoryPage } from "../page/category";
-import { CompatTasksPage } from "../page/compat-tasks";
 import { ErrorPage } from "../page/error";
 import { FeedPage, TOCHeader } from "../page/feed";
 import { FeedsPage } from "../page/feeds";
-import { FriendsPage } from "../page/friends";
-import { HealthPage } from "../page/health";
-import { HashtagPage } from "../page/hashtag";
-import { HashtagsPage } from "../page/hashtags";
 import { LoginPage } from "../page/login";
-import { MomentsPage } from "../page/moments";
-import { PageDetail } from "../page/page-detail";
-import { ProfilePage } from "../page/profile";
-import { QueueStatusPage } from "../page/queue-status";
-import { SearchPage } from "../page/search";
-import { Settings } from "../page/settings";
-import { TimelinePage } from "../page/timeline";
-import { WritingPage } from "../page/writing";
 import { ProfileContext } from "../state/profile";
 import { tryInt } from "../utils/int";
 import { useTranslation } from "react-i18next";
+
+// 非首屏页面懒加载，避免写作编辑器（Monaco/mermaid）等进入公共 bundle
+const AdminCategoriesPage = lazy(() => import("../page/admin-categories").then((m) => ({ default: m.AdminCategoriesPage })));
+const AdminPagesPage = lazy(() => import("../page/admin-pages").then((m) => ({ default: m.AdminPagesPage })));
+const CallbackPage = lazy(() => import("../page/callback").then((m) => ({ default: m.CallbackPage })));
+const CategoryPage = lazy(() => import("../page/category").then((m) => ({ default: m.CategoryPage })));
+const CompatTasksPage = lazy(() => import("../page/compat-tasks").then((m) => ({ default: m.CompatTasksPage })));
+const FriendsPage = lazy(() => import("../page/friends").then((m) => ({ default: m.FriendsPage })));
+const HashtagPage = lazy(() => import("../page/hashtag").then((m) => ({ default: m.HashtagPage })));
+const HashtagsPage = lazy(() => import("../page/hashtags").then((m) => ({ default: m.HashtagsPage })));
+const HealthPage = lazy(() => import("../page/health").then((m) => ({ default: m.HealthPage })));
+const MomentsPage = lazy(() => import("../page/moments").then((m) => ({ default: m.MomentsPage })));
+const PageDetail = lazy(() => import("../page/page-detail").then((m) => ({ default: m.PageDetail })));
+const ProfilePage = lazy(() => import("../page/profile").then((m) => ({ default: m.ProfilePage })));
+const QueueStatusPage = lazy(() => import("../page/queue-status").then((m) => ({ default: m.QueueStatusPage })));
+const SearchPage = lazy(() => import("../page/search").then((m) => ({ default: m.SearchPage })));
+const Settings = lazy(() => import("../page/settings").then((m) => ({ default: m.Settings })));
+const TimelinePage = lazy(() => import("../page/timeline").then((m) => ({ default: m.TimelinePage })));
+const WritingPage = lazy(() => import("../page/writing").then((m) => ({ default: m.WritingPage })));
 
 export function AppRoutes() {
   const { t } = useTranslation();
@@ -181,7 +183,7 @@ function AppRoute({
 
         return layoutDefinition.renderRouteShell({
           header: <Header>{headerComponent}</Header>,
-          content: <Padding className={paddingClassName}>{resolvedContent}</Padding>,
+          content: <Padding className={paddingClassName}><Suspense fallback={<div className="min-h-[40vh]" />}>{resolvedContent}</Suspense></Padding>,
           footer: <Footer />,
           paddingClassName,
         });
@@ -212,7 +214,9 @@ function AdminRoute({
     <Route path={path}>
       {(params) => (
         <AdminLayout title={title} description={description}>
-          {typeof content === "function" ? content(params) : content}
+          <Suspense fallback={<div className="min-h-[40vh]" />}>
+            {typeof content === "function" ? content(params) : content}
+          </Suspense>
         </AdminLayout>
       )}
     </Route>

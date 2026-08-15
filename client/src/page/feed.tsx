@@ -19,7 +19,6 @@ import { timeago } from "../utils/timeago";
 import { Button } from "../components/button";
 import { Input } from "../components/input";
 import { Tips } from "../components/tips";
-import mermaid from "mermaid";
 import { AdjacentSection } from "../components/adjacent_feed.tsx";
 import { extractFirstMarkdownImageUrl } from "../utils/image-upload";
 
@@ -121,24 +120,32 @@ export function FeedPage({ id, TOC }: { id: string, TOC: ReactNode }) {
     }
   }
   useEffect(() => {
-    mermaid.initialize({
-      startOnLoad: false,
-      theme: "default",
-    });
-    mermaid.run({
-      suppressErrors: true,
-      nodes: document.querySelectorAll("pre.mermaid_default")
-    }).then(() => {
+    let cancelled = false;
+    import("mermaid").then(({ default: mermaid }) => {
+      if (cancelled) return;
       mermaid.initialize({
         startOnLoad: false,
-        theme: "dark",
+        theme: "default",
       });
       mermaid.run({
         suppressErrors: true,
-        nodes: document.querySelectorAll("pre.mermaid_dark")
-      });
-    })
-  }, [feed]);
+        nodes: document.querySelectorAll("pre.mermaid_default")
+      }).then(() => {
+        if (cancelled) return;
+        mermaid.initialize({
+          startOnLoad: false,
+          theme: "dark",
+        });
+        mermaid.run({
+          suppressErrors: true,
+          nodes: document.querySelectorAll("pre.mermaid_dark")
+        });
+      })
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [feed?.content]);
 
   return (
     <Waiting for={feed || error}>

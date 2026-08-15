@@ -221,8 +221,15 @@ export async function refreshMetaCounts(db: DB, metaIds: number[]) {
         )`,
     }).from(metas).where(inArray(metas.id, metaIds));
 
-    for (const { metaId, total } of counts) {
-        await db.update(metas).set({ count: Number(total) }).where(eq(metas.id, metaId));
+    if (counts.length > 0) {
+        // 单条 UPDATE ... CASE 批处理，避免逐条更新
+        await db.run(sql`
+            UPDATE ${metas}
+            SET count = CASE id
+                ${sql.join(counts.map(({ metaId, total }) => sql`WHEN ${metaId} THEN ${Number(total)}`), sql` `)}
+                ELSE count END
+            WHERE id IN (${sql.join(metaIds, sql`, `)})
+        `);
     }
 }
 

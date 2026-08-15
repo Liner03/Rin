@@ -1,4 +1,4 @@
-import { and, asc, count, desc, eq, gt, like, lt, or, sql } from "drizzle-orm";
+import { and, asc, count, desc, eq, gt, like, lt, or, sql, type AnyColumn, type SQL } from "drizzle-orm";
 import { Hono } from "hono";
 import type { DB, Variables } from "../core/hono-types";
 import { profileAsync } from "../core/server-timing";
@@ -74,7 +74,12 @@ async function findPostByIdentifier(db: DB, idOrSlug: string) {
 // 列表缓存带时间戳，定时发布的文章在到期后最多滞后 LIST_CACHE_TTL 可见
 const LIST_CACHE_TTL = 5 * 60 * 1000;
 
-function contentToFeedList(feed: any) {
+type FeedListRow = typeof contents.$inferSelect & {
+    hashtags?: Array<{ id: number; name: string }>;
+    categories?: Array<{ id: number; name: string; slug: string | null }>;
+};
+
+function contentToFeedList(feed: FeedListRow) {
     const avatar = feed.cover || extractImageWithMetadata(feed.text);
     const plainText = stripMarkdown(feed.text);
     const { text, password, ...rest } = feed;
@@ -410,12 +415,12 @@ export function FeedService(): Hono<{
             return null;
         }
 
-        const baseWhere = (field: any, op: typeof lt) => and(eq(contents.type, CONTENT_TYPE.POST), publishedWhere(), op(field, created_at));
+        const baseWhere = (field: AnyColumn, op: typeof lt) => and(eq(contents.type, CONTENT_TYPE.POST), publishedWhere(), op(field, created_at));
 
         async function loadAdjacentFeed(
             direction: "previous_feed" | "next_feed",
             where: ReturnType<typeof baseWhere>,
-            order: any,
+            order: SQL,
         ) {
             const cached = await profileAsync(c, `feed_adjacent_${direction === "previous_feed" ? "prev" : "next"}_cache`, () => cache.getBySuffix(`${direction}_${id_num}`));
             if (cached && cached.length > 0) {
@@ -614,6 +619,7 @@ export function SearchService(): Hono<{
         }
 
         // 缓存按角色区分：admin 与非 admin 的查询条件不同（密码过滤/隐藏分类）
+        // 带时间戳 TTL：定时发布/新文章在到期后可见，避免永久缓存
         const cacheKey = `search_v2_${admin ? "admin_" : ""}${keyword}`;
         const searchKeyword = `%${keyword}%`;
         const whereClause = or(
@@ -627,26 +633,32 @@ export function SearchService(): Hono<{
             ? and(eq(contents.type, CONTENT_TYPE.POST), whereClause)
             : and(eq(contents.type, CONTENT_TYPE.POST), publishedWhere(), whereClause, sql`${contents.password} = ''`);
 
-        const feed_list = (await profileAsync(c, 'feed_search_cache_db', () => cache.getOrSet(cacheKey, async () => {
-            const rows = await db.query.contents.findMany({
+        const cached = await profileAsync(c, 'feed_search_cache_get', () => cache.get(cacheKey));
+        let feed_list: any[] = [];
+        if (cached && cached.t !== undefined && Date.now() - cached.t < LIST_CACHE_TTL) {
+            feed_list = cached.data;
+        } else {
+            const rows = await profileAsync(c, 'feed_search_db', () => db.query.contents.findMany({
                 where: searchWhere,
                 columns: admin ? undefined : { status: false, password: false, parent: false, template: false, order: false, type: false, allowComment: false, allowPing: false, allowFeed: false, uid: false },
                 with: {
                     user: { columns: { id: true, username: true, avatar: true } }
                 },
                 orderBy: [desc(contents.createdAt), desc(contents.updatedAt)],
-            });
+                limit: 200,
+            }));
             const rowIds = rows.map((feed: any) => feed.id);
             const [tagsMap, categoriesMap] = await Promise.all([
                 getTagsForContents(db, rowIds),
                 getCategoriesForContents(db, rowIds),
             ]);
-            return rows.map((feed: any) => contentToFeedList({
+            feed_list = rows.map((feed: any) => contentToFeedList({
                 ...feed,
                 hashtags: tagsMap.get(feed.id) || [],
                 categories: categoriesMap.get(feed.id) || [],
             }));
-        })));
+            await profileAsync(c, 'feed_search_cache_set', () => cache.set(cacheKey, { t: Date.now(), data: feed_list }));
+        }
 
         if (feed_list.length <= page_num * limit_num) {
             return c.json({ size: feed_list.length, data: [], hasNext: false });

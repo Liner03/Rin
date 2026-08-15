@@ -44,56 +44,70 @@ export function CategoryService(): Hono {
     // GET /category/:slug - 分类详情（含文章）
     app.get('/:slug', async (c: AppContext) => {
         const db = c.get('db');
+        const cache = c.get('cache');
         const admin = c.get('admin');
         const slugDecoded = decodeURI(c.req.param('slug'));
 
-        const category = await profileAsync(c, 'category_detail_db', () => db.query.metas.findFirst({
-            where: and(eq(metas.type, 'category'), eq(metas.slug, slugDecoded)),
-        }));
+        // 缓存按角色区分（admin 可见密码/隐藏分类文章），CRUD 时 deletePrefix('category_') 失效
+        const cacheKey = `category_detail_v2_${admin ? "admin_" : ""}${slugDecoded}`;
 
-        if (!category) {
+        const build = async () => {
+            const category = await profileAsync(c, 'category_detail_db', () => db.query.metas.findFirst({
+                where: and(eq(metas.type, 'category'), eq(metas.slug, slugDecoded)),
+            }));
+
+            if (!category) {
+                return null;
+            }
+
+            // 包含子分类
+            const childIds = await collectChildIds(db, category.id);
+            const ids = [category.id, ...childIds];
+
+            const rows = await profileAsync(c, 'category_detail_rels', () => db.query.relationships.findMany({
+                where: inArray(relationships.metaId, ids),
+                columns: {},
+                with: {
+                    content: {
+                        columns: {
+                            id: true, title: true, summary: true, slug: true, status: true, type: true,
+                            createdAt: true, updatedAt: true,
+                        },
+                        with: {
+                            user: { columns: { id: true, username: true, avatar: true } },
+                        },
+                    },
+                },
+            }));
+
+            const postRows = rows
+                .map((row) => row.content)
+                .filter((feed) => feed && feed.type === CONTENT_TYPE.POST && isPubliclyListed(feed, admin));
+
+            const postIds = postRows.map((feed) => feed.id);
+            const [tagsMap, categoriesMap] = await Promise.all([
+                getTagsForContents(db, postIds),
+                getCategoriesForContents(db, postIds),
+            ]);
+
+            const feeds = postRows
+                .map((feed: any) => ({
+                    ...feed,
+                    hashtags: tagsMap.get(feed.id) || [],
+                    categories: categoriesMap.get(feed.id) || [],
+                }))
+                .sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
+
+            return { ...category, feeds };
+        };
+
+        const result = await profileAsync(c, 'category_detail_cache', () => cache.getOrSet(cacheKey, build));
+
+        if (!result) {
             return c.text('Not found', 404);
         }
 
-        // 包含子分类
-        const childIds = await collectChildIds(db, category.id);
-        const ids = [category.id, ...childIds];
-
-        const rows = await profileAsync(c, 'category_detail_rels', () => db.query.relationships.findMany({
-            where: inArray(relationships.metaId, ids),
-            columns: {},
-            with: {
-                content: {
-                    columns: {
-                        id: true, title: true, summary: true, slug: true, status: true, type: true,
-                        createdAt: true, updatedAt: true,
-                    },
-                    with: {
-                        user: { columns: { id: true, username: true, avatar: true } },
-                    },
-                },
-            },
-        }));
-
-        const postRows = rows
-            .map((row) => row.content)
-            .filter((feed) => feed && feed.type === CONTENT_TYPE.POST && isPubliclyListed(feed, admin));
-
-        const postIds = postRows.map((feed) => feed.id);
-        const [tagsMap, categoriesMap] = await Promise.all([
-            getTagsForContents(db, postIds),
-            getCategoriesForContents(db, postIds),
-        ]);
-
-        const feeds = postRows
-            .map((feed: any) => ({
-                ...feed,
-                hashtags: tagsMap.get(feed.id) || [],
-                categories: categoriesMap.get(feed.id) || [],
-            }))
-            .sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
-
-        return c.json({ ...category, feeds });
+        return c.json(result);
     });
 
     // POST /category - 创建分类

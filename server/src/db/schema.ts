@@ -1,5 +1,5 @@
 import { relations, sql } from "drizzle-orm";
-import { integer, real, sqliteTable, text, unique } from "drizzle-orm/sqlite-core";
+import { index, integer, real, sqliteTable, text, unique } from "drizzle-orm/sqlite-core";
 
 const created_at = integer("created_at", { mode: 'timestamp' }).default(sql`(unixepoch())`).notNull();
 const updated_at = integer("updated_at", { mode: 'timestamp' }).default(sql`(unixepoch())`).notNull();
@@ -29,6 +29,7 @@ export const contents = sqliteTable("contents", {
     updatedAt: updated_at,
 }, (table) => ({
     slugUnique: unique().on(table.slug),
+    typeStatusCreatedIdx: index("idx_contents_type_status_created").on(table.type, table.status, table.createdAt),
 }));
 
 export const metas = sqliteTable("metas", {
@@ -45,6 +46,7 @@ export const metas = sqliteTable("metas", {
     updatedAt: updated_at,
 }, (table) => ({
     slugTypeUnique: unique().on(table.slug, table.type),
+    parentIdx: index("idx_metas_parent").on(table.parent),
 }));
 
 export const relationships = sqliteTable("relationships", {
@@ -54,6 +56,7 @@ export const relationships = sqliteTable("relationships", {
     updatedAt: updated_at,
 }, (table) => ({
     contentMetaUnique: unique().on(table.contentId, table.metaId),
+    metaIdIdx: index("idx_relationships_meta_id").on(table.metaId),
 }));
 
 export const fields = sqliteTable("fields", {
@@ -83,7 +86,9 @@ export const visits = sqliteTable("visits", {
     contentId: integer("content_id").references(() => contents.id, { onDelete: 'cascade' }).notNull(),
     ip: text("ip").notNull(),
     createdAt: created_at,
-});
+}, (table) => ({
+    contentIdIdx: index("idx_visits_content_id").on(table.contentId),
+}));
 
 export const visitStats = sqliteTable("visit_stats", {
     contentId: integer("content_id").references(() => contents.id, { onDelete: 'cascade' }).notNull().primaryKey(),
@@ -133,7 +138,9 @@ export const comments = sqliteTable("comments", {
     approved: integer("approved").default(1).notNull(),
     createdAt: created_at,
     updatedAt: updated_at,
-});
+}, (table) => ({
+    contentIdCreatedIdx: index("idx_comments_content_id_created").on(table.contentId, table.createdAt),
+}));
 
 export const cache = sqliteTable("cache", {
     id: integer("id").primaryKey(),

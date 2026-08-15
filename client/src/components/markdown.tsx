@@ -138,22 +138,6 @@ export function Markdown({ content }: { content: string }) {
             previousContent,
             offset
           );
-          const Image = ({
-            rounded,
-            scale,
-          }: {
-            rounded: boolean;
-            scale: string;
-          }) => (
-            <MarkdownImage
-              src={src}
-              alt={props.alt}
-              show={show}
-              rounded={rounded}
-              scale={scale}
-              className={props.className}
-            />
-          );
           if (
             newlinesBefore >= 1 ||
             previousContent.trim().length === 0 ||
@@ -161,13 +145,13 @@ export function Markdown({ content }: { content: string }) {
           ) {
             return (
               <span className="block w-full text-center my-4">
-                <Image scale="0.75" rounded={true} />
+                <MarkdownImage src={src} alt={props.alt} show={show} rounded={true} scale="0.75" className={props.className} />
               </span>
             );
           } else {
             return (
               <span className="inline-block align-middle mx-1 ">
-                <Image scale="0.5" rounded={false} />
+                <MarkdownImage src={src} alt={props.alt} show={show} rounded={false} scale="0.5" className={props.className} />
               </span>
             );
           }
