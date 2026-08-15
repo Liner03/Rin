@@ -1,4 +1,4 @@
-import { and, desc, eq, or } from "drizzle-orm";
+import { and, desc, eq, inArray, or } from "drizzle-orm";
 import { Hono } from "hono";
 import type { AppContext, DB } from "../core/hono-types";
 import { profileAsync } from "../core/server-timing";
@@ -48,8 +48,8 @@ export function TagService(): Hono {
             with: {
                 content: {
                     columns: {
-                        id: true, title: true, summary: true, content: true, slug: true,
-                        createdAt: true, updatedAt: true, status: true,
+                        id: true, title: true, summary: true, text: true, slug: true,
+                        createdAt: true, updatedAt: true, status: true, password: true,
                     },
                     with: {
                         user: { columns: { id: true, username: true, avatar: true } },
@@ -62,7 +62,9 @@ export function TagService(): Hono {
         for (const row of relationships_rows) {
             const feed = row.content;
             if (!feed || feed.status !== 'publish') continue;
-            if (!admin && feed.createdAt.getTime() > Date.now()) continue;
+            if (!admin) {
+                if (feed.password || feed.createdAt.getTime() > Date.now()) continue;
+            }
             const tags = await profileAsync(c, 'tag_detail_tags', () => getTagsForContentLike(db, feed.id));
             tagFeeds.push({ ...feed, hashtags: tags });
         }
@@ -80,23 +82,36 @@ async function getTagsForContentLike(db: DB, contentId: number) {
         with: {
             meta: {
                 columns: { id: true, name: true },
-                where: (meta: { type: any }) => eq(meta.type, "tag"),
             },
         },
     });
-    return rows.map(({ meta }) => meta);
+    return rows.map(({ meta }) => meta).filter((meta: any) => meta.type === "tag");
 }
 
 export async function bindTagsToContent(db: DB, contentId: number, tags: string[]) {
     const metaIds = new Set<number>();
 
-    await db.delete(relationships).where(eq(relationships.contentId, contentId));
+    // 只清空该内容的标签关系，保留分类关系
+    const existingTags = await db.select({ id: metas.id }).from(metas)
+        .innerJoin(relationships, eq(relationships.metaId, metas.id))
+        .where(and(eq(relationships.contentId, contentId), eq(metas.type, 'tag')));
+    for (const meta of existingTags) {
+        metaIds.add(meta.id);
+    }
+    if (existingTags.length > 0) {
+        await db.delete(relationships).where(
+            and(
+                eq(relationships.contentId, contentId),
+                inArray(relationships.metaId, existingTags.map((meta) => meta.id)),
+            ),
+        );
+    }
 
     for (const tag of tags) {
         const normalized = tag.trim();
         if (!normalized) continue;
 
-        let meta = await db.query.metas.findFirst({
+        let meta: { id: number } | undefined = await db.query.metas.findFirst({
             where: and(eq(metas.type, 'tag'), eq(metas.name, normalized)),
         });
 
@@ -106,7 +121,7 @@ export async function bindTagsToContent(db: DB, contentId: number, tags: string[
                 name: normalized,
                 slug: generateSlug(normalized),
             }).returning({ insertedId: metas.id });
-            meta = { id: result[0].insertedId } as any;
+            meta = { id: result[0].insertedId };
         }
 
         metaIds.add(meta.id);

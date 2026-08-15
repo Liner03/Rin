@@ -97,11 +97,10 @@ export async function getTagsForContent(db: DB, contentId: number) {
         with: {
             meta: {
                 columns: { id: true, name: true },
-                where: (meta: { type: any }) => eq(meta.type, "tag"),
             },
         },
     });
-    return rows.map(({ meta }) => meta);
+    return rows.map(({ meta }) => meta).filter((meta: any) => meta.type === "tag");
 }
 
 export async function getCategoriesForContent(db: DB, contentId: number) {
@@ -111,11 +110,10 @@ export async function getCategoriesForContent(db: DB, contentId: number) {
         with: {
             meta: {
                 columns: { id: true, name: true, slug: true },
-                where: (meta: { type: any }) => eq(meta.type, "category"),
             },
         },
     });
-    return rows.map(({ meta }) => meta);
+    return rows.map(({ meta }) => meta).filter((meta: any) => meta.type === "category");
 }
 
 export async function refreshMetaCounts(db: DB, metaIds: number[]) {

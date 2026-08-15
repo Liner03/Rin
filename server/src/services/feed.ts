@@ -66,12 +66,27 @@ async function findPostByIdentifier(db: any, idOrSlug: string) {
 function contentToFeedList(feed: any) {
     const avatar = extractImageWithMetadata(feed.text);
     const plainText = stripMarkdown(feed.text);
+    const { text, password, ...rest } = feed;
     return {
-        ...feed,
+        ...rest,
         summary: feed.summary.length > 0 ? feed.summary : plainText.length > 100 ? plainText.slice(0, 100) : plainText,
         hashtags: feed.hashtags || [],
         categories: feed.categories || [],
         avatar,
+    };
+}
+
+// 详情序列化：text -> content，password 不下发，附加兼容字段
+function serializeFeedDetail(feed: any, extra: Record<string, unknown> = {}) {
+    const { text, password, ...rest } = feed;
+    return {
+        ...rest,
+        content: text,
+        slug: feed.slug,
+        draft: feed.status === CONTENT_STATUS.DRAFT ? 1 : 0,
+        listed: feed.status === CONTENT_STATUS.HIDDEN ? 0 : 1,
+        locked: false,
+        ...extra,
     };
 }
 
@@ -186,7 +201,7 @@ export function FeedService(): Hono<{
         }
 
         const exist = await profileAsync(c, 'feed_create_existing', () => db.query.contents.findFirst({
-            where: and(eq(contents.type, 'post'), or(eq(contents.title, title), eq(contents.content, content)))
+            where: and(eq(contents.type, 'post'), or(eq(contents.title, title), eq(contents.text, content)))
         }));
 
         if (exist) {
@@ -277,7 +292,7 @@ export function FeedService(): Hono<{
         const unlocked = isContentUnlocked(feed, cookies);
         if (feed.password && !unlocked) {
             if (admin) {
-                return c.json({ ...feed, pv: 0, uv: 0, locked: false });
+                return c.json(serializeFeedDetail(feed, { pv: 0, uv: 0 }));
             }
             return c.json({
                 id: feed.id,
@@ -331,7 +346,7 @@ export function FeedService(): Hono<{
             await profileAsync(c, 'feed_detail_visit_insert', () => db.insert(visits).values({ contentId: feed.id, ip: ip }));
         }
 
-        return c.json({ ...feed, pv, uv });
+        return c.json(serializeFeedDetail(feed, { pv, uv }));
     });
 
     // POST /feed/:id/unlock - 密码解锁
@@ -739,6 +754,7 @@ export function WordPressService(): Hono<{
                 continue;
             }
 
+            const finalSlug = await getUniqueSlug(db, generateSlug(item.title));
             const result = await profileAsync(c, 'wp_import_insert', () => db.insert(contents).values({
                 type: 'post',
                 title: item.title,
@@ -746,7 +762,7 @@ export function WordPressService(): Hono<{
                 summary: item.summary,
                 uid: 1,
                 status: item.draft ? CONTENT_STATUS.DRAFT : CONTENT_STATUS.PUBLISH,
-                slug: await getUniqueSlug(db, generateSlug(item.title)),
+                slug: finalSlug,
                 createdAt: item.createdAt,
                 updatedAt: item.updatedAt
             }).returning({ insertedId: contents.id }));

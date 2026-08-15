@@ -27,32 +27,32 @@ async function migrate() {
         // Get all visits grouped by feed_id
         console.log('Fetching visits data...');
         const allVisits = await db.select({
-            feedId: visits.feedId,
+            contentId: visits.contentId,
             ip: visits.ip
         }).from(visits);
         
         // Group by feed_id
         const groupedVisits = new Map<number, string[]>();
         for (const visit of allVisits) {
-            if (!groupedVisits.has(visit.feedId)) {
-                groupedVisits.set(visit.feedId, []);
+            if (!groupedVisits.has(visit.contentId)) {
+                groupedVisits.set(visit.contentId, []);
             }
-            groupedVisits.get(visit.feedId)!.push(visit.ip);
+            groupedVisits.get(visit.contentId)!.push(visit.ip);
         }
         
         console.log(`Found ${allVisits.length} visits across ${groupedVisits.size} feeds`);
         
         // Process each feed
         let processed = 0;
-        for (const [feedId, ips] of groupedVisits) {
+        for (const [contentId, ips] of groupedVisits) {
             // Check if stats already exist
             const existing = await db.query.visitStats.findFirst({
-                where: eq(visitStats.feedId, feedId)
+                where: eq(visitStats.contentId, contentId)
             });
             
             if (existing && existing.hllData) {
                 // Already migrated, skip
-                console.log(`  Feed ${feedId}: already migrated (skipping)`);
+                console.log(`  Feed ${contentId}: already migrated (skipping)`);
                 continue;
             }
             
@@ -74,18 +74,18 @@ async function migrate() {
                         hllData,
                         updatedAt: new Date()
                     })
-                    .where(eq(visitStats.feedId, feedId));
+                    .where(eq(visitStats.contentId, contentId));
             } else {
                 // Insert new record
                 await db.insert(visitStats).values({
-                    feedId,
+                    contentId,
                     pv,
                     hllData
                 });
             }
             
             processed++;
-            console.log(`  Feed ${feedId}: pv=${pv}, uv=${uv} (estimated)`);
+            console.log(`  Feed ${contentId}: pv=${pv}, uv=${uv} (estimated)`);
             
             // Progress every 100 feeds
             if (processed % 100 === 0) {

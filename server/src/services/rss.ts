@@ -1,8 +1,8 @@
-import { and, desc, eq } from "drizzle-orm";
+import { and, desc, eq, lte } from "drizzle-orm";
 import { Hono } from "hono";
 import type { AppContext } from "../core/hono-types";
 import { profileAsync } from "../core/server-timing";
-import { feeds, users } from "../db/schema";
+import { contents, users } from "../db/schema";
 import { extractImage } from "../utils/image";
 import { path_join } from "../utils/path";
 import { getStorageObject, getStoragePublicUrl, headStorageObject, putStorageObjectAtKey } from "../utils/storage";
@@ -195,19 +195,25 @@ async function generateFeed(env: Env, db: DB, frontendUrl: string, c?: AppContex
 
     const feed = new Feed(feedConfig);
 
-    // Get published feeds
+    // Get published feeds (排除密码保护与定时发布)
+    const feedWhere = and(
+        eq(contents.type, 'post'),
+        eq(contents.status, 'publish'),
+        eq(contents.password, ''),
+        lte(contents.createdAt, new Date()),
+    );
     const feed_list = c
-        ? await profileAsync(c, 'rss_feed_list', () => db.query.feeds.findMany({
-            where: and(eq(feeds.draft, 0), eq(feeds.listed, 1)),
-            orderBy: [desc(feeds.createdAt), desc(feeds.updatedAt)],
+        ? await profileAsync(c, 'rss_feed_list', () => db.query.contents.findMany({
+            where: feedWhere,
+            orderBy: [desc(contents.createdAt), desc(contents.updatedAt)],
             limit: 20,
             with: {
                 user: { columns: { id: true, username: true, avatar: true } },
             },
         }))
-        : await db.query.feeds.findMany({
-        where: and(eq(feeds.draft, 0), eq(feeds.listed, 1)),
-        orderBy: [desc(feeds.createdAt), desc(feeds.updatedAt)],
+        : await db.query.contents.findMany({
+        where: feedWhere,
+        orderBy: [desc(contents.createdAt), desc(contents.updatedAt)],
         limit: 20,
         with: {
             user: { columns: { id: true, username: true, avatar: true } },
@@ -215,7 +221,8 @@ async function generateFeed(env: Env, db: DB, frontendUrl: string, c?: AppContex
     });
 
     for (const f of feed_list) {
-        const { summary, content, user, ...other } = f;
+        const { summary, text, user, ...other } = f;
+        const content = text;
         
         // Convert markdown to HTML
         let contentHtml = '';
