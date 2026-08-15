@@ -3,8 +3,15 @@ import { Hono } from "hono";
 import type { AppContext, DB } from "../core/hono-types";
 import { profileAsync } from "../core/server-timing";
 import { contents, metas, relationships } from "../db/schema";
-import { generateSlug, getUniqueSlug, publishedWhere, refreshMetaCounts } from "./content-helpers";
-import { getTagsForContent, getCategoriesForContent } from "./content-helpers";
+import {
+    CONTENT_TYPE,
+    generateSlug,
+    getCategoriesForContents,
+    getTagsForContents,
+    getUniqueSlug,
+    isPubliclyListed,
+    refreshMetaCounts,
+} from "./content-helpers";
 
 export function CategoryService(): Hono {
     const app = new Hono();
@@ -57,7 +64,7 @@ export function CategoryService(): Hono {
             with: {
                 content: {
                     columns: {
-                        id: true, title: true, summary: true, text: true, slug: true, status: true, password: true, type: true,
+                        id: true, title: true, summary: true, slug: true, status: true, type: true,
                         createdAt: true, updatedAt: true,
                     },
                     with: {
@@ -67,20 +74,23 @@ export function CategoryService(): Hono {
             },
         }));
 
-        const feeds = [];
-        for (const row of rows) {
-            const feed = row.content;
-            if (!feed || feed.type !== 'post') continue;
-            if (!admin) {
-                if (feed.status !== 'publish' || feed.password) continue;
-                if (feed.createdAt.getTime() > Date.now()) continue;
-            }
-            const hashtags = await getTagsForContent(db, feed.id);
-            const categories = await getCategoriesForContent(db, feed.id);
-            feeds.push({ ...feed, hashtags, categories });
-        }
+        const postRows = rows
+            .map((row) => row.content)
+            .filter((feed) => feed && feed.type === CONTENT_TYPE.POST && isPubliclyListed(feed, admin));
 
-        feeds.sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
+        const postIds = postRows.map((feed) => feed.id);
+        const [tagsMap, categoriesMap] = await Promise.all([
+            getTagsForContents(db, postIds),
+            getCategoriesForContents(db, postIds),
+        ]);
+
+        const feeds = postRows
+            .map((feed: any) => ({
+                ...feed,
+                hashtags: tagsMap.get(feed.id) || [],
+                categories: categoriesMap.get(feed.id) || [],
+            }))
+            .sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
 
         return c.json({ ...category, feeds });
     });

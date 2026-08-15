@@ -1,16 +1,19 @@
-import { and, asc, desc, eq } from "drizzle-orm";
+import { and, asc, eq, lte } from "drizzle-orm";
 import { Hono } from "hono";
 import type { AppContext } from "../core/hono-types";
 import { profileAsync } from "../core/server-timing";
 import { contents } from "../db/schema";
 import {
     CONTENT_STATUS,
-    PASSWORD_COOKIE_PREFIX,
+    CONTENT_TYPE,
     canViewContent,
+    createContentUnlockHandler,
     generateSlug,
     getUniqueSlug,
     hashContentPassword,
     isContentUnlocked,
+    parseCookies,
+    serializeContentDetail,
 } from "./content-helpers";
 
 export function PageService(): Hono {
@@ -22,8 +25,13 @@ export function PageService(): Hono {
         const admin = c.get('admin');
 
         const where = admin
-            ? and(eq(contents.type, 'page'))
-            : and(eq(contents.type, 'page'), eq(contents.status, CONTENT_STATUS.PUBLISH), eq(contents.password, ""));
+            ? eq(contents.type, CONTENT_TYPE.PAGE)
+            : and(
+                eq(contents.type, CONTENT_TYPE.PAGE),
+                eq(contents.status, CONTENT_STATUS.PUBLISH),
+                lte(contents.createdAt, new Date()),
+                eq(contents.password, ""),
+            );
 
         const page_list = await profileAsync(c, 'page_list_db', () => db.query.contents.findMany({
             where,
@@ -34,7 +42,7 @@ export function PageService(): Hono {
             orderBy: [asc(contents.order), asc(contents.id)],
         }));
 
-        return c.json(page_list);
+        return c.json(page_list.map((page) => serializeContentDetail(page)));
     });
 
     // GET /page/:slug - 页面详情
@@ -45,7 +53,7 @@ export function PageService(): Hono {
         const slugDecoded = decodeURI(c.req.param('slug'));
 
         const page = await profileAsync(c, 'page_detail_db', () => db.query.contents.findFirst({
-            where: and(eq(contents.type, 'page'), eq(contents.slug, slugDecoded)),
+            where: and(eq(contents.type, CONTENT_TYPE.PAGE), eq(contents.slug, slugDecoded)),
             with: {
                 user: { columns: { id: true, username: true, avatar: true } },
             },
@@ -63,16 +71,12 @@ export function PageService(): Hono {
         const unlocked = isContentUnlocked(page, cookies);
         if (page.password && !unlocked) {
             if (admin) {
-                return c.json(serializePageDetail(page));
+                return c.json(serializeContentDetail(page));
             }
-            return c.json({
-                ...serializePageDetail(page),
-                content: "",
-                locked: true,
-            });
+            return c.json(serializeContentDetail(page, { content: "", locked: true }));
         }
 
-        return c.json(serializePageDetail(page));
+        return c.json(serializeContentDetail(page));
     });
 
     // POST /page - 创建页面
@@ -101,7 +105,7 @@ export function PageService(): Hono {
         const passwordHash = password ? await hashContentPassword(password) : "";
 
         const result = await profileAsync(c, 'page_create_db', () => db.insert(contents).values({
-            type: 'page',
+            type: CONTENT_TYPE.PAGE,
             title,
             text: content,
             uid,
@@ -132,7 +136,7 @@ export function PageService(): Hono {
         const { title, content, slug, status, password, parent, order, template } = body;
 
         const page = await profileAsync(c, 'page_update_lookup', () => db.query.contents.findFirst({
-            where: and(eq(contents.id, id_num), eq(contents.type, 'page')),
+            where: and(eq(contents.id, id_num), eq(contents.type, CONTENT_TYPE.PAGE)),
         }));
 
         if (!page) {
@@ -164,35 +168,17 @@ export function PageService(): Hono {
     });
 
     // POST /page/:id/unlock - 页面密码解锁
-    app.post('/:id/unlock', async (c: AppContext) => {
-        const db = c.get('db');
-        const admin = c.get('admin');
-        const id_num = parseInt(c.req.param('id'));
-        const body = await profileAsync(c, 'page_unlock_parse', () => c.req.json());
-        const { password } = body;
-
-        const page = await profileAsync(c, 'page_unlock_lookup', () => db.query.contents.findFirst({
-            where: and(eq(contents.id, id_num), eq(contents.type, 'page')),
-        }));
-        if (!page) {
-            return c.text('Not found', 404);
+    app.post('/:id/unlock', createContentUnlockHandler(async (db, identifier) => {
+        const id_num = parseInt(identifier);
+        if (!Number.isInteger(id_num)) {
+            return null;
         }
-        if (admin) {
-            return c.text('OK');
-        }
-
-        if (!password || !page.password) {
-            return c.text('Password is required', 400);
-        }
-
-        const passwordHash = await hashContentPassword(password);
-        if (passwordHash !== page.password) {
-            return c.text('Incorrect password', 403);
-        }
-
-        c.header('Set-Cookie', `${PASSWORD_COOKIE_PREFIX}${page.id}=${page.password}; Path=/; Max-Age=2592000; HttpOnly; SameSite=Lax`);
-        return c.text('OK');
-    });
+        const page = await db.query.contents.findFirst({
+            where: and(eq(contents.id, id_num), eq(contents.type, CONTENT_TYPE.PAGE)),
+            columns: { id: true, password: true },
+        });
+        return page ?? null;
+    }));
 
     // DELETE /page/:id
     app.delete('/:id', async (c: AppContext) => {
@@ -203,7 +189,7 @@ export function PageService(): Hono {
         const id_num = parseInt(c.req.param('id'));
 
         const page = await profileAsync(c, 'page_delete_lookup', () => db.query.contents.findFirst({
-            where: and(eq(contents.id, id_num), eq(contents.type, 'page')),
+            where: and(eq(contents.id, id_num), eq(contents.type, CONTENT_TYPE.PAGE)),
         }));
 
         if (!page) {
@@ -220,24 +206,4 @@ export function PageService(): Hono {
     });
 
     return app;
-}
-
-function parseCookies(header: string | null | undefined): Record<string, string> {
-    const cookies: Record<string, string> = {};
-    if (!header) return cookies;
-    for (const part of header.split(';')) {
-        const [key, ...rest] = part.trim().split('=');
-        if (key) cookies[key] = rest.join('=');
-    }
-    return cookies;
-}
-
-// 详情序列化：text -> content，password 不下发
-function serializePageDetail(page: any) {
-    const { text, password, ...rest } = page;
-    return {
-        ...rest,
-        content: text,
-        locked: false,
-    };
 }

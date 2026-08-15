@@ -1,7 +1,8 @@
 import { and, eq, inArray, lte } from "drizzle-orm";
 import { sql } from "drizzle-orm";
-import type { DB } from "../core/hono-types";
+import type { AppContext, DB } from "../core/hono-types";
 import { contents, metas, relationships } from "../db/schema";
+import { profileAsync } from "../core/server-timing";
 
 export const CONTENT_TYPE = {
     POST: "post",
@@ -62,6 +63,42 @@ export function isContentUnlocked(
     return cookies[`${PASSWORD_COOKIE_PREFIX}${content.id}`] === content.password;
 }
 
+export function parseCookies(header: string | null | undefined): Record<string, string> {
+    const cookies: Record<string, string> = {};
+    if (!header) return cookies;
+    for (const part of header.split(';')) {
+        const [key, ...rest] = part.trim().split('=');
+        if (key) cookies[key] = rest.join('=');
+    }
+    return cookies;
+}
+
+// 列表行可见性过滤：公开列表项（密码保护文章在列表可见，Typecho 语义）
+export function isPubliclyListed(content: { status: string; createdAt: Date | string }, admin: boolean): boolean {
+    if (content.status !== CONTENT_STATUS.PUBLISH) {
+        return false;
+    }
+    if (!admin && isScheduled(content)) {
+        return false;
+    }
+    return true;
+}
+
+// 详情序列化：text -> content，password 不下发，附加兼容字段
+export function serializeContentDetail(content: any, extra: Record<string, unknown> = {}) {
+    const { text, password, ...rest } = content;
+    return {
+        ...rest,
+        content: text,
+        slug: content.slug,
+        draft: content.status === CONTENT_STATUS.DRAFT ? 1 : 0,
+        listed: content.status === CONTENT_STATUS.HIDDEN ? 0 : 1,
+        hasPassword: Boolean(password),
+        locked: false,
+        ...extra,
+    };
+}
+
 export function generateSlug(title: string): string {
     const base = title
         .toLowerCase()
@@ -97,35 +134,64 @@ export function publishedWhere(now = new Date()) {
 }
 
 export async function getTagsForContent(db: DB, contentId: number) {
-    const rows = await db.query.relationships.findMany({
-        where: eq(relationships.contentId, contentId),
-        columns: {},
-        with: {
-            meta: {
-                columns: { id: true, name: true, type: true },
-            },
-        },
-    });
-    return rows
-        .map(({ meta }) => meta)
-        .filter((meta) => meta.type === "tag")
-        .map((meta) => ({ id: meta.id, name: meta.name }));
+    const map = await getTagsForContents(db, [contentId]);
+    return map.get(contentId) || [];
 }
 
 export async function getCategoriesForContent(db: DB, contentId: number) {
+    const map = await getCategoriesForContents(db, [contentId]);
+    return map.get(contentId) || [];
+}
+
+export async function getTagsForContents(db: DB, contentIds: number[]) {
+    const rows = await getMetasForContents(db, contentIds);
+    const map = new Map<number, Array<{ id: number; name: string }>>();
+    for (const [contentId, metaList] of rows) {
+        const tags = metaList
+            .filter((meta) => meta.type === "tag")
+            .map((meta) => ({ id: meta.id, name: meta.name }));
+        if (tags.length > 0) {
+            map.set(contentId, tags);
+        }
+    }
+    return map;
+}
+
+export async function getCategoriesForContents(db: DB, contentIds: number[]) {
+    const rows = await getMetasForContents(db, contentIds);
+    const map = new Map<number, Array<{ id: number; name: string; slug: string | null }>>();
+    for (const [contentId, metaList] of rows) {
+        const categories = metaList
+            .filter((meta) => meta.type === "category")
+            .map((meta) => ({ id: meta.id, name: meta.name, slug: meta.slug }));
+        if (categories.length > 0) {
+            map.set(contentId, categories);
+        }
+    }
+    return map;
+}
+
+async function getMetasForContents(db: DB, contentIds: number[]) {
+    const map = new Map<number, Array<{ id: number; name: string; slug: string | null; type: string }>>();
+    if (contentIds.length === 0) {
+        return map;
+    }
     const rows = await db.query.relationships.findMany({
-        where: eq(relationships.contentId, contentId),
-        columns: {},
+        where: inArray(relationships.contentId, contentIds),
+        columns: { contentId: true },
         with: {
             meta: {
                 columns: { id: true, name: true, slug: true, type: true },
             },
         },
     });
-    return rows
-        .map(({ meta }) => meta)
-        .filter((meta) => meta.type === "category")
-        .map((meta) => ({ id: meta.id, name: meta.name, slug: meta.slug }));
+    for (const row of rows) {
+        if (!map.has(row.contentId)) {
+            map.set(row.contentId, []);
+        }
+        map.get(row.contentId)!.push(row.meta);
+    }
+    return map;
 }
 
 export async function refreshMetaCounts(db: DB, metaIds: number[]) {
@@ -148,4 +214,37 @@ export async function refreshMetaCounts(db: DB, metaIds: number[]) {
     for (const { metaId, total } of counts) {
         await db.update(metas).set({ count: Number(total) }).where(eq(metas.id, metaId));
     }
+}
+
+// 密码解锁处理器工厂：feed（按 id/slug）与 page（按 id）共用
+export function createContentUnlockHandler(
+    loader: (db: DB, identifier: string) => Promise<{ id: number; password: string | null } | null>,
+) {
+    return async (c: AppContext) => {
+        const db = c.get('db');
+        const admin = c.get('admin');
+        const identifier = c.req.param('id');
+        const body = await profileAsync(c, 'content_unlock_parse', () => c.req.json());
+        const { password } = body;
+
+        const content = await profileAsync(c, 'content_unlock_lookup', () => loader(db, identifier));
+        if (!content) {
+            return c.text('Not found', 404);
+        }
+        if (admin) {
+            return c.text('OK');
+        }
+
+        if (!password || !content.password) {
+            return c.text('Password is required', 400);
+        }
+
+        const passwordHash = await hashContentPassword(password);
+        if (passwordHash !== content.password) {
+            return c.text('Incorrect password', 403);
+        }
+
+        c.header('Set-Cookie', `${PASSWORD_COOKIE_PREFIX}${content.id}=${content.password}; Path=/; Max-Age=2592000; HttpOnly; SameSite=Lax`);
+        return c.text('OK');
+    };
 }

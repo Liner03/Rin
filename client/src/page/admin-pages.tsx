@@ -2,10 +2,10 @@ import { useCallback, useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Link } from "wouter";
 import { FlatPanel, Input } from "@rin/ui";
+import type { Page } from "@rin/api";
 import { client } from "../app/runtime";
 import { useAlert } from "../components/dialog";
 import { MarkdownEditor } from "../components/markdown_editor";
-import type { Page } from "@rin/api";
 
 export function AdminPagesPage() {
   const { t } = useTranslation();

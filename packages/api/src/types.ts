@@ -35,6 +35,8 @@ export interface Feed {
   listed: number;
   /** 密码保护中（未解锁） */
   locked?: boolean;
+  /** 是否设置了密码（编辑页用于清除密码） */
+  hasPassword?: boolean;
   uid: number;
   createdAt: string;
   updatedAt: string;
@@ -147,6 +149,8 @@ export interface Page {
   status: ContentStatus;
   /** 密码保护中（未解锁） */
   locked?: boolean;
+  /** 是否设置了密码（编辑页用于清除密码） */
+  hasPassword?: boolean;
   parent: number;
   order: number;
   template: string;

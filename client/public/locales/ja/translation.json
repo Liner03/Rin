@@ -775,5 +775,6 @@
     "description": "説明",
     "posts": "記事数",
     "empty": "カテゴリーがありません"
-  }
+  },
+  "password_remove": "パスワードを削除"
 }

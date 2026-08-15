@@ -784,5 +784,6 @@
     "description": "描述",
     "posts": "文章數",
     "empty": "還沒有分類"
-  }
+  },
+  "password_remove": "移除密碼"
 }

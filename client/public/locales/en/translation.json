@@ -784,5 +784,6 @@
     "description": "Description",
     "posts": "Posts",
     "empty": "No categories yet"
-  }
+  },
+  "password_remove": "Remove password"
 }

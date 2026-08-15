@@ -1,15 +1,15 @@
 import { useEffect, useState } from "react"
 import { Helmet } from 'react-helmet'
 import { useTranslation } from "react-i18next"
+import type { Page } from "@rin/api";
 import { client } from "../app/runtime"
+import { Input } from "../components/input"
 import { Markdown } from "../components/markdown"
 import { Waiting } from "../components/loading"
-import { Input } from "../components/input"
-import type { Page } from "@rin/api";
 import { useSiteConfig } from "../hooks/useSiteConfig";
 import { siteName } from "../utils/constants";
 
-export function PagePage({ slug }: { slug: string }) {
+export function PageDetail({ slug }: { slug: string }) {
     const { t } = useTranslation()
     const siteConfig = useSiteConfig();
     const [status, setStatus] = useState<'loading' | 'idle'>('idle')

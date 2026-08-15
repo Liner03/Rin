@@ -2,7 +2,7 @@ import { and, asc, count, desc, eq, gt, like, lt, or, sql } from "drizzle-orm";
 import { Hono } from "hono";
 import type { Variables } from "../core/hono-types";
 import { profileAsync } from "../core/server-timing";
-import { contents, relationships, visits, visitStats } from "../db/schema";
+import { contents, visits, visitStats } from "../db/schema";
 import { HyperLogLog } from "../utils/hyperloglog";
 import { extractImageWithMetadata } from "../utils/image";
 import { stripMarkdown } from "../utils/markdown";
@@ -11,16 +11,19 @@ import { bindTagsToContent } from "./tag";
 import { clearFeedCache } from "./clear-feed-cache";
 import {
     CONTENT_STATUS,
-    PASSWORD_COOKIE_PREFIX,
+    CONTENT_TYPE,
     canViewContent,
+    createContentUnlockHandler,
     generateSlug,
-    getCategoriesForContent,
-    getTagsForContent,
+    getCategoriesForContents,
+    getTagsForContents,
     getUniqueSlug,
     hashContentPassword,
     isContentUnlocked,
     isScheduled,
+    parseCookies,
     publishedWhere,
+    serializeContentDetail,
 } from "./content-helpers";
 import { bindCategoriesToContent } from "./category";
 export { clearFeedCache } from "./clear-feed-cache";
@@ -55,13 +58,16 @@ async function findPostByIdentifier(db: any, idOrSlug: string) {
     const id_num = parseFeedId(idOrSlug);
     if (id_num !== null) {
         return db.query.contents.findFirst({
-            where: and(eq(contents.id, id_num), eq(contents.type, 'post')),
+            where: and(eq(contents.id, id_num), eq(contents.type, CONTENT_TYPE.POST)),
         });
     }
     return db.query.contents.findFirst({
-        where: and(eq(contents.slug, idOrSlug), eq(contents.type, 'post')),
+        where: and(eq(contents.slug, idOrSlug), eq(contents.type, CONTENT_TYPE.POST)),
     });
 }
+
+// 列表缓存带时间戳，定时发布的文章在到期后最多滞后 LIST_CACHE_TTL 可见
+const LIST_CACHE_TTL = 5 * 60 * 1000;
 
 function contentToFeedList(feed: any) {
     const avatar = extractImageWithMetadata(feed.text);
@@ -73,20 +79,6 @@ function contentToFeedList(feed: any) {
         hashtags: feed.hashtags || [],
         categories: feed.categories || [],
         avatar,
-    };
-}
-
-// 详情序列化：text -> content，password 不下发，附加兼容字段
-function serializeFeedDetail(feed: any, extra: Record<string, unknown> = {}) {
-    const { text, password, ...rest } = feed;
-    return {
-        ...rest,
-        content: text,
-        slug: feed.slug,
-        draft: feed.status === CONTENT_STATUS.DRAFT ? 1 : 0,
-        listed: feed.status === CONTENT_STATUS.HIDDEN ? 0 : 1,
-        locked: false,
-        ...extra,
     };
 }
 
@@ -117,8 +109,8 @@ export function FeedService(): Hono<{
         const cacheKey = `feeds_${type}_${page_num}_${limit_num}`;
         const cached = await profileAsync(c, 'feed_list_cache_get', () => cache.get(cacheKey));
 
-        if (cached) {
-            return c.json(cached);
+        if (cached && (cached.t === undefined || Date.now() - cached.t < LIST_CACHE_TTL)) {
+            return c.json(cached.data);
         }
 
         const typeWhere = type === 'draft'
@@ -126,7 +118,7 @@ export function FeedService(): Hono<{
             : type === 'unlisted'
                 ? eq(contents.status, CONTENT_STATUS.HIDDEN)
                 : publishedWhere();
-        const where = and(eq(contents.type, 'post'), typeWhere);
+        const where = and(eq(contents.type, CONTENT_TYPE.POST), typeWhere);
 
         const size = await profileAsync(c, 'feed_list_count', () => db.select({ count: count() }).from(contents).where(where));
 
@@ -134,7 +126,7 @@ export function FeedService(): Hono<{
             return c.json({ size: 0, data: [], hasNext: false });
         }
 
-        const feed_list = (await profileAsync(c, 'feed_list_db', () => db.query.contents.findMany({
+        const rows = await profileAsync(c, 'feed_list_db', () => db.query.contents.findMany({
             where: where,
             columns: admin ? undefined : { status: false, password: false, parent: false, template: false, order: false, type: false, allowComment: false, allowPing: false, allowFeed: false, uid: false },
             with: {
@@ -143,24 +135,30 @@ export function FeedService(): Hono<{
             orderBy: [desc(contents.top), desc(contents.createdAt), desc(contents.updatedAt)],
             offset: page_num * limit_num,
             limit: limit_num + 1,
-        }))).map(async (feed: any) => {
-            const hashtags = await getTagsForContent(db, feed.id);
-            const categories = await getCategoriesForContent(db, feed.id);
-            return contentToFeedList({ ...feed, hashtags, categories });
-        });
+        }));
 
-        const resolved = await Promise.all(feed_list);
+        const rowIds = rows.map((feed: any) => feed.id);
+        const [tagsMap, categoriesMap] = await Promise.all([
+            getTagsForContents(db, rowIds),
+            getCategoriesForContents(db, rowIds),
+        ]);
+
+        const feed_list = rows.map((feed: any) => contentToFeedList({
+            ...feed,
+            hashtags: tagsMap.get(feed.id) || [],
+            categories: categoriesMap.get(feed.id) || [],
+        }));
 
         let hasNext = false;
-        if (resolved.length === limit_num + 1) {
-            resolved.pop();
+        if (feed_list.length === limit_num + 1) {
+            feed_list.pop();
             hasNext = true;
         }
 
-        const data = { size: size[0].count, data: resolved, hasNext };
+        const data = { size: size[0].count, data: feed_list, hasNext };
 
         if (type === undefined || type === 'normal' || type === '') {
-            await profileAsync(c, 'feed_list_cache_set', () => cache.set(cacheKey, data));
+            await profileAsync(c, 'feed_list_cache_set', () => cache.set(cacheKey, { t: Date.now(), data }));
         }
 
         return c.json(data);
@@ -169,7 +167,7 @@ export function FeedService(): Hono<{
     // GET /feed/timeline
     app.get('/timeline', async (c) => {
         const db = c.get('db');
-        const where = and(eq(contents.type, 'post'), publishedWhere());
+        const where = and(eq(contents.type, CONTENT_TYPE.POST), publishedWhere());
 
         return c.json(await profileAsync(c, 'feed_timeline_db', () => db.query.contents.findMany({
             where: where,
@@ -201,7 +199,7 @@ export function FeedService(): Hono<{
         }
 
         const exist = await profileAsync(c, 'feed_create_existing', () => db.query.contents.findFirst({
-            where: and(eq(contents.type, 'post'), or(eq(contents.title, title), eq(contents.text, content)))
+            where: and(eq(contents.type, CONTENT_TYPE.POST), or(eq(contents.title, title), eq(contents.text, content)))
         }));
 
         if (exist) {
@@ -219,7 +217,7 @@ export function FeedService(): Hono<{
         const passwordHash = password ? await hashContentPassword(password) : "";
 
         const result = await profileAsync(c, 'feed_create_insert', () => db.insert(contents).values({
-            type: 'post',
+            type: CONTENT_TYPE.POST,
             title,
             text: content,
             summary,
@@ -261,21 +259,19 @@ export function FeedService(): Hono<{
         const id = c.req.param('id');
         const id_num = parseFeedId(id);
         const cacheKey = id_num === null ? `feed_alias_${id}` : `feed_id_${id_num}`;
-        const where = id_num === null
-            ? and(eq(contents.slug, id), eq(contents.type, 'post'))
-            : and(eq(contents.id, id_num), eq(contents.type, 'post'));
 
         const feed = await profileAsync(c, 'feed_detail_cache_db', () => cache.getOrSet(cacheKey, async () => {
-            const row = await db.query.contents.findFirst({
-                where,
-                with: {
-                    user: { columns: { id: true, username: true, avatar: true } }
-                }
-            });
+            const row = await findPostByIdentifier(db, id);
             if (!row) return null;
-            const hashtags = await getTagsForContent(db, row.id);
-            const categories = await getCategoriesForContent(db, row.id);
-            return { ...row, hashtags, categories };
+            const [hashtags, categories] = await Promise.all([
+                getTagsForContents(db, [row.id]),
+                getCategoriesForContents(db, [row.id]),
+            ]);
+            return {
+                ...row,
+                hashtags: hashtags.get(row.id) || [],
+                categories: categories.get(row.id) || [],
+            };
         }));
 
         if (!feed) {
@@ -292,15 +288,16 @@ export function FeedService(): Hono<{
         const unlocked = isContentUnlocked(feed, cookies);
         if (feed.password && !unlocked) {
             if (admin) {
-                return c.json(serializeFeedDetail(feed, { pv: 0, uv: 0 }));
+                return c.json(serializeContentDetail(feed, { pv: 0, uv: 0 }));
             }
-            return c.json({
-                ...serializeFeedDetail(feed, { pv: 0, uv: 0 }),
+            return c.json(serializeContentDetail(feed, {
+                pv: 0,
+                uv: 0,
                 content: "",
                 hashtags: [],
                 categories: [],
                 locked: true,
-            });
+            }));
         }
 
         // update visits using HyperLogLog for efficient UV estimation
@@ -345,37 +342,13 @@ export function FeedService(): Hono<{
             await profileAsync(c, 'feed_detail_visit_insert', () => db.insert(visits).values({ contentId: feed.id, ip: ip }));
         }
 
-        return c.json(serializeFeedDetail(feed, { pv, uv }));
+        return c.json(serializeContentDetail(feed, { pv, uv }));
     });
 
     // POST /feed/:id/unlock - 密码解锁
-    app.post('/:id/unlock', async (c) => {
-        const db = c.get('db');
-        const admin = c.get('admin');
-        const id = c.req.param('id');
-        const body = await profileAsync(c, 'feed_unlock_parse', () => c.req.json());
-        const { password } = body;
-
-        const feed = await profileAsync(c, 'feed_unlock_lookup', () => findPostByIdentifier(db, id));
-        if (!feed) {
-            return c.text('Not found', 404);
-        }
-        if (admin) {
-            return c.text('OK');
-        }
-
-        if (!password || !feed.password) {
-            return c.text('Password is required', 400);
-        }
-
-        const passwordHash = await hashContentPassword(password);
-        if (passwordHash !== feed.password) {
-            return c.text('Incorrect password', 403);
-        }
-
-        c.header('Set-Cookie', `${PASSWORD_COOKIE_PREFIX}${feed.id}=${feed.password}; Path=/; Max-Age=2592000; HttpOnly; SameSite=Lax`);
-        return c.text('OK');
-    });
+    app.post('/:id/unlock', createContentUnlockHandler(async (db, id) => {
+        return findPostByIdentifier(db, id);
+    }));
 
     // GET /feed/adjacent/:id
     app.get("/adjacent/:id", async (c) => {
@@ -386,7 +359,7 @@ export function FeedService(): Hono<{
 
         if (id_num === null) {
             const slugRecord = await profileAsync(c, 'feed_adjacent_slug_lookup', () => db.select({ id: contents.id }).from(contents)
-                .where(and(eq(contents.slug, id), eq(contents.type, 'post'))));
+                .where(and(eq(contents.slug, id), eq(contents.type, CONTENT_TYPE.POST))));
             if (slugRecord.length === 0) {
                 return c.text("Not found", 404);
             }
@@ -394,7 +367,7 @@ export function FeedService(): Hono<{
         }
 
         const feed = await profileAsync(c, 'feed_adjacent_current', () => db.query.contents.findFirst({
-            where: and(eq(contents.id, id_num), eq(contents.type, 'post')),
+            where: and(eq(contents.id, id_num), eq(contents.type, CONTENT_TYPE.POST)),
             columns: { createdAt: true },
         }));
 
@@ -422,53 +395,44 @@ export function FeedService(): Hono<{
             return null;
         }
 
-        const baseWhere = (field: any, op: any) => and(eq(contents.type, 'post'), publishedWhere(), op(field, created_at));
+        const baseWhere = (field: any, op: any) => and(eq(contents.type, CONTENT_TYPE.POST), publishedWhere(), op(field, created_at));
 
-        const getPreviousFeed = async () => {
-            const previousFeedCached = await profileAsync(c, 'feed_adjacent_prev_cache', () => cache.getBySuffix(`previous_feed_${id_num}`));
-            if (previousFeedCached && previousFeedCached.length > 0) {
-                return previousFeedCached[0];
-            } else {
-                const tempPreviousFeed = await profileAsync(c, 'feed_adjacent_prev_db', () => db.query.contents.findFirst({
-                    where: baseWhere(contents.createdAt, lt),
-                    orderBy: [desc(contents.createdAt)],
-                    with: {
-                        user: { columns: { id: true, username: true, avatar: true } }
-                    },
-                }));
-                if (!tempPreviousFeed) return null;
-                const hashtags = await getTagsForContent(db, tempPreviousFeed.id);
-                const categories = await getCategoriesForContent(db, tempPreviousFeed.id);
-                const summary = tempPreviousFeed.summary.length > 0
-                    ? tempPreviousFeed.summary
-                    : stripMarkdown(tempPreviousFeed.text).slice(0, 50);
-                return formatAndCacheData({ ...tempPreviousFeed, hashtags, categories, summary }, "previous_feed");
+        async function loadAdjacentFeed(
+            direction: "previous_feed" | "next_feed",
+            where: any,
+            order: any,
+        ) {
+            const cached = await profileAsync(c, `feed_adjacent_${direction === "previous_feed" ? "prev" : "next"}_cache`, () => cache.getBySuffix(`${direction}_${id_num}`));
+            if (cached && cached.length > 0) {
+                return cached[0];
             }
-        };
+            const row = await profileAsync(c, `feed_adjacent_${direction === "previous_feed" ? "prev" : "next"}_db`, () => db.query.contents.findFirst({
+                where,
+                orderBy: [order],
+                with: {
+                    user: { columns: { id: true, username: true, avatar: true } }
+                },
+            }));
+            if (!row) return null;
+            const [hashtags, categories] = await Promise.all([
+                getTagsForContents(db, [row.id]),
+                getCategoriesForContents(db, [row.id]),
+            ]);
+            const summary = row.summary.length > 0
+                ? row.summary
+                : stripMarkdown(row.text).slice(0, 50);
+            return formatAndCacheData({
+                ...row,
+                hashtags: hashtags.get(row.id) || [],
+                categories: categories.get(row.id) || [],
+                summary,
+            }, direction);
+        }
 
-        const getNextFeed = async () => {
-            const nextFeedCached = await profileAsync(c, 'feed_adjacent_next_cache', () => cache.getBySuffix(`next_feed_${id_num}`));
-            if (nextFeedCached && nextFeedCached.length > 0) {
-                return nextFeedCached[0];
-            } else {
-                const tempNextFeed = await profileAsync(c, 'feed_adjacent_next_db', () => db.query.contents.findFirst({
-                    where: baseWhere(contents.createdAt, gt),
-                    orderBy: [asc(contents.createdAt)],
-                    with: {
-                        user: { columns: { id: true, username: true, avatar: true } }
-                    },
-                }));
-                if (!tempNextFeed) return null;
-                const hashtags = await getTagsForContent(db, tempNextFeed.id);
-                const categories = await getCategoriesForContent(db, tempNextFeed.id);
-                const summary = tempNextFeed.summary.length > 0
-                    ? tempNextFeed.summary
-                    : stripMarkdown(tempNextFeed.text).slice(0, 50);
-                return formatAndCacheData({ ...tempNextFeed, hashtags, categories, summary }, "next_feed");
-            }
-        };
-
-        const [previousFeed, nextFeed] = await Promise.all([getPreviousFeed(), getNextFeed()]);
+        const [previousFeed, nextFeed] = await Promise.all([
+            loadAdjacentFeed("previous_feed", baseWhere(contents.createdAt, lt), desc(contents.createdAt)),
+            loadAdjacentFeed("next_feed", baseWhere(contents.createdAt, gt), asc(contents.createdAt)),
+        ]);
         return c.json({ previousFeed, nextFeed });
     });
 
@@ -486,7 +450,7 @@ export function FeedService(): Hono<{
 
         const id_num = parseInt(id);
         const feed = await profileAsync(c, 'feed_update_lookup', () => db.query.contents.findFirst({
-            where: and(eq(contents.id, id_num), eq(contents.type, 'post'))
+            where: and(eq(contents.id, id_num), eq(contents.type, CONTENT_TYPE.POST))
         }));
 
         if (!feed) {
@@ -555,7 +519,7 @@ export function FeedService(): Hono<{
 
         const id_num = parseInt(id);
         const feed = await profileAsync(c, 'feed_top_lookup', () => db.query.contents.findFirst({
-            where: and(eq(contents.id, id_num), eq(contents.type, 'post'))
+            where: and(eq(contents.id, id_num), eq(contents.type, CONTENT_TYPE.POST))
         }));
 
         if (!feed) {
@@ -581,7 +545,7 @@ export function FeedService(): Hono<{
 
         const id_num = parseInt(id);
         const feed = await profileAsync(c, 'feed_delete_lookup', () => db.query.contents.findFirst({
-            where: and(eq(contents.id, id_num), eq(contents.type, 'post'))
+            where: and(eq(contents.id, id_num), eq(contents.type, CONTENT_TYPE.POST))
         }));
 
         if (!feed) {
@@ -635,8 +599,8 @@ export function SearchService(): Hono<{
         );
 
         const searchWhere = admin
-            ? and(eq(contents.type, 'post'), whereClause)
-            : and(eq(contents.type, 'post'), publishedWhere(), whereClause, sql`${contents.password} = ''`);
+            ? and(eq(contents.type, CONTENT_TYPE.POST), whereClause)
+            : and(eq(contents.type, CONTENT_TYPE.POST), publishedWhere(), whereClause, sql`${contents.password} = ''`);
 
         const feed_list = (await profileAsync(c, 'feed_search_cache_db', () => cache.getOrSet(cacheKey, async () => {
             const rows = await db.query.contents.findMany({
@@ -647,10 +611,15 @@ export function SearchService(): Hono<{
                 },
                 orderBy: [desc(contents.createdAt), desc(contents.updatedAt)],
             });
-            return Promise.all(rows.map(async (feed: any) => {
-                const hashtags = await getTagsForContent(db, feed.id);
-                const categories = await getCategoriesForContent(db, feed.id);
-                return contentToFeedList({ ...feed, hashtags, categories });
+            const rowIds = rows.map((feed: any) => feed.id);
+            const [tagsMap, categoriesMap] = await Promise.all([
+                getTagsForContents(db, rowIds),
+                getCategoriesForContents(db, rowIds),
+            ]);
+            return rows.map((feed: any) => contentToFeedList({
+                ...feed,
+                hashtags: tagsMap.get(feed.id) || [],
+                categories: categoriesMap.get(feed.id) || [],
             }));
         })));
 
@@ -745,7 +714,7 @@ export function WordPressService(): Hono<{
             }
 
             const exist = await profileAsync(c, 'wp_import_existing', () => db.query.contents.findFirst({
-                where: and(eq(contents.type, 'post'), eq(contents.text, item.content))
+                where: and(eq(contents.type, CONTENT_TYPE.POST), eq(contents.text, item.content))
             }));
             if (exist) {
                 skippedList.push({ title: item.title, reason: "content exists" });
@@ -755,7 +724,7 @@ export function WordPressService(): Hono<{
 
             const finalSlug = await getUniqueSlug(db, generateSlug(item.title));
             const result = await profileAsync(c, 'wp_import_insert', () => db.insert(contents).values({
-                type: 'post',
+                type: CONTENT_TYPE.POST,
                 title: item.title,
                 text: item.content,
                 summary: item.summary,
@@ -777,16 +746,6 @@ export function WordPressService(): Hono<{
         return c.json({ success, skipped, skippedList });
     });
     return app;
-}
-
-function parseCookies(header: string | null | undefined): Record<string, string> {
-    const cookies: Record<string, string> = {};
-    if (!header) return cookies;
-    for (const part of header.split(';')) {
-        const [key, ...rest] = part.trim().split('=');
-        if (key) cookies[key] = rest.join('=');
-    }
-    return cookies;
 }
 
 type FeedItem = {

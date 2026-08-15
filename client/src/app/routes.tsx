@@ -24,7 +24,7 @@ import { HashtagPage } from "../page/hashtag";
 import { HashtagsPage } from "../page/hashtags";
 import { LoginPage } from "../page/login";
 import { MomentsPage } from "../page/moments";
-import { PagePage } from "../page/page-detail";
+import { PageDetail } from "../page/page-detail";
 import { ProfilePage } from "../page/profile";
 import { QueueStatusPage } from "../page/queue-status";
 import { SearchPage } from "../page/search";
@@ -69,7 +69,7 @@ export function AppRoutes() {
       </AppRoute>
 
       <AppRoute path="/page/:slug">
-        {(params) => <PagePage slug={params.slug || ""} />}
+        {(params) => <PageDetail slug={params.slug || ""} />}
       </AppRoute>
 
       <AppRoute path="/search/:keyword">

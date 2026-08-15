@@ -93,6 +93,7 @@ async function update({
   summary?: string;
   tags?: string[];
   categories?: number[];
+  /** 空字符串表示清除密码，undefined 表示保持不变 */
   password?: string;
   draft?: boolean;
   createdAt?: Date;
@@ -109,7 +110,7 @@ async function update({
       summary,
       tags,
       categories,
-      password: password === undefined ? undefined : password || "",
+      password,
       listed,
       draft,
       createdAt: createdAt?.toISOString(),
@@ -138,6 +139,8 @@ export function WritingPage({ id }: { id?: number }) {
   const [tags, setTags] = cache.useCache("tags", "");
   const [alias, setAlias] = cache.useCache("alias", "");
   const [password, setPassword] = useState("");
+  const [hasPassword, setHasPassword] = useState(false);
+  const [removePassword, setRemovePassword] = useState(false);
   const [categories, setCategories] = useState<number[]>([]);
   const [categoryList, setCategoryList] = useState<Array<{ id: number; name: string; parent: number }>>([]);
   const [draft, setDraft] = useState(false);
@@ -163,7 +166,7 @@ export function WritingPage({ id }: { id?: number }) {
         alias,
         tags: tagsplit,
         categories,
-        password,
+        password: removePassword ? "" : password || undefined,
         draft,
         listed,
         createdAt,
@@ -221,6 +224,7 @@ export function WritingPage({ id }: { id?: number }) {
             if (summary == "") setSummary((data as any).summary || "");
             if (Array.isArray(data.categories))
               setCategories(data.categories.map(({ id }: {id: number}) => id));
+            setHasPassword(Boolean((data as any).hasPassword));
             setListed((data as any).listed === 1);
             setDraft((data as any).draft === 1);
             setCreatedAt(new Date(data.createdAt));
@@ -311,6 +315,20 @@ export function WritingPage({ id }: { id?: number }) {
               placeholder={t("password")}
               variant="flat"
             />
+            {id !== undefined && hasPassword && (
+              <FlatMetaRow
+                className="cursor-pointer rounded-none border-0 bg-transparent px-0 py-2 sm:rounded-2xl sm:border sm:bg-secondary sm:px-4 sm:py-3"
+                onClick={() => setRemovePassword(!removePassword)}
+              >
+                <p>{t("password_remove")}</p>
+                <Checkbox
+                  id="removePassword"
+                  value={removePassword}
+                  setValue={setRemovePassword}
+                  placeholder={t("password_remove")}
+                />
+              </FlatMetaRow>
+            )}
             <Input
               id={id}
               value={tags}
@@ -323,7 +341,7 @@ export function WritingPage({ id }: { id?: number }) {
 
           {categoryList.length > 0 && (
             <div className="mt-5">
-              <p className="mb-2 text-xs font-semibold uppercase tracking-[0.18em] text-theme/70">{t("categories")}</p>
+              <p className="mb-2 text-xs font-semibold uppercase tracking-[0.18em] text-theme/70">{t("categories.title")}</p>
               <div className="flex flex-wrap gap-2">
                 {buildCategoryTree(categoryList).map((category) => (
                   <CategoryCheckbox

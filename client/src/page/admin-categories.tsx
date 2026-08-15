@@ -2,9 +2,9 @@ import { useCallback, useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Link } from "wouter";
 import { FlatPanel, Input } from "@rin/ui";
+import type { Category } from "@rin/api";
 import { client } from "../app/runtime";
 import { useAlert } from "../components/dialog";
-import type { Category } from "@rin/api";
 
 export function AdminCategoriesPage() {
   const { t } = useTranslation();

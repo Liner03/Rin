@@ -2,8 +2,14 @@ import { and, desc, eq, inArray, or } from "drizzle-orm";
 import { Hono } from "hono";
 import type { AppContext, DB } from "../core/hono-types";
 import { profileAsync } from "../core/server-timing";
-import { contents, metas, relationships } from "../db/schema";
-import { generateSlug, refreshMetaCounts } from "./content-helpers";
+import { metas, relationships } from "../db/schema";
+import {
+    CONTENT_TYPE,
+    generateSlug,
+    getTagsForContents,
+    isPubliclyListed,
+    refreshMetaCounts,
+} from "./content-helpers";
 
 export function TagService(): Hono {
     const app = new Hono();
@@ -48,8 +54,8 @@ export function TagService(): Hono {
             with: {
                 content: {
                     columns: {
-                        id: true, title: true, summary: true, text: true, slug: true,
-                        createdAt: true, updatedAt: true, status: true, password: true,
+                        id: true, title: true, summary: true, slug: true,
+                        createdAt: true, updatedAt: true, status: true, type: true,
                     },
                     with: {
                         user: { columns: { id: true, username: true, avatar: true } },
@@ -58,37 +64,21 @@ export function TagService(): Hono {
             },
         }));
 
-        const tagFeeds = [];
-        for (const row of relationships_rows) {
-            const feed = row.content;
-            if (!feed || feed.status !== 'publish') continue;
-            if (!admin) {
-                if (feed.password || feed.createdAt.getTime() > Date.now()) continue;
-            }
-            const tags = await profileAsync(c, 'tag_detail_tags', () => getTagsForContentLike(db, feed.id));
-            tagFeeds.push({ ...feed, hashtags: tags });
-        }
+        const postRows = relationships_rows
+            .map((row) => row.content)
+            .filter((feed) => feed && feed.type === CONTENT_TYPE.POST && isPubliclyListed(feed, admin));
+
+        const tagsMap = await getTagsForContents(db, postRows.map((feed) => feed.id));
+
+        const tagFeeds = postRows.map((feed: any) => ({
+            ...feed,
+            hashtags: tagsMap.get(feed.id) || [],
+        }));
 
         return c.json({ ...tag, feeds: tagFeeds });
     });
 
     return app;
-}
-
-async function getTagsForContentLike(db: DB, contentId: number) {
-    const rows = await db.query.relationships.findMany({
-        where: eq(relationships.contentId, contentId),
-        columns: {},
-        with: {
-            meta: {
-                columns: { id: true, name: true, type: true },
-            },
-        },
-    });
-    return rows
-        .map(({ meta }) => meta)
-        .filter((meta) => meta.type === "tag")
-        .map((meta) => ({ id: meta.id, name: meta.name }));
 }
 
 export async function bindTagsToContent(db: DB, contentId: number, tags: string[]) {
@@ -132,8 +122,4 @@ export async function bindTagsToContent(db: DB, contentId: number, tags: string[
     }
 
     await refreshMetaCounts(db, Array.from(metaIds));
-}
-
-function inArrayForTags(tags: string[]) {
-    return inArray(metas.name, tags.map((tag) => tag.trim()).filter(Boolean));
 }
