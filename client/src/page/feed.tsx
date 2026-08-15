@@ -499,7 +499,7 @@ function CommentInput({
     }
   }
   return (
-    <div className="w-full border-t border-dashed border-black/10 pt-6 dark:border-white/10">
+    <div className="w-full pt-6">
       {profile ? (
         <div className="flex flex-col">
           <textarea
@@ -508,16 +508,16 @@ function CommentInput({
             placeholder={t("comment.placeholder.title")}
             className={`${commentFieldClass} h-24 resize-y`}
             value={content}
-            onChange={(e) => setContent(e.target.value)}
+            onChange={(e) => { setContent(e.target.value); setError(""); }}
           />
           <div className="mt-3 flex items-center justify-end gap-3">
-            {success && <p className="text-[13px] text-theme">{t("comment.success")}</p>}
+            {success && <p aria-live="polite" className="text-[13px] font-medium text-theme">{t("comment.success")}</p>}
             {error && <p role="alert" className="text-[13px] text-red-500">{error}</p>}
             <button
               type="button"
               disabled={submitting}
               onClick={submit}
-              className="min-h-10 rounded-xl bg-theme px-5 py-2 text-sm font-medium text-white transition-colors hover:bg-theme-hover active:bg-theme-active disabled:cursor-not-allowed disabled:opacity-60"
+              className="min-h-11 rounded-xl bg-theme px-5 py-2 text-sm font-semibold text-white transition-colors hover:bg-theme-hover active:bg-theme-active disabled:cursor-not-allowed disabled:opacity-60"
             >
               {t("comment.submit")}
             </button>
@@ -532,7 +532,7 @@ function CommentInput({
             placeholder={t("comment.guest_name_placeholder")}
             className={commentFieldClass}
             value={guestName}
-            onChange={(e) => setGuestName(e.target.value)}
+            onChange={(e) => { setGuestName(e.target.value); setError(""); }}
           />
           {moreOpen && (
             <div className="mt-3 grid gap-3 sm:grid-cols-2">
@@ -558,7 +558,7 @@ function CommentInput({
             type="button"
             aria-expanded={moreOpen}
             onClick={() => setMoreOpen((open) => !open)}
-            className="-mx-2 mt-2 self-start px-2 py-1 text-[13px] text-neutral-500 transition-colors hover:text-theme dark:text-neutral-400 dark:hover:text-theme"
+            className="-mx-2 mt-2 self-start px-2 py-1.5 text-[13px] text-neutral-500 transition-colors hover:text-theme dark:text-neutral-400 dark:hover:text-theme"
           >
             {moreOpen ? t("comment.less_options") : t("comment.more_options")}
           </button>
@@ -568,7 +568,7 @@ function CommentInput({
             placeholder={t("comment.placeholder.title")}
             className={`${commentFieldClass} mt-3 h-24 resize-y`}
             value={content}
-            onChange={(e) => setContent(e.target.value)}
+            onChange={(e) => { setContent(e.target.value); setError(""); }}
           />
           <div className="mt-3 flex flex-wrap items-center justify-between gap-3">
             <p className="text-[12px] text-neutral-500 dark:text-neutral-400">
@@ -576,19 +576,19 @@ function CommentInput({
               <button
                 type="button"
                 onClick={() => setLocation('/login')}
-                className="-mx-1 px-1 py-0.5 transition-colors hover:text-theme"
+                className="-mx-1.5 px-1.5 py-1 transition-colors hover:text-theme"
               >
                 {t("comment.login_link")}
               </button>
             </p>
             <div className="flex items-center gap-3">
-              {success && <p className="text-[13px] text-theme">{t("comment.success")}</p>}
+              {success && <p aria-live="polite" className="text-[13px] font-medium text-theme">{t("comment.success")}</p>}
               {error && <p role="alert" className="text-[13px] text-red-500">{error}</p>}
               <button
                 type="button"
                 disabled={submitting}
                 onClick={submit}
-                className="min-h-10 rounded-xl bg-theme px-5 py-2 text-sm font-medium text-white transition-colors hover:bg-theme-hover active:bg-theme-active disabled:cursor-not-allowed disabled:opacity-60"
+                className="min-h-11 rounded-xl bg-theme px-5 py-2 text-sm font-semibold text-white transition-colors hover:bg-theme-hover active:bg-theme-active disabled:cursor-not-allowed disabled:opacity-60"
               >
                 {t("comment.submit")}
               </button>
@@ -637,7 +637,7 @@ function Comments({ id }: { id: string }) {
   return (
     <>
       {config.getBoolean('comment.enabled') &&
-        <section className="w-full max-w-[642px]" aria-label={t("comment.title")}>
+        <section className="mx-auto w-full max-w-[642px]" aria-label={t("comment.title")}>
           <div className="flex items-center gap-3 border-t border-dashed border-black/10 pt-6 dark:border-white/10">
             <h2 className="text-[15px] font-semibold t-primary">
               {t("comment.count", { count: comments.length })}

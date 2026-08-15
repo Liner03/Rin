@@ -95,12 +95,16 @@ describe('CommentService', () => {
             expect(data[0].user).toHaveProperty('permission');
         });
 
-        it('should order comments by createdAt descending', async () => {
+        it('should order comments by createdAt ascending (chronological)', async () => {
+            sqlite.exec(`UPDATE comments SET created_at = unixepoch() - 3600 WHERE id = 1`);
+            
             const res = await app.request('/1', { method: 'GET' }, env);
             
             expect(res.status).toBe(200);
             const data = await res.json() as any;
             expect(data.length).toBe(2);
+            expect(data[0].id).toBe(1);
+            expect(data[1].id).toBe(2);
         });
     });
 
