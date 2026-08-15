@@ -1,5 +1,5 @@
 import i18n from 'i18next';
-import _ from 'lodash';
+import debounce from 'lodash/debounce';
 import {useCallback, useEffect, useState} from "react";
 import {Helmet} from "react-helmet";
 import {useTranslation} from "react-i18next";
@@ -242,7 +242,7 @@ export function WritingPage({ id }: { id?: number }) {
     }
   }, []);
   const debouncedUpdate = useCallback(
-    _.debounce(() => {
+    debounce(() => {
       import("mermaid").then(({ default: mermaid }) => {
         mermaid.initialize({
           startOnLoad: false,

@@ -234,13 +234,20 @@ export async function bindCategoriesToContent(db: DB, contentId: number, categor
         );
     }
 
+    // 批量预取分类，避免逐条 findFirst
+    const validCategories = new Map<number, boolean>();
+    if (categoryIds.length > 0) {
+        const existing = await db.select({ id: metas.id }).from(metas)
+            .where(and(eq(metas.type, 'category'), inArray(metas.id, categoryIds)));
+        for (const meta of existing) {
+            validCategories.set(meta.id, true);
+        }
+    }
+
     for (const id of categoryIds) {
-        const meta = await db.query.metas.findFirst({
-            where: and(eq(metas.id, id), eq(metas.type, 'category')),
-        });
-        if (!meta) continue;
-        metaIds.add(meta.id);
-        await db.insert(relationships).values({ contentId, metaId: meta.id });
+        if (!validCategories.has(id)) continue;
+        metaIds.add(id);
+        await db.insert(relationships).values({ contentId, metaId: id });
     }
 
     await refreshMetaCounts(db, Array.from(metaIds));

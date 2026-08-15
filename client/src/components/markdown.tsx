@@ -100,6 +100,7 @@ function MarkdownImage({
         alt={alt}
         width={width}
         height={height}
+        loading="lazy"
         onClick={() => {
           show(cleanSrc);
         }}

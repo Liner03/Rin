@@ -1,10 +1,10 @@
 import type { CacheImpl } from "../core/hono-types";
 
 export async function clearFeedCache(cache: CacheImpl, id: number, alias: string | null, newAlias: string | null) {
-    await cache.deletePrefix('feeds_');
-    await cache.deletePrefix('search_');
-    await cache.deletePrefix('category_');
-    await cache.deletePrefix('page_');
+    await cache.deletePrefix('feeds_', false);
+    await cache.deletePrefix('search_', false);
+    await cache.deletePrefix('category_', false);
+    await cache.deletePrefix('page_', false);
 
     const detailKeys = new Set([`feed_detail_v2_id_${id}`]);
     if (alias) {
@@ -18,7 +18,7 @@ export async function clearFeedCache(cache: CacheImpl, id: number, alias: string
         await cache.delete(key, false);
     }
 
-    await cache.deletePrefix(`${id}_previous_feed`);
-    await cache.deletePrefix(`${id}_next_feed`);
+    await cache.deletePrefix(`${id}_previous_feed`, false);
+    await cache.deletePrefix(`${id}_next_feed`, false);
     await cache.save();
 }

@@ -280,7 +280,7 @@ export class TestCacheImpl implements CacheImpl {
         this.data.delete(key);
     }
 
-    async deletePrefix(prefix: string): Promise<void> {
+    async deletePrefix(prefix: string, _save?: boolean): Promise<void> {
         for (const key of this.data.keys()) {
             if (key.startsWith(prefix)) {
                 this.data.delete(key);

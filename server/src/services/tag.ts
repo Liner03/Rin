@@ -100,13 +100,21 @@ export async function bindTagsToContent(db: DB, contentId: number, tags: string[
         );
     }
 
-    for (const tag of tags) {
-        const normalized = tag.trim();
-        if (!normalized) continue;
+    // 批量预取已有标签，避免逐条 findFirst
+    const normalizedTags = tags
+        .map((tag) => tag.trim())
+        .filter((tag) => tag !== "");
+    const existingByName = new Map<string, { id: number }>();
+    if (normalizedTags.length > 0) {
+        const existing = await db.select({ id: metas.id, name: metas.name }).from(metas)
+            .where(and(eq(metas.type, 'tag'), inArray(metas.name, normalizedTags)));
+        for (const meta of existing) {
+            existingByName.set(meta.name, { id: meta.id });
+        }
+    }
 
-        let meta: { id: number } | undefined = await db.query.metas.findFirst({
-            where: and(eq(metas.type, 'tag'), eq(metas.name, normalized)),
-        });
+    for (const normalized of normalizedTags) {
+        let meta = existingByName.get(normalized);
 
         if (!meta) {
             const result = await db.insert(metas).values({
@@ -118,6 +126,7 @@ export async function bindTagsToContent(db: DB, contentId: number, tags: string[
                 throw new Error('Failed to insert');
             }
             meta = { id: result[0].insertedId };
+            existingByName.set(normalized, meta);
         }
 
         metaIds.add(meta.id);

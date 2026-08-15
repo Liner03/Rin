@@ -125,7 +125,9 @@ export const users = sqliteTable("users", {
     permission: integer("permission").default(0),
     createdAt: created_at,
     updatedAt: updated_at,
-});
+}, (table) => ({
+    usernameUnique: unique("idx_users_username").on(table.username),
+}));
 
 export const comments = sqliteTable("comments", {
     id: integer("id").primaryKey(),

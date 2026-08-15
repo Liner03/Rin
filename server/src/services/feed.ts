@@ -122,7 +122,7 @@ export function FeedService(): Hono<{
         const cacheKey = `feeds_${admin ? "admin_" : ""}${type}_${page_num}_${limit_num}`;
         const cached = await profileAsync(c, 'feed_list_cache_get', () => cache.get(cacheKey));
 
-        if (cached && (cached.t === undefined || Date.now() - cached.t < LIST_CACHE_TTL)) {
+        if (cached && cached.t !== undefined && Date.now() - cached.t < LIST_CACHE_TTL) {
             return c.json(cached.data);
         }
 
@@ -259,7 +259,7 @@ export function FeedService(): Hono<{
             updatedAt: date,
             resetSummary: true,
         }));
-        await profileAsync(c, 'feed_create_cache_invalidate', () => cache.deletePrefix('feeds_'));
+        await profileAsync(c, 'feed_create_cache_invalidate', () => clearFeedCache(cache, result[0].insertedId, finalSlug, finalSlug));
 
         if (result.length === 0) {
             return c.text('Failed to insert', 500);
@@ -780,6 +780,7 @@ export function WordPressService(): Hono<{
         }
 
         await profileAsync(c, 'wp_import_cache_invalidate', () => cache.deletePrefix('feeds_'));
+        await profileAsync(c, 'wp_import_cache_invalidate_category', () => cache.deletePrefix('category_'));
         return c.json({ success, skipped, skippedList });
     });
     return app;

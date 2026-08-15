@@ -45,6 +45,11 @@ export function ScrollRestoration() {
       if (!href || href.startsWith("http") || href.startsWith("#") || href.startsWith("mailto:")) return;
       const current = window.location.pathname + window.location.search;
       scrollMap.current[current] = window.scrollY;
+      // 限制记录数量，避免无限增长
+      const keys = Object.keys(scrollMap.current);
+      if (keys.length > 50) {
+        delete scrollMap.current[keys[0]];
+      }
       saveScrollMap(scrollMap.current);
     };
     document.addEventListener("click", handler, true);

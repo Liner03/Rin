@@ -77,6 +77,7 @@ function SmartImage({ src, imgClassName, frameClassName }: { src: string; imgCla
                 alt=""
                 width={width}
                 height={height}
+                loading="lazy"
                 onLoad={onLoad}
                 onError={onError}
                 className={`${imgClassName} ${blurPending ? "opacity-0" : "opacity-100"}`}

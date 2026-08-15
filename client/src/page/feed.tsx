@@ -120,6 +120,8 @@ export function FeedPage({ id, TOC }: { id: string, TOC: ReactNode }) {
     }
   }
   useEffect(() => {
+    // 无 mermaid 代码块时不加载 mermaid（约 73KB gzip）
+    if (!feed?.content || !feed.content.includes("```mermaid")) return;
     let cancelled = false;
     import("mermaid").then(({ default: mermaid }) => {
       if (cancelled) return;
