@@ -295,12 +295,11 @@ export function FeedService(): Hono<{
                 return c.json(serializeFeedDetail(feed, { pv: 0, uv: 0 }));
             }
             return c.json({
-                id: feed.id,
-                title: feed.title,
+                ...serializeFeedDetail(feed, { pv: 0, uv: 0 }),
+                content: "",
+                hashtags: [],
+                categories: [],
                 locked: true,
-                status: feed.status,
-                createdAt: feed.createdAt,
-                updatedAt: feed.updatedAt,
             });
         }
 

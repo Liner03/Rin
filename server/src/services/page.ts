@@ -66,12 +66,9 @@ export function PageService(): Hono {
                 return c.json(serializePageDetail(page));
             }
             return c.json({
-                id: page.id,
-                title: page.title,
+                ...serializePageDetail(page),
+                content: "",
                 locked: true,
-                status: page.status,
-                createdAt: page.createdAt,
-                updatedAt: page.updatedAt,
             });
         }
 

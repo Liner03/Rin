@@ -172,7 +172,7 @@ export function AdminPagesPage() {
                 onClick={() => remove(page)}
                 className="rounded-lg px-3 py-1.5 text-sm text-red-500 hover:bg-red-50 dark:hover:bg-red-500/10"
               >
-                {t("delete")}
+                {t("delete.title")}
               </button>
             </div>
           ))}
