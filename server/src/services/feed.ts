@@ -59,10 +59,16 @@ async function findPostByIdentifier(db: any, idOrSlug: string) {
     if (id_num !== null) {
         return db.query.contents.findFirst({
             where: and(eq(contents.id, id_num), eq(contents.type, CONTENT_TYPE.POST)),
+            with: {
+                user: { columns: { id: true, username: true, avatar: true } }
+            },
         });
     }
     return db.query.contents.findFirst({
         where: and(eq(contents.slug, idOrSlug), eq(contents.type, CONTENT_TYPE.POST)),
+        with: {
+            user: { columns: { id: true, username: true, avatar: true } }
+        },
     });
 }
 

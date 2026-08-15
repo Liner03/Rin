@@ -175,7 +175,7 @@ export function FeedPage({ id, TOC }: { id: string, TOC: ReactNode }) {
                 : feed.content
             }
           />
-          <meta name="author" content={feed.user.username} />
+          <meta name="author" content={feed.user?.username ?? ""} />
           <meta
             name="keywords"
             content={hashtags.map(({ name }) => name).join(", ")}
@@ -344,7 +344,7 @@ export function FeedPage({ id, TOC }: { id: string, TOC: ReactNode }) {
                     />
                     <div className="ml-2">
                       <span className="text-gray-400 text-sm cursor-default">
-                        {feed.user.username}
+                        {feed.user?.username}
                       </span>
                     </div>
                   </div>
