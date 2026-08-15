@@ -465,3 +465,10 @@ body.mirages-layout-active .mirages-footer footer button {
 [data-color-mode="dark"] body.mirages-layout-active .mirages-content [class*="sm:grid-cols-2"] p {
   color: #b5b5b5 !important;
 }
+
+/* ---------------- 顶部导航选中态：恢复主题色（不被通用颜色规则覆盖） ---------------- */
+
+body.mirages-layout-active .mirages-root [class*="z-40"] a.text-theme,
+[data-color-mode="dark"] body.mirages-layout-active .mirages-root [class*="z-40"] a.text-theme {
+  color: rgb(var(--theme-rgb)) !important;
+}
