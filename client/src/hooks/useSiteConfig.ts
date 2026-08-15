@@ -12,8 +12,6 @@ export const SITE_CONFIG_KEYS = {
     heroImage: "site.hero_image",
     keywords: "site.keywords",
     copyright: "site.copyright",
-    rssTitle: "site.rss_title",
-    rssDescription: "site.rss_description",
     nav: "site.nav",
     pageSize: "site.page_size",
     feedLayout: "feed.layout",
@@ -27,8 +25,18 @@ export interface SiteNavItem {
     href: string;
 }
 
+// 默认导航（i18n key），自定义 site.nav 为空时使用
+export const DEFAULT_NAV: Array<SiteNavItem & { selectedPrefix?: string }> = [
+    { label: "article.title", href: "/", selectedPrefix: "/feed" },
+    { label: "timeline", href: "/timeline" },
+    { label: "moments.title", href: "/moments" },
+    { label: "hashtags", href: "/hashtags" },
+    { label: "friends.title", href: "/friends" },
+    { label: "about.title", href: "/about" },
+];
+
 // 解析 site.nav 配置（JSON 数组字符串 或 已解析的数组），非法时返回空数组
-export function parseSiteNav(raw: string | unknown[] | null | undefined): SiteNavItem[] {
+function parseSiteNav(raw: string | unknown[] | null | undefined): SiteNavItem[] {
     let parsed: unknown = raw;
     if (typeof raw === "string") {
         if (!raw) {

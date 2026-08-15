@@ -811,7 +811,8 @@ function linesToNav(text: string): string {
       if (separator <= 0) return null;
       const label = line.slice(0, separator).trim();
       const href = line.slice(separator + 1).trim();
-      if (!label || !href.startsWith("/")) return null;
+      if (!label) return null;
+      if (!href.startsWith("/") && !href.startsWith("http://") && !href.startsWith("https://")) return null;
       return { label, href };
     })
     .filter((item) => item !== null);
@@ -829,8 +830,14 @@ function NavEditor({
   value: string;
   onChange: (value: string) => void;
 }) {
+  const { t } = useTranslation();
   const [isOpen, setIsOpen] = useState(false);
   const [text, setText] = useState(() => navToLines(value));
+
+  // 外部保存（如其他会话）后同步编辑内容
+  useEffect(() => {
+    setText(navToLines(value));
+  }, [value]);
 
   return (
     <div className="w-full">
@@ -860,7 +867,7 @@ function NavEditor({
         {isOpen ? (
           <SettingsCardBody>
             <textarea
-              placeholder={"文章|/\n关于|/about"}
+              placeholder={t("settings.site.nav.placeholder")}
               value={text}
               onChange={(event) => {
                 setText(event.target.value);

@@ -85,7 +85,7 @@ function MarkdownImage({
   return (
     <span
       className={`relative inline-block max-w-full overflow-hidden ${roundedClass}`}
-      style={{ width: scale === "0.5" ? undefined : "75%", aspectRatio }}
+      style={{ width: scale === "0.5" ? "50%" : "75%", aspectRatio }}
     >
       {blurhash && !loaded ? (
         <canvas

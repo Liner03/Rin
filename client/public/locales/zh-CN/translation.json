@@ -487,7 +487,8 @@
       "nav": {
         "title": "导航菜单",
         "desc": "自定义导航菜单。每行一项：标题|/路径（留空使用默认菜单）",
-        "label": "导航"
+        "label": "导航",
+        "placeholder": "首页|/\n关于|/about"
       }
     },
     "header_layout": {

@@ -487,7 +487,8 @@
       "nav": {
         "title": "Navigation Menu",
         "desc": "Customize the navigation menu. One item per line: Title|/path (empty = default menu)",
-        "label": "Navigation"
+        "label": "Navigation",
+        "placeholder": "Home|/\nAbout|/about"
       }
     },
     "header_layout": {

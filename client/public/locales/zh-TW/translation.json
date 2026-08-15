@@ -487,7 +487,8 @@
       "nav": {
         "title": "導覽選單",
         "desc": "自訂導覽選單。每行一項：標題|/路徑（留空使用預設選單）",
-        "label": "導覽"
+        "label": "導覽",
+        "placeholder": "首頁|/\n關於|/about"
       }
     },
     "header_layout": {

@@ -1,16 +1,6 @@
 import { useTranslation } from "react-i18next";
 import { Link, useLocation } from "wouter";
-import { useSiteConfig } from "../../../hooks/useSiteConfig";
-import type { SiteNavItem } from "../../../hooks/useSiteConfig";
-
-const DEFAULT_NAV: SiteNavItem[] = [
-  { label: "article.title", href: "/" },
-  { label: "timeline", href: "/timeline" },
-  { label: "moments.title", href: "/moments" },
-  { label: "hashtags", href: "/hashtags" },
-  { label: "friends.title", href: "/friends" },
-  { label: "about.title", href: "/about" },
-];
+import { DEFAULT_NAV, useSiteConfig } from "../../../hooks/useSiteConfig";
 
 export function NavBar({
   menu,
@@ -26,33 +16,36 @@ export function NavBar({
   const siteConfig = useSiteConfig();
 
   const customNav = siteConfig.nav;
-  const items: Array<{ title: string; href: string; selectedPrefix?: string }> = customNav.length > 0
-    ? customNav.map((item) => ({ title: item.label, href: item.href }))
+  const items = customNav.length > 0
+    ? customNav.map((item) => ({ title: item.label, href: item.href, selectedPrefix: undefined }))
     : DEFAULT_NAV.map((item) => ({
         title: t(item.label),
         href: item.href,
-        selectedPrefix: item.href === "/" ? "/feed" : undefined,
+        selectedPrefix: item.selectedPrefix,
       }));
 
   return (
     <>
-      {items.map((item) => (
+      {items.map((item, index) => (
         <NavItem
-          key={item.href}
+          key={`${item.href}#${index}`}
           menu={menu}
           onClick={onClick}
           itemClassName={itemClassName}
           title={item.title}
-          selected={
-            item.href === "/"
-              ? location === "/" || location.startsWith("/feed")
-              : location === item.href || location.startsWith(item.href + "/") || (item.selectedPrefix ? location.startsWith(item.selectedPrefix) : false)
-          }
+          selected={isNavSelected(location, item.href, item.selectedPrefix)}
           href={item.href}
         />
       ))}
     </>
   );
+}
+
+function isNavSelected(location: string, href: string, selectedPrefix?: string) {
+  if (href === "/") {
+    return location === "/" || location.startsWith("/feed");
+  }
+  return location === href || location.startsWith(href + "/") || (selectedPrefix ? location.startsWith(selectedPrefix) : false);
 }
 
 function NavItem({

@@ -177,9 +177,6 @@ body.mirages-layout-active .mirages-content div[class*="justify-center"].ani-sho
 }
 
 /* 文章页头部：隐藏重复的日期/标题，管理按钮右对齐（不悬浮，避免遮挡正文标题） */
-.mirages-content article.rounded-2xl > .flex.justify-between {
-  position: relative !important;
-}
 .mirages-content article.rounded-2xl > .flex.justify-between > div:first-child {
   display: none !important;
 }

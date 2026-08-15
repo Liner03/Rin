@@ -2,7 +2,7 @@ import { createContext, useContext, useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Link, useLocation } from "wouter";
 import { HeaderActions, NavBar } from "..";
-import { useSiteConfig } from "../../../hooks/useSiteConfig";
+import { DEFAULT_NAV, useSiteConfig } from "../../../hooks/useSiteConfig";
 import type { Profile } from "../../../state/profile";
 import { ProfileContext } from "../../../state/profile";
 import type { HeaderLayoutDefinition } from "../layout-types";
@@ -71,14 +71,15 @@ function MiragesDrawer({ isOpen, onClose }: { isOpen: boolean; onClose: () => vo
               <SidebarItem key={item.href} href={item.href} title={item.label} onClose={onClose} />
             ))
           ) : (
-            <>
-              <SidebarItem href="/" title={t("article.title")} onClose={onClose} selectedPrefix="/feed" />
-              <SidebarItem href="/timeline" title={t("timeline")} onClose={onClose} />
-              <SidebarItem href="/moments" title={t("moments.title")} onClose={onClose} />
-              <SidebarItem href="/hashtags" title={t("hashtags")} onClose={onClose} />
-              <SidebarItem href="/friends" title={t("friends.title")} onClose={onClose} />
-              <SidebarItem href="/about" title={t("about.title")} onClose={onClose} />
-            </>
+            DEFAULT_NAV.map((item) => (
+              <SidebarItem
+                key={item.href}
+                href={item.href}
+                title={t(item.label)}
+                onClose={onClose}
+                selectedPrefix={item.selectedPrefix}
+              />
+            ))
           )}
         </nav>
 

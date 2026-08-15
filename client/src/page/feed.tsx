@@ -337,13 +337,15 @@ export function FeedPage({ id, TOC }: { id: string, TOC: ReactNode }) {
               {feed && <Comments id={`${feed.id}`} />}
               <div className="h-16" />
             </main>
-            <div className="w-80 hidden lg:block relative">
-              <div
-                className={`start-0 end-0 top-[5.5rem] sticky`}
-              >
-                {TOC}
+            {TOC && (
+              <div className="w-80 hidden lg:block relative">
+                <div
+                  className={`start-0 end-0 top-[5.5rem] sticky`}
+                >
+                  {TOC}
+                </div>
               </div>
-            </div>
+            )}
           </>
         )}
       </div>
