@@ -105,7 +105,14 @@
     "guest_name_required": "ゲスト名は必須です",
     "guest_name_placeholder": "名前（必須）",
     "guest_email_placeholder": "メール（任意）",
-    "guest_website_placeholder": "ウェブサイト（任意）"
+    "guest_website_placeholder": "ウェブサイト（任意）",
+    "empty_state": "最初のコメントを投稿しましょう",
+    "more_options": "詳細オプション（メール、ウェブサイト）",
+    "less_options": "オプションを閉じる",
+    "email_hint": "メールアドレスは公開されません",
+    "login_link": "ログインしてコメント",
+    "login_hint": "ログインして議論に参加",
+    "actions": "コメント操作"
   },
   "comparison": "対比",
   "confirm": "確認",

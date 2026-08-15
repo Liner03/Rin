@@ -105,7 +105,14 @@
     "guest_name_required": "Guest name is required",
     "guest_name_placeholder": "Name (required)",
     "guest_email_placeholder": "Email (optional)",
-    "guest_website_placeholder": "Website (optional)"
+    "guest_website_placeholder": "Website (optional)",
+    "empty_state": "Be the first to comment",
+    "more_options": "More options (email, website)",
+    "less_options": "Fewer options",
+    "email_hint": "Email is never published",
+    "login_link": "Sign in to comment",
+    "login_hint": "Sign in to join the discussion",
+    "actions": "Comment actions"
   },
   "comparison": "Comparison",
   "confirm": "Confirm",

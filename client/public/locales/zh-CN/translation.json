@@ -105,7 +105,14 @@
     "guest_name_required": "昵称不能为空",
     "guest_name_placeholder": "昵称（必填）",
     "guest_email_placeholder": "邮箱（可选）",
-    "guest_website_placeholder": "网站（可选）"
+    "guest_website_placeholder": "网站（可选）",
+    "empty_state": "还没有评论，来抢沙发吧",
+    "more_options": "更多选项（邮箱、网站）",
+    "less_options": "收起选项",
+    "email_hint": "邮箱不会被公开",
+    "login_link": "登录后评论",
+    "login_hint": "登录后参与讨论",
+    "actions": "评论操作"
   },
   "comparison": "对比",
   "confirm": "确认",

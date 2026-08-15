@@ -105,7 +105,14 @@
     "guest_name_required": "暱稱不能為空",
     "guest_name_placeholder": "暱稱（必填）",
     "guest_email_placeholder": "郵箱（可選）",
-    "guest_website_placeholder": "網站（可選）"
+    "guest_website_placeholder": "網站（可選）",
+    "empty_state": "還沒有評論，來搶頭香吧",
+    "more_options": "更多選項（信箱、網站）",
+    "less_options": "收起選項",
+    "email_hint": "信箱不會被公開",
+    "login_link": "登入後評論",
+    "login_hint": "登入後參與討論",
+    "actions": "評論操作"
   },
   "comparison": "比較",
   "confirm": "確認",

@@ -404,6 +404,8 @@ export function TOCHeader({ TOC }: { TOC: ReactNode }) {
   );
 }
 
+const commentFieldClass = "w-full rounded-xl border border-black/10 bg-w px-4 py-3 text-sm t-primary outline-none transition-colors placeholder:text-neutral-400 focus:border-black/20 focus:ring-2 focus:ring-theme/10 dark:border-white/10 dark:placeholder:text-neutral-500 dark:focus:border-white/20";
+
 function CommentInput({
   id,
   onRefresh,
@@ -416,8 +418,10 @@ function CommentInput({
   const [guestName, setGuestName] = useState("");
   const [guestEmail, setGuestEmail] = useState("");
   const [guestWebsite, setGuestWebsite] = useState("");
+  const [moreOpen, setMoreOpen] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState("");
-  const { showAlert, AlertUI } = useAlert();
+  const [success, setSuccess] = useState(false);
   const profile = useContext(ProfileContext);
   const [, setLocation] = useLocation();
   const config = useContext(ClientConfigContext);
@@ -431,23 +435,32 @@ function CommentInput({
     return error;
   }
   function submit() {
+    if (submitting) return;
+    if (!content.trim()) {
+      setError(t("comment.empty"));
+      return;
+    }
+    setSubmitting(true);
+    setError("");
     if (profile) {
       client.comment
         .create(parseInt(id), { content })
         .then(({ error }) => {
           if (error) {
             setError(errorHumanize(error.value as string));
+            setSubmitting(false);
           } else {
             setContent("");
-            setError("");
-            showAlert(t("comment.success"), () => {
-              onRefresh();
-            });
+            setSubmitting(false);
+            setSuccess(true);
+            window.setTimeout(() => setSuccess(false), 2500);
+            onRefresh();
           }
         });
     } else if (guestEnabled) {
       if (!guestName.trim()) {
         setError(t("comment.guest_name_required"));
+        setSubmitting(false);
         return;
       }
       client.comment
@@ -460,15 +473,16 @@ function CommentInput({
         .then(({ error }) => {
           if (error) {
             setError(errorHumanize(error.value as string));
+            setSubmitting(false);
           } else {
             setContent("");
             setGuestName("");
             setGuestEmail("");
             setGuestWebsite("");
-            setError("");
-            showAlert(t("comment.success"), () => {
-              onRefresh();
-            });
+            setSubmitting(false);
+            setSuccess(true);
+            window.setTimeout(() => setSuccess(false), 2500);
+            onRefresh();
           }
         });
     } else {
@@ -476,71 +490,112 @@ function CommentInput({
     }
   }
   return (
-    <div className="w-full rounded-2xl bg-w t-primary p-6 items-end flex flex-col">
-      <div className="flex flex-col w-full items-start mb-4">
-        <label htmlFor="comment">{t("comment.title")}</label>
-      </div>
-      {profile ? (<>
-        <textarea
-          id="comment"
-          placeholder={t("comment.placeholder.title")}
-          className="bg-w w-full h-24 rounded-lg"
-          value={content}
-          onChange={(e) => setContent(e.target.value)}
-        />
-        <button
-          className="mt-4 bg-theme text-white px-4 py-2 rounded-full"
-          onClick={submit}
-        >
-          {t("comment.submit")}
-        </button>
-      </>) : guestEnabled ? (<>
-        <input
-          type="text"
-          placeholder={t("comment.guest_name_placeholder")}
-          className="bg-w w-full rounded-lg px-3 py-2 mb-2 border border-gray-200 dark:border-gray-700"
-          value={guestName}
-          onChange={(e) => setGuestName(e.target.value)}
-        />
-        <input
-          type="email"
-          placeholder={t("comment.guest_email_placeholder")}
-          className="bg-w w-full rounded-lg px-3 py-2 mb-2 border border-gray-200 dark:border-gray-700"
-          value={guestEmail}
-          onChange={(e) => setGuestEmail(e.target.value)}
-        />
-        <input
-          type="url"
-          placeholder={t("comment.guest_website_placeholder")}
-          className="bg-w w-full rounded-lg px-3 py-2 mb-2 border border-gray-200 dark:border-gray-700"
-          value={guestWebsite}
-          onChange={(e) => setGuestWebsite(e.target.value)}
-        />
-        <textarea
-          id="comment"
-          placeholder={t("comment.placeholder.title")}
-          className="bg-w w-full h-24 rounded-lg"
-          value={content}
-          onChange={(e) => setContent(e.target.value)}
-        />
-        <button
-          className="mt-4 bg-theme text-white px-4 py-2 rounded-full"
-          onClick={submit}
-        >
-          {t("comment.submit")}
-        </button>
-      </>) : (
-        <div className="flex flex-row w-full items-center justify-center space-x-2 py-12">
+    <div className="w-full border-t border-dashed border-black/10 pt-6 dark:border-white/10">
+      {profile ? (
+        <div className="flex flex-col">
+          <textarea
+            id="comment"
+            aria-label={t("comment.placeholder.title")}
+            placeholder={t("comment.placeholder.title")}
+            className={`${commentFieldClass} h-24 resize-y`}
+            value={content}
+            onChange={(e) => setContent(e.target.value)}
+          />
+          <div className="mt-3 flex items-center justify-end gap-3">
+            {success && <p className="text-[13px] text-theme">{t("comment.success")}</p>}
+            {error && <p role="alert" className="text-[13px] text-red-500">{error}</p>}
+            <button
+              type="button"
+              disabled={submitting}
+              onClick={submit}
+              className="rounded-xl bg-theme px-5 py-2 text-sm font-medium text-white transition-colors hover:bg-theme-hover active:bg-theme-active disabled:cursor-not-allowed disabled:opacity-60"
+            >
+              {t("comment.submit")}
+            </button>
+          </div>
+        </div>
+      ) : guestEnabled ? (
+        <div className="flex flex-col">
+          <label htmlFor="guest-name" className="mb-1 text-[13px] font-medium text-neutral-600 dark:text-neutral-400">
+            {t("comment.guest_name_placeholder")}
+          </label>
+          <input
+            id="guest-name"
+            type="text"
+            aria-label={t("comment.guest_name_placeholder")}
+            placeholder={t("comment.guest_name_placeholder")}
+            className={commentFieldClass}
+            value={guestName}
+            onChange={(e) => setGuestName(e.target.value)}
+          />
+          {moreOpen && (
+            <div className="mt-3 grid gap-3 sm:grid-cols-2">
+              <input
+                type="email"
+                aria-label={t("comment.guest_email_placeholder")}
+                placeholder={t("comment.guest_email_placeholder")}
+                className={commentFieldClass}
+                value={guestEmail}
+                onChange={(e) => setGuestEmail(e.target.value)}
+              />
+              <input
+                type="url"
+                aria-label={t("comment.guest_website_placeholder")}
+                placeholder={t("comment.guest_website_placeholder")}
+                className={commentFieldClass}
+                value={guestWebsite}
+                onChange={(e) => setGuestWebsite(e.target.value)}
+              />
+            </div>
+          )}
           <button
-            className="mt-2 bg-theme text-white px-4 py-2 rounded-full"
+            type="button"
+            onClick={() => setMoreOpen((open) => !open)}
+            className="mt-2 self-start text-[13px] text-neutral-400 transition-colors hover:text-theme"
+          >
+            {moreOpen ? t("comment.less_options") : t("comment.more_options")}
+          </button>
+          <textarea
+            id="comment"
+            aria-label={t("comment.placeholder.title")}
+            placeholder={t("comment.placeholder.title")}
+            className={`${commentFieldClass} mt-3 h-24 resize-y`}
+            value={content}
+            onChange={(e) => setContent(e.target.value)}
+          />
+          <div className="mt-3 flex flex-wrap items-center justify-between gap-3">
+            <p className="text-[12px] text-neutral-400">
+              {t("comment.email_hint")} ·{" "}
+              <button type="button" onClick={() => setLocation('/login')} className="transition-colors hover:text-theme">
+                {t("comment.login_link")}
+              </button>
+            </p>
+            <div className="flex items-center gap-3">
+              {success && <p className="text-[13px] text-theme">{t("comment.success")}</p>}
+              {error && <p role="alert" className="text-[13px] text-red-500">{error}</p>}
+              <button
+                type="button"
+                disabled={submitting}
+                onClick={submit}
+                className="rounded-xl bg-theme px-5 py-2 text-sm font-medium text-white transition-colors hover:bg-theme-hover active:bg-theme-active disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                {t("comment.submit")}
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : (
+        <div className="flex flex-col items-center gap-3 py-8 text-center">
+          <p className="text-sm text-neutral-500 dark:text-neutral-400">{t("comment.login_hint")}</p>
+          <button
+            type="button"
             onClick={() => setLocation('/login')}
+            className="rounded-xl bg-theme px-5 py-2 text-sm font-medium text-white transition-colors hover:bg-theme-hover active:bg-theme-active"
           >
             {t("login.required")}
           </button>
         </div>
       )}
-      {error && <p className="text-red-500 text-sm mt-2">{error}</p>}
-      <AlertUI />
     </div>
   );
 }
@@ -571,20 +626,28 @@ function Comments({ id }: { id: string }) {
   return (
     <>
       {config.getBoolean('comment.enabled') &&
-        <div className="m-2 flex flex-col justify-center items-center">
-          <CommentInput id={id} onRefresh={loadComments} />
+        <section className="w-full" aria-label={t("comment.title")}>
+          <div className="flex items-center gap-3 border-t border-dashed border-black/10 pt-6 dark:border-white/10">
+            <h2 className="text-[15px] font-semibold t-primary">
+              {t("comment.title")}（{comments.length}）
+            </h2>
+          </div>
           {error && (
-            <>
-              <div className="flex flex-col wauto rounded-2xl bg-w t-primary m-2 p-6 items-center justify-center">
-                <h1 className="text-xl font-bold t-primary">{error}</h1>
-                <button
-                  className="mt-2 bg-theme text-white px-4 py-2 rounded-full"
-                  onClick={loadComments}
-                >
-                  {t("reload")}
-                </button>
-              </div>
-            </>
+            <div className="flex flex-col items-center gap-3 py-8">
+              <p className="text-sm text-red-500">{error}</p>
+              <button
+                type="button"
+                onClick={loadComments}
+                className="rounded-xl border border-black/10 px-4 py-1.5 text-sm t-primary transition-colors hover:bg-neutral-100 dark:border-white/10 dark:hover:bg-white/5"
+              >
+                {t("reload")}
+              </button>
+            </div>
+          )}
+          {!error && comments.length === 0 && (
+            <p className="py-6 text-center text-[13px] text-neutral-400 dark:text-neutral-500">
+              {t("comment.empty_state")}
+            </p>
           )}
           {comments.length > 0 && (
             <div className="w-full">
@@ -597,7 +660,8 @@ function Comments({ id }: { id: string }) {
               ))}
             </div>
           )}
-        </div>
+          <CommentInput id={id} onRefresh={loadComments} />
+        </section>
       }
     </>
   );
@@ -627,22 +691,21 @@ function CommentItem({
             if (error) {
               showAlert(error.value as string);
             } else {
-              showAlert(t("delete.success"), () => {
-                onRefresh();
-              });
+              onRefresh();
             }
           });
       })
   }
   return (
-    <div className="flex flex-row items-start rounded-xl mt-2">
+    <div className="flex flex-row items-start gap-3 border-b border-dashed border-black/5 py-4 last:border-b-0 dark:border-white/5">
       <img
         src={commenterAvatar}
-        className="w-8 h-8 rounded-full mt-4"
+        alt={commenterName}
+        className="mt-0.5 h-9 w-9 shrink-0 rounded-full object-cover"
       />
-      <div className="flex flex-col flex-1 w-0 ml-2 bg-w rounded-xl p-4">
-        <div className="flex flex-row">
-          <span className="t-primary text-base font-bold">
+      <div className="flex min-w-0 flex-1 flex-col">
+        <div className="flex flex-row items-center gap-2">
+          <span className="text-sm font-medium t-primary">
             {commenterName}
           </span>
           {comment.guestWebsite && (
@@ -650,27 +713,29 @@ function CommentItem({
               href={comment.guestWebsite}
               target="_blank"
               rel="noopener noreferrer"
-              className="ml-2 text-gray-400 hover:text-theme transition-colors"
+              aria-label={commenterName}
+              className="text-neutral-400 transition-colors hover:text-theme"
             >
-              <i className="ri-external-link-line"></i>
+              <i className="ri-external-link-line text-sm"></i>
             </a>
           )}
-          <div className="flex-1 w-0" />
           <span
             title={new Date(comment.createdAt).toLocaleString()}
-            className="text-gray-400 text-sm"
+            className="text-xs text-neutral-400 dark:text-neutral-500"
           >
             {timeago(comment.createdAt)}
           </span>
-        </div>
-        <p className="t-primary break-words">{comment.content}</p>
-        <div className="flex flex-row justify-end">
+          <div className="flex-1 w-0" />
           {(profile?.permission || (comment.user && profile?.id == comment.user.id)) && (
             <Popup
               arrow={false}
               trigger={
-                <button className="px-2 py bg-secondary rounded-full">
-                  <i className="ri-more-fill t-secondary"></i>
+                <button
+                  type="button"
+                  aria-label={t("comment.actions")}
+                  className="rounded-lg p-1.5 text-neutral-400 transition-colors hover:bg-secondary hover:text-theme"
+                >
+                  <i className="ri-more-fill text-base"></i>
                 </button>
               }
               position="left center"
@@ -679,14 +744,15 @@ function CommentItem({
                 <button
                   onClick={deleteComment}
                   aria-label={t("delete.comment.title")}
-                  className="px-2 py bg-secondary rounded-full"
+                  className="rounded-lg p-1.5 text-neutral-500 transition-colors hover:bg-red-50 hover:text-red-500 dark:hover:bg-red-500/10"
                 >
-                  <i className="ri-delete-bin-2-line t-secondary"></i>
+                  <i className="ri-delete-bin-2-line text-base"></i>
                 </button>
               </div>
             </Popup>
           )}
         </div>
+        <p className="mt-1 break-words text-[14px] leading-6 t-primary">{comment.content}</p>
       </div>
       <ConfirmUI />
       <AlertUI />
