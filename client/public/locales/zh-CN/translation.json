@@ -854,6 +854,7 @@
   "hero_image_alt": "首页横幅",
   "page_templates": {
     "default": "默认模板",
-    "wide": "宽版模板"
+    "wide": "宽版模板",
+    "portfolio": "作品集"
   }
 }

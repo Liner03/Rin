@@ -64,6 +64,92 @@ function WideTemplate({ page }: PageTemplateProps) {
   );
 }
 
+// ============================================================================
+// 作品集模板：JSON 字段驱动卡片网格
+// 字段约定：
+//   subtitle (str)  —— 副标题
+//   gallery  (json) —— 项目数组，每项 { title?, image?, url?, desc? }
+// ============================================================================
+
+interface GalleryItem {
+  title?: string;
+  image?: string;
+  url?: string;
+  desc?: string;
+}
+
+function getField<T>(fields: Page["fields"], name: string): T | undefined {
+  const field = fields?.find((f) => f.name === name);
+  return field ? (field.value as T) : undefined;
+}
+
+function PortfolioTemplate({ page }: PageTemplateProps) {
+  const subtitle = getField<string>(page.fields, "subtitle");
+  const galleryRaw = getField<unknown>(page.fields, "gallery");
+  const items: GalleryItem[] = Array.isArray(galleryRaw)
+    ? galleryRaw.filter((item): item is GalleryItem => typeof item === "object" && item !== null)
+    : [];
+  const otherFields = (page.fields ?? []).filter((f) => f.name !== "subtitle" && f.name !== "gallery");
+
+  return (
+    <main className="flex w-full flex-col items-center">
+      <div className="w-full max-w-5xl px-4 py-4 text-3xl font-bold t-primary">
+        {page.title}
+      </div>
+      {subtitle ? (
+        <p className="w-full max-w-5xl px-4 pb-2 text-base text-neutral-500 dark:text-neutral-400">
+          {subtitle}
+        </p>
+      ) : null}
+      {items.length > 0 ? (
+        <div className="grid w-full max-w-5xl grid-cols-1 gap-4 px-4 py-4 sm:grid-cols-2 lg:grid-cols-3">
+          {items.map((item, index) => {
+            const card = (
+              <div className="group flex h-full flex-col overflow-hidden rounded-xl border border-black/10 bg-w transition-shadow hover:shadow-lg dark:border-white/10">
+                {item.image ? (
+                  <img
+                    src={item.image}
+                    alt={item.title ?? ""}
+                    loading="lazy"
+                    className="h-40 w-full object-cover"
+                  />
+                ) : (
+                  <div className="flex h-40 w-full items-center justify-center bg-gradient-to-br from-theme/15 to-theme/5 text-3xl">
+                    {item.title?.[0] ?? "•"}
+                  </div>
+                )}
+                <div className="flex flex-1 flex-col gap-1 p-4">
+                  {item.title ? (
+                    <p className="text-sm font-semibold t-primary">{item.title}</p>
+                  ) : null}
+                  {item.desc ? (
+                    <p className="text-[13px] leading-5 text-neutral-500 dark:text-neutral-400">{item.desc}</p>
+                  ) : null}
+                </div>
+              </div>
+            );
+            return item.url ? (
+              <a key={index} href={item.url} target="_blank" rel="noopener noreferrer" className="block">
+                {card}
+              </a>
+            ) : (
+              <div key={index}>{card}</div>
+            );
+          })}
+        </div>
+      ) : null}
+      {otherFields.length > 0 ? (
+        <div className="w-full max-w-5xl px-4">
+          <PageFields fields={otherFields} />
+        </div>
+      ) : null}
+      <article className="w-full max-w-5xl px-4 pb-8 t-primary">
+        <Markdown content={page.content} />
+      </article>
+    </main>
+  );
+}
+
 export const PAGE_TEMPLATES: Record<string, PageTemplateDefinition> = {
   default: {
     id: "default",
@@ -74,6 +160,11 @@ export const PAGE_TEMPLATES: Record<string, PageTemplateDefinition> = {
     id: "wide",
     title: "page_templates.wide",
     render: WideTemplate,
+  },
+  portfolio: {
+    id: "portfolio",
+    title: "page_templates.portfolio",
+    render: PortfolioTemplate,
   },
 };
 

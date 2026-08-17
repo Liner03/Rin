@@ -854,6 +854,7 @@
   "hero_image_alt": "Site banner",
   "page_templates": {
     "default": "Default",
-    "wide": "Wide"
+    "wide": "Wide",
+    "portfolio": "Portfolio"
   }
 }

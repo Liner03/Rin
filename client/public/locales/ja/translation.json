@@ -845,6 +845,7 @@
   "hero_image_alt": "ホームページバナー",
   "page_templates": {
     "default": "デフォルト",
-    "wide": "ワイド"
+    "wide": "ワイド",
+    "portfolio": "ポートフォリオ"
   }
 }
