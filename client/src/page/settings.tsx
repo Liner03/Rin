@@ -276,6 +276,14 @@ export function Settings() {
               setConfigValue("client", "site.nav", value);
             }}
           />
+          <FrontPageSelect
+            title={t("settings.site.front_page.title")}
+            description={t("settings.site.front_page.desc")}
+            value={String(clientConfig.get("site.front_page") ?? "")}
+            onChange={(value) => {
+              setConfigValue("client", "site.front_page", value);
+            }}
+          />
           <ItemInput
             title={t("settings.site.page_size.title")}
             description={t("settings.site.page_size.desc")}
@@ -877,6 +885,75 @@ function NavEditor({
               }}
               className="min-h-36 w-full rounded-xl border border-black/10 bg-w px-4 py-3 text-sm t-primary outline-none transition-colors placeholder:text-neutral-400 focus:border-black/20 focus:ring-2 focus:ring-theme/10 dark:border-white/10 dark:placeholder:text-neutral-500 dark:focus:border-white/20"
             />
+          </SettingsCardBody>
+        ) : null}
+      </SettingsCard>
+    </div>
+  );
+}
+
+// 首页页面选择：下拉列出所有页面
+function FrontPageSelect({
+  title,
+  description,
+  value,
+  onChange,
+}: {
+  title: string;
+  description: string;
+  value: string;
+  onChange: (value: string) => void;
+}) {
+  const { t } = useTranslation();
+  const [isOpen, setIsOpen] = useState(false);
+  const [pages, setPages] = useState<Array<{ id: number; title: string; slug: string | null }>>([]);
+
+  useEffect(() => {
+    client.page.list().then(({ data }) => {
+      if (data) setPages(data);
+    });
+  }, []);
+
+  const selected = pages.find((page) => String(page.id) === value);
+
+  return (
+    <div className="w-full">
+      <SettingsCard>
+        <button
+          type="button"
+          className="block w-full text-left"
+          onClick={() => setIsOpen((current) => !current)}
+        >
+          <SettingsCardRow
+            header={<SettingsCardHeader title={title} description={description} />}
+            action={
+              <div className="flex items-center gap-3">
+                <span className="max-w-56 truncate text-sm text-neutral-500 dark:text-neutral-400">
+                  {selected ? selected.title : t("settings.site.front_page.empty")}
+                </span>
+                <i
+                  className={`ri-arrow-down-s-line text-lg text-neutral-400 transition-transform ${isOpen ? "rotate-180" : ""}`}
+                  aria-hidden="true"
+                />
+              </div>
+            }
+          />
+        </button>
+        {isOpen ? (
+          <SettingsCardBody>
+            <select
+              value={value}
+              onChange={(event) => {
+                onChange(event.target.value);
+                setIsOpen(false);
+              }}
+              className="w-full rounded-xl border border-black/10 bg-w px-4 py-3 text-sm t-primary outline-none dark:border-white/10"
+            >
+              <option value="">{t("settings.site.front_page.empty")}</option>
+              {pages.map((page) => (
+                <option key={page.id} value={String(page.id)}>{page.title}</option>
+              ))}
+            </select>
           </SettingsCardBody>
         ) : null}
       </SettingsCard>

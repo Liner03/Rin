@@ -498,6 +498,11 @@
         "desc": "自定义导航菜单。每行一项：标题|/路径（留空使用默认菜单）",
         "label": "导航",
         "placeholder": "首页|/\n关于|/about"
+      },
+      "front_page": {
+        "title": "首页页面",
+        "desc": "将指定页面设为首页（替换文章列表）",
+        "empty": "文章列表（默认）"
       }
     },
     "header_layout": {
@@ -821,7 +826,11 @@
     "no_parent": "无上级页面",
     "view": "查看",
     "empty": "还没有页面",
-    "vs_posts_hint": "页面是独立页面（如「关于」「友链」），通过 /page/... 访问，不进首页文章流，支持父子层级与排序。文章请在「写作」中管理。"
+    "vs_posts_hint": "页面是独立页面（如「关于」「友链」），通过 /page/... 访问，不进首页文章流，支持父子层级与排序。文章请在「写作」中管理。",
+    "fields": "自定义字段",
+    "field_name": "字段名",
+    "field_value": "值",
+    "add_field": "添加字段"
   },
   "categories": {
     "title": "分类",
@@ -842,5 +851,9 @@
     "preview": "封面预览",
     "not_found": "正文中未找到图片"
   },
-  "hero_image_alt": "首页横幅"
+  "hero_image_alt": "首页横幅",
+  "page_templates": {
+    "default": "默认模板",
+    "wide": "宽版模板"
+  }
 }

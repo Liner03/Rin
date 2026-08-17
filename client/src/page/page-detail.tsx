@@ -4,9 +4,9 @@ import { useTranslation } from "react-i18next";
 import type { Page } from "@rin/api";
 import { client } from "../app/runtime";
 import { Input } from "../components/input";
-import { Markdown } from "../components/markdown";
 import { Waiting } from "../components/loading";
 import { useSiteConfig } from "../hooks/useSiteConfig";
+import { getPageTemplate } from "../components/page-templates";
 import { siteName } from "../utils/constants";
 
 export function PageDetail({ slug }: { slug: string }) {
@@ -71,14 +71,7 @@ export function PageDetail({ slug }: { slug: string }) {
             </button>
           </div>
         ) : page ? (
-          <main className="flex w-full flex-col items-center">
-            <div className="wauto py-4 text-4xl font-bold t-primary">
-              {page.title}
-            </div>
-            <article className="wauto t-primary">
-              <Markdown content={page.content} />
-            </article>
-          </main>
+          getPageTemplate(page.template).render({ page })
         ) : null}
       </Waiting>
     </>

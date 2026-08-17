@@ -498,6 +498,11 @@
         "desc": "自訂導覽選單。每行一項：標題|/路徑（留空使用預設選單）",
         "label": "導覽",
         "placeholder": "首頁|/\n關於|/about"
+      },
+      "front_page": {
+        "title": "首頁頁面",
+        "desc": "將指定頁面設為首頁（取代文章列表）",
+        "empty": "文章列表（預設）"
       }
     },
     "header_layout": {
@@ -821,7 +826,11 @@
     "no_parent": "無上級頁面",
     "view": "查看",
     "empty": "還沒有頁面",
-    "vs_posts_hint": "頁面是獨立頁面（如「關於」「友鏈」），透過 /page/... 訪問，不進首頁文章流，支援父子層級與排序。文章請在「寫作」中管理。"
+    "vs_posts_hint": "頁面是獨立頁面（如「關於」「友鏈」），透過 /page/... 訪問，不進首頁文章流，支援父子層級與排序。文章請在「寫作」中管理。",
+    "fields": "自訂欄位",
+    "field_name": "欄位名",
+    "field_value": "值",
+    "add_field": "新增欄位"
   },
   "categories": {
     "title": "分類",
@@ -842,5 +851,9 @@
     "preview": "封面預覽",
     "not_found": "正文中未找到圖片"
   },
-  "hero_image_alt": "首頁橫幅"
+  "hero_image_alt": "首頁橫幅",
+  "page_templates": {
+    "default": "預設模板",
+    "wide": "寬版模板"
+  }
 }

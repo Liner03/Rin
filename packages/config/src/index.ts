@@ -23,6 +23,7 @@ export const CLIENT_CONFIG_DEFAULTS = new Map(
     "site.rss_title": "",
     "site.rss_description": "",
     "site.nav": "",
+    "site.front_page": "",
     "site.page_size": 5,
   }),
 );

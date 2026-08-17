@@ -498,6 +498,11 @@
         "desc": "Customize the navigation menu. One item per line: Title|/path (empty = default menu)",
         "label": "Navigation",
         "placeholder": "Home|/\nAbout|/about"
+      },
+      "front_page": {
+        "title": "Homepage Page",
+        "desc": "Bind a page as the homepage (replaces the article list)",
+        "empty": "Article list (default)"
       }
     },
     "header_layout": {
@@ -821,7 +826,11 @@
     "no_parent": "No parent",
     "view": "View",
     "empty": "No pages yet",
-    "vs_posts_hint": "Pages are standalone pages (e.g. About, Friends) served at /page/... They are NOT part of the homepage feed, and support parent-child hierarchy and ordering. Posts are managed in Writing."
+    "vs_posts_hint": "Pages are standalone pages (e.g. About, Friends) served at /page/... They are NOT part of the homepage feed, and support parent-child hierarchy and ordering. Posts are managed in Writing.",
+    "fields": "Custom Fields",
+    "field_name": "Name",
+    "field_value": "Value",
+    "add_field": "Add field"
   },
   "categories": {
     "title": "Categories",
@@ -842,5 +851,9 @@
     "preview": "Cover preview",
     "not_found": "No image found in content"
   },
-  "hero_image_alt": "Site banner"
+  "hero_image_alt": "Site banner",
+  "page_templates": {
+    "default": "Default",
+    "wide": "Wide"
+  }
 }

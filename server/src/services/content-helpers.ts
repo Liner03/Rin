@@ -1,7 +1,7 @@
 import { and, eq, inArray, lte, sql } from "drizzle-orm";
 import type { AppContext, DB } from "../core/hono-types";
 import { profileAsync } from "../core/server-timing";
-import { contents, metas, relationships } from "../db/schema";
+import { contents, fields, metas, relationships } from "../db/schema";
 
 export const CONTENT_TYPE = {
     POST: "post",
@@ -202,6 +202,72 @@ async function getMetasForContents(db: DB, contentIds: number[]) {
         map.get(row.contentId)!.push(row.meta);
     }
     return map;
+}
+
+
+// ============================================================================
+// 自定义字段（Typecho fields 风格：str/int/float/json EAV）
+// ============================================================================
+
+export type FieldValue = string | number | boolean | object | null;
+
+export interface ContentField {
+    name: string;
+    type: "str" | "int" | "float" | "json";
+    value: FieldValue;
+}
+
+export async function getContentFields(db: DB, contentId: number): Promise<ContentField[]> {
+    const rows = await db.select().from(fields).where(eq(fields.contentId, contentId)).orderBy(fields.id);
+    return rows.map((row) => ({
+        name: row.name,
+        type: row.type as ContentField["type"],
+        value: decodeFieldValue(row),
+    }));
+}
+
+export async function setContentFields(db: DB, contentId: number, fieldList: ContentField[] | undefined) {
+    if (fieldList === undefined) {
+        return;
+    }
+    await db.delete(fields).where(eq(fields.contentId, contentId));
+    for (const field of fieldList) {
+        if (!field || !field.name || !field.name.trim()) continue;
+        const type = (["str", "int", "float", "json"] as const).includes(field.type) ? field.type : "str";
+        await db.insert(fields).values(encodeFieldValue(contentId, field.name.trim(), type, field.value));
+    }
+}
+
+function decodeFieldValue(row: typeof fields.$inferSelect): FieldValue {
+    switch (row.type) {
+        case "int":
+            return row.intValue;
+        case "float":
+            return row.floatValue;
+        case "json": {
+            try {
+                return JSON.parse(row.strValue);
+            } catch {
+                return row.strValue;
+            }
+        }
+        default:
+            return row.strValue;
+    }
+}
+
+function encodeFieldValue(contentId: number, name: string, type: ContentField["type"], value: FieldValue) {
+    const base = { contentId, name, type };
+    switch (type) {
+        case "int":
+            return { ...base, intValue: Number(value) || 0 };
+        case "float":
+            return { ...base, floatValue: Number(value) || 0 };
+        case "json":
+            return { ...base, strValue: JSON.stringify(value ?? null) };
+        default:
+            return { ...base, strValue: String(value ?? "") };
+    }
 }
 
 export async function refreshMetaCounts(db: DB, metaIds: number[]) {

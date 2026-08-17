@@ -146,6 +146,15 @@ export interface AdjacentFeedResponse {
 // Page Types
 // ============================================================================
 
+/** 自定义字段值（Typecho fields 风格） */
+export type FieldValue = string | number | boolean | object | null;
+
+export interface ContentField {
+  name: string;
+  type: "str" | "int" | "float" | "json";
+  value: FieldValue;
+}
+
 export interface Page {
   id: number;
   title: string;
@@ -159,6 +168,8 @@ export interface Page {
   parent: number;
   order: number;
   template: string;
+  /** 自定义字段 */
+  fields?: ContentField[];
   uid: number;
   createdAt: string;
   updatedAt: string;
@@ -178,6 +189,7 @@ export interface CreatePageRequest {
   parent?: number;
   order?: number;
   template?: string;
+  fields?: ContentField[];
 }
 
 export interface UpdatePageRequest {
@@ -189,6 +201,7 @@ export interface UpdatePageRequest {
   parent?: number;
   order?: number;
   template?: string;
+  fields?: ContentField[];
 }
 
 // ============================================================================

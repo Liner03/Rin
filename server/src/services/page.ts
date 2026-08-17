@@ -9,11 +9,13 @@ import {
     canViewContent,
     createContentUnlockHandler,
     generateSlug,
+    getContentFields,
     getUniqueSlug,
     hashContentPassword,
     isContentUnlocked,
     parseCookies,
     serializeContentDetail,
+    setContentFields,
 } from "./content-helpers";
 
 export function PageService(): Hono {
@@ -45,15 +47,21 @@ export function PageService(): Hono {
         return c.json(page_list.map((page) => serializeContentDetail(page)));
     });
 
-    // GET /page/:slug - 页面详情
+    // GET /page/:slug - 页面详情（支持数字 id 或 slug）
     app.get('/:slug', async (c: AppContext) => {
         const db = c.get('db');
         const admin = c.get('admin');
         const uid = c.get('uid');
         const slugDecoded = decodeURI(c.req.param('slug'));
 
+        // 纯数字视为 id（front_page 绑定用）
+        const idMatch = /^\d+$/.test(slugDecoded) ? parseInt(slugDecoded, 10) : null;
+        const where = idMatch !== null
+            ? and(eq(contents.type, CONTENT_TYPE.PAGE), eq(contents.id, idMatch))
+            : and(eq(contents.type, CONTENT_TYPE.PAGE), eq(contents.slug, slugDecoded));
+
         const page = await profileAsync(c, 'page_detail_db', () => db.query.contents.findFirst({
-            where: and(eq(contents.type, CONTENT_TYPE.PAGE), eq(contents.slug, slugDecoded)),
+            where,
             with: {
                 user: { columns: { id: true, username: true, avatar: true } },
             },
@@ -69,14 +77,17 @@ export function PageService(): Hono {
 
         const cookies = parseCookies(c.req.header('cookie'));
         const unlocked = isContentUnlocked(page, cookies);
+        const fieldsList = await getContentFields(db, page.id);
+        const serialize = () => serializeContentDetail(page, { fields: fieldsList });
+
         if (page.password && !unlocked) {
             if (admin) {
-                return c.json(serializeContentDetail(page));
+                return c.json(serialize());
             }
-            return c.json(serializeContentDetail(page, { content: "", locked: true }));
+            return c.json(serializeContentDetail(page, { content: "", locked: true, fields: [] }));
         }
 
-        return c.json(serializeContentDetail(page));
+        return c.json(serialize());
     });
 
     // POST /page - 创建页面
@@ -86,7 +97,7 @@ export function PageService(): Hono {
         const admin = c.get('admin');
         const uid = c.get('uid');
         const body = await profileAsync(c, 'page_create_parse', () => c.req.json());
-        const { title, content, slug, status, password, parent, order, template } = body;
+        const { title, content, slug, status, password, parent, order, template, fields } = body;
 
         if (!admin) {
             return c.text('Permission denied', 403);
@@ -117,6 +128,7 @@ export function PageService(): Hono {
             template: template || "",
         }).returning({ insertedId: contents.id }));
 
+        await profileAsync(c, 'page_create_fields', () => setContentFields(db, result[0].insertedId, fields));
         await profileAsync(c, 'page_create_cache_invalidate', () => cache.deletePrefix('page_'));
 
         if (result.length === 0) {
@@ -133,7 +145,7 @@ export function PageService(): Hono {
         const uid = c.get('uid');
         const id_num = parseInt(c.req.param('id'));
         const body = await profileAsync(c, 'page_update_parse', () => c.req.json());
-        const { title, content, slug, status, password, parent, order, template } = body;
+        const { title, content, slug, status, password, parent, order, template, fields } = body;
 
         const page = await profileAsync(c, 'page_update_lookup', () => db.query.contents.findFirst({
             where: and(eq(contents.id, id_num), eq(contents.type, CONTENT_TYPE.PAGE)),
@@ -163,6 +175,7 @@ export function PageService(): Hono {
             template,
         }).where(eq(contents.id, id_num)));
 
+        await profileAsync(c, 'page_update_fields', () => setContentFields(db, id_num, fields));
         await profileAsync(c, 'page_update_cache_invalidate', () => cache.deletePrefix('page_'));
         return c.text('Updated');
     });

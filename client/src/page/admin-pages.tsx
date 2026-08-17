@@ -2,7 +2,8 @@ import { useCallback, useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Link } from "wouter";
 import { FlatPanel, Input } from "@rin/ui";
-import type { Page } from "@rin/api";
+import type { ContentField, Page } from "@rin/api";
+import { PAGE_TEMPLATES } from "../components/page-templates";
 import { client } from "../app/runtime";
 import { useAlert } from "../components/dialog";
 import { MarkdownEditor } from "../components/markdown_editor";
@@ -19,6 +20,8 @@ export function AdminPagesPage() {
   const [order, setOrder] = useState(0);
   const [parent, setParent] = useState(0);
   const [status, setStatus] = useState<"publish" | "draft" | "hidden" | "private">("publish");
+  const [template, setTemplate] = useState("default");
+  const [fields, setFields] = useState<ContentField[]>([]);
 
   const loadPages = useCallback(async () => {
     const { data } = await client.page.list();
@@ -38,6 +41,8 @@ export function AdminPagesPage() {
     setOrder(0);
     setParent(0);
     setStatus("publish");
+    setTemplate("default");
+    setFields([]);
   }
 
   async function save() {
@@ -57,6 +62,8 @@ export function AdminPagesPage() {
       order,
       parent,
       status,
+      template,
+      fields,
     };
     const { error } = editingId
       ? await client.page.update(editingId, body)
@@ -89,6 +96,8 @@ export function AdminPagesPage() {
     setOrder(page.order);
     setParent(page.parent);
     setStatus(page.status);
+    setTemplate(page.template || "default");
+    setFields(Array.isArray(page.fields) ? page.fields : []);
   }
 
   return (
@@ -125,6 +134,15 @@ export function AdminPagesPage() {
                 <option key={p.id} value={p.id}>{p.title}</option>
               ))}
             </select>
+            <select
+              value={template}
+              onChange={(e) => setTemplate(e.target.value)}
+              className="rounded-xl border border-black/10 bg-secondary px-3 py-2 text-sm t-primary dark:border-white/10"
+            >
+              {Object.values(PAGE_TEMPLATES).map((tpl) => (
+                <option key={tpl.id} value={tpl.id}>{t(tpl.title)}</option>
+              ))}
+            </select>
             <button
               onClick={save}
               className="rounded-xl bg-theme px-5 py-2 text-sm font-medium text-white transition-colors hover:bg-theme-hover"
@@ -139,6 +157,72 @@ export function AdminPagesPage() {
                 {t("cancel")}
               </button>
             )}
+          </div>
+        </div>
+        <div className="mt-3">
+          <p className="mb-2 text-xs font-semibold uppercase tracking-[0.18em] text-theme/70">{t("pages.fields")}</p>
+          <div className="flex flex-col gap-2">
+            {fields.map((field, index) => (
+              <div key={index} className="grid grid-cols-[1fr_5.5rem_2fr_auto] items-center gap-2">
+                <Input
+                  value={field.name}
+                  setValue={(value) => {
+                    const next = [...fields];
+                    next[index] = { ...next[index], name: value };
+                    setFields(next);
+                  }}
+                  placeholder={t("pages.field_name")}
+                  variant="flat"
+                />
+                <select
+                  value={field.type}
+                  onChange={(e) => {
+                    const next = [...fields];
+                    next[index] = { ...next[index], type: e.target.value as ContentField["type"] };
+                    setFields(next);
+                  }}
+                  className="rounded-xl border border-black/10 bg-secondary px-2 py-2 text-sm t-primary dark:border-white/10"
+                >
+                  <option value="str">str</option>
+                  <option value="int">int</option>
+                  <option value="float">float</option>
+                  <option value="json">json</option>
+                </select>
+                <Input
+                  value={String(field.value ?? "")}
+                  setValue={(value) => {
+                    const next = [...fields];
+                    const raw = value;
+                    const parsed = next[index].type === "int"
+                      ? parseInt(raw) || 0
+                      : next[index].type === "float"
+                        ? parseFloat(raw) || 0
+                        : next[index].type === "json"
+                          ? (() => { try { return JSON.parse(raw); } catch { return raw; } })()
+                          : raw;
+                    next[index] = { ...next[index], value: parsed };
+                    setFields(next);
+                  }}
+                  placeholder={t("pages.field_value")}
+                  variant="flat"
+                />
+                <button
+                  type="button"
+                  onClick={() => setFields(fields.filter((_, i) => i !== index))}
+                  aria-label={t("delete.title")}
+                  className="rounded-lg p-1.5 text-neutral-400 transition-colors hover:bg-red-50 hover:text-red-500 dark:hover:bg-red-500/10"
+                >
+                  <i className="ri-delete-bin-2-line text-base" />
+                </button>
+              </div>
+            ))}
+            <button
+              type="button"
+              onClick={() => setFields([...fields, { name: "", type: "str", value: "" }])}
+              className="self-start rounded-xl border border-dashed border-black/20 px-4 py-2 text-sm text-neutral-500 transition-colors hover:border-theme hover:text-theme dark:border-white/20"
+            >
+              {t("pages.add_field")}
+            </button>
           </div>
         </div>
         <div className="mt-3">
