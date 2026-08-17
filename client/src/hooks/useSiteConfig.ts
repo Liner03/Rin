@@ -119,18 +119,28 @@ export function useSiteNavItems() {
         }));
     }
 
-    return [
-        ...DEFAULT_NAV.map((item) => ({
-            title: t(item.label),
-            href: item.href,
-            selectedPrefix: item.selectedPrefix,
-        })),
-        ...pages.map((page) => ({
+    // 页面项与默认项同名时替换默认项（如"关于"指向真实页面）
+    const defaultItems = DEFAULT_NAV.map((item) => ({
+        title: t(item.label),
+        href: item.href,
+        selectedPrefix: item.selectedPrefix,
+    }));
+    const defaultTitles = new Set(defaultItems.map((item) => item.title));
+
+    const pageItems = pages
+        .filter((page) => !defaultTitles.has(page.title))
+        .map((page) => ({
             title: page.title,
             href: `/page/${page.slug}`,
             selectedPrefix: undefined,
-        })),
-    ];
+        }));
+
+    const replaced = defaultItems.map((item) => {
+        const match = pages.find((page) => page.title === item.title);
+        return match ? { ...item, href: `/page/${match.slug}` } : item;
+    });
+
+    return [...replaced, ...pageItems];
 }
 
 // Hook to get a specific site config value

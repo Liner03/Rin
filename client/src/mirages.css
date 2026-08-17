@@ -74,15 +74,7 @@ body.mirages-layout-active .mirages-root a[aria-label="home"] {
   color: rgba(0, 0, 0, 0.9) !important;
   line-height: 1.5 !important;
 }
-body.mirages-layout-active .mirages-root [class*="z-40"] a[href="/timeline"],
-body.mirages-layout-active .mirages-root [class*="z-40"] a[href="/moments"],
-body.mirages-layout-active .mirages-root [class*="z-40"] a[href="/hashtags"],
-body.mirages-layout-active .mirages-root [class*="z-40"] a[href="/friends"],
-body.mirages-layout-active .mirages-root [class*="z-40"] a[href="/about"] {
-  font-size: 16px !important;
-  padding: 8px !important;
-}
-body.mirages-layout-active .mirages-root [class*="z-40"] a[href="/"]:not([aria-label="home"]) {
+body.mirages-layout-active .mirages-root [class*="z-40"] a[class*="cursor-pointer"] {
   font-size: 16px !important;
   padding: 8px !important;
 }
