@@ -846,6 +846,12 @@
   "page_templates": {
     "default": "デフォルト",
     "wide": "ワイド",
-    "portfolio": "ポートフォリオ"
+    "portfolio": "ポートフォリオ",
+    "links": "リンク",
+    "gallery": "ギャラリー",
+    "timeline": "タイムライン",
+    "resume": "履歴書",
+    "music": "ミュージック",
+    "docs": "ドキュメント"
   }
 }

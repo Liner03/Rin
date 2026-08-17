@@ -855,6 +855,12 @@
   "page_templates": {
     "default": "預設模板",
     "wide": "寬版模板",
-    "portfolio": "作品集"
+    "portfolio": "作品集",
+    "links": "連結導覽",
+    "gallery": "相簿",
+    "timeline": "時間軸",
+    "resume": "履歷",
+    "music": "音樂收藏",
+    "docs": "文件"
   }
 }

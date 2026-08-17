@@ -855,6 +855,12 @@
   "page_templates": {
     "default": "默认模板",
     "wide": "宽版模板",
-    "portfolio": "作品集"
+    "portfolio": "作品集",
+    "links": "链接导航",
+    "gallery": "相册",
+    "timeline": "时间线",
+    "resume": "简历",
+    "music": "音乐收藏",
+    "docs": "文档"
   }
 }

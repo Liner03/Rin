@@ -855,6 +855,12 @@
   "page_templates": {
     "default": "Default",
     "wide": "Wide",
-    "portfolio": "Portfolio"
+    "portfolio": "Portfolio",
+    "links": "Links",
+    "gallery": "Gallery",
+    "timeline": "Timeline",
+    "resume": "Resume",
+    "music": "Music",
+    "docs": "Documentation"
   }
 }
