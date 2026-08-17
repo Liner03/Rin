@@ -1,6 +1,5 @@
-import { useTranslation } from "react-i18next";
 import { Link, useLocation } from "wouter";
-import { DEFAULT_NAV, useSiteConfig } from "../../../hooks/useSiteConfig";
+import { useSiteNavItems } from "../../../hooks/useSiteConfig";
 
 export function NavBar({
   menu,
@@ -12,17 +11,7 @@ export function NavBar({
   itemClassName?: string;
 }) {
   const [location] = useLocation();
-  const { t } = useTranslation();
-  const siteConfig = useSiteConfig();
-
-  const customNav = siteConfig.nav;
-  const items = customNav.length > 0
-    ? customNav.map((item) => ({ title: item.label, href: item.href, selectedPrefix: undefined }))
-    : DEFAULT_NAV.map((item) => ({
-        title: t(item.label),
-        href: item.href,
-        selectedPrefix: item.selectedPrefix,
-      }));
+  const items = useSiteNavItems();
 
   return (
     <>

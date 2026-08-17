@@ -2,7 +2,7 @@ import { createContext, useContext, useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Link, useLocation } from "wouter";
 import { HeaderActions, NavBar } from "..";
-import { DEFAULT_NAV, useSiteConfig } from "../../../hooks/useSiteConfig";
+import { useSiteConfig, useSiteNavItems } from "../../../hooks/useSiteConfig";
 import type { Profile } from "../../../state/profile";
 import { ProfileContext } from "../../../state/profile";
 import type { HeaderLayoutDefinition } from "../layout-types";
@@ -27,6 +27,7 @@ function useMiragesSidebar() {
 function MiragesDrawer({ isOpen, onClose }: { isOpen: boolean; onClose: () => void }) {
   const { t } = useTranslation();
   const siteConfig = useSiteConfig();
+  const navItems = useSiteNavItems();
   const profile = useContext(ProfileContext);
   return (
     <>
@@ -66,21 +67,15 @@ function MiragesDrawer({ isOpen, onClose }: { isOpen: boolean; onClose: () => vo
         </div>
 
         <nav className="flex flex-col gap-1">
-          {siteConfig.nav.length > 0 ? (
-            siteConfig.nav.map((item) => (
-              <SidebarItem key={item.href} href={item.href} title={item.label} onClose={onClose} />
-            ))
-          ) : (
-            DEFAULT_NAV.map((item) => (
-              <SidebarItem
-                key={item.href}
-                href={item.href}
-                title={t(item.label)}
-                onClose={onClose}
-                selectedPrefix={item.selectedPrefix}
-              />
-            ))
-          )}
+          {navItems.map((item) => (
+            <SidebarItem
+              key={item.href}
+              href={item.href}
+              title={item.title}
+              onClose={onClose}
+              selectedPrefix={item.selectedPrefix}
+            />
+          ))}
         </nav>
 
         <div className="mt-auto flex items-center justify-center gap-3 pt-6 text-neutral-400 dark:text-neutral-500">

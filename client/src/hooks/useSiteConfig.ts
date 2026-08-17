@@ -1,5 +1,7 @@
-import { useContext } from "react";
+import { useContext, useEffect, useState } from "react";
+import { useTranslation } from "react-i18next";
 import { ClientConfigContext } from "../state/config";
+import { client } from "../app/runtime";
 import { normalizeFeedCardVariant } from "../components/feed-card-options";
 import { normalizeFeedLayout } from "../components/feed-layout-options";
 
@@ -84,6 +86,51 @@ export function useSiteConfig() {
         headerLayout: config.get<string>(SITE_CONFIG_KEYS.headerLayout) || "classic",
         themeColor: config.get<string>(SITE_CONFIG_KEYS.themeColor) || "#fc466b",
     };
+}
+
+
+// 导航项：自定义 site.nav 优先；否则默认导航 + 自动追加已发布页面（Typecho 惯例）
+export function useSiteNavItems() {
+    const { t } = useTranslation();
+    const siteConfig = useSiteConfig();
+    const [pages, setPages] = useState<Array<{ title: string; slug: string | null }>>([]);
+
+    useEffect(() => {
+        let cancelled = false;
+        client.page.list().then(({ data }) => {
+            if (!cancelled && data) {
+                setPages(
+                    data
+                        .filter((page) => page.status === "publish" && !page.hasPassword && page.slug)
+                        .map((page) => ({ title: page.title, slug: page.slug })),
+                );
+            }
+        }).catch(() => {});
+        return () => {
+            cancelled = true;
+        };
+    }, []);
+
+    if (siteConfig.nav.length > 0) {
+        return siteConfig.nav.map((item) => ({
+            title: item.label,
+            href: item.href,
+            selectedPrefix: undefined,
+        }));
+    }
+
+    return [
+        ...DEFAULT_NAV.map((item) => ({
+            title: t(item.label),
+            href: item.href,
+            selectedPrefix: item.selectedPrefix,
+        })),
+        ...pages.map((page) => ({
+            title: page.title,
+            href: `/page/${page.slug}`,
+            selectedPrefix: undefined,
+        })),
+    ];
 }
 
 // Hook to get a specific site config value
