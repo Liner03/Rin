@@ -182,7 +182,7 @@ export const miragesLayoutDefinition: HeaderLayoutDefinition = {
   renderDesktop({ children, profile, siteConfig }) {
     return (
       <div className="mx-auto hidden h-16 w-full max-w-[1200px] items-center justify-between px-4 md:flex">
-        <div className="flex min-w-0 flex-1 items-center">
+        <div className="flex shrink-0 items-center pr-2">
           <Link href="/" aria-label="home" className="text-[20px] font-bold text-black/90 dark:text-white/90">
             {siteConfig.name}
           </Link>
@@ -192,7 +192,7 @@ export const miragesLayoutDefinition: HeaderLayoutDefinition = {
             <NavBar menu={false} itemClassName="px-2 py-2 text-[16px] hover:text-theme" />
           </div>
         </div>
-        <div className="ml-4 flex flex-1 items-center justify-end gap-2">
+        <div className="flex shrink-0 items-center justify-end gap-2">
           <MiragesHeaderActions children={children} profile={profile} className="mirages-header-actions flex flex-row items-center gap-2" />
         </div>
       </div>

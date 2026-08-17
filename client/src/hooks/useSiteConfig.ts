@@ -127,8 +127,10 @@ export function useSiteNavItems() {
     }));
     const defaultTitles = new Set(defaultItems.map((item) => item.title));
 
+    // 页面项最多 8 个，防止导航无限膨胀（更多页面请用自定义 site.nav）
     const pageItems = pages
         .filter((page) => !defaultTitles.has(page.title))
+        .slice(0, 8)
         .map((page) => ({
             title: page.title,
             href: `/page/${page.slug}`,
