@@ -3,8 +3,8 @@ import { useTranslation } from "react-i18next";
 import { Link } from "wouter";
 import { FlatPanel, Input } from "@rin/ui";
 import type { ContentField, Page } from "@rin/api";
-import { PAGE_TEMPLATES } from "../components/page-templates";
 import { client } from "../app/runtime";
+import { PAGE_TEMPLATES } from "../components/page-templates";
 import { useAlert } from "../components/dialog";
 import { MarkdownEditor } from "../components/markdown_editor";
 

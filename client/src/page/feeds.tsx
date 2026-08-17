@@ -9,8 +9,8 @@ import { ProfileContext } from "../state/profile"
 
 import { useSiteConfig } from "../hooks/useSiteConfig";
 import { siteName } from "../utils/constants"
-import { tryInt } from "../utils/int"
 import { getPageTemplate } from "../components/page-templates"
+import { tryInt } from "../utils/int"
 import { useTranslation } from "react-i18next";
 
 type FeedType = 'draft' | 'unlisted' | 'normal'
@@ -39,11 +39,17 @@ export function FeedsPage() {
     const ref = useRef("")
     const [frontPage, setFrontPage] = useState<Page>();
     useEffect(() => {
+        let cancelled = false;
         if (siteConfig.frontPage && listState === 'normal') {
             client.page.get(siteConfig.frontPage).then(({ data }) => {
-                if (data && !data.locked) setFrontPage(data);
-            });
+                if (!cancelled && data && !data.locked) setFrontPage(data);
+            }).catch(() => {});
+        } else {
+            setFrontPage(undefined);
         }
+        return () => {
+            cancelled = true;
+        };
     }, [siteConfig.frontPage, listState]);
     function fetchFeeds(type: FeedType) {
         client.feed.list({
@@ -83,7 +89,7 @@ export function FeedsPage() {
                 {siteConfig.keywords && <meta name="keywords" content={siteConfig.keywords} />}
                 {siteConfig.description && <meta name="description" content={siteConfig.description} />}
             </Helmet>
-            {siteConfig.frontPage && frontPage ? (
+            {siteConfig.frontPage && frontPage && listState === 'normal' ? (
                 <main className="w-full flex flex-col justify-center items-center mb-8">
                     {getPageTemplate(frontPage.template).render({ page: frontPage })}
                 </main>

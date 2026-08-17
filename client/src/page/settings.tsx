@@ -911,7 +911,7 @@ function FrontPageSelect({
   useEffect(() => {
     client.page.list().then(({ data }) => {
       if (data) setPages(data);
-    });
+    }).catch(() => {});
   }, []);
 
   const selected = pages.find((page) => String(page.id) === value);

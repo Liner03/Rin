@@ -44,7 +44,12 @@ export function PageService(): Hono {
             orderBy: [asc(contents.order), asc(contents.id)],
         }));
 
-        return c.json(page_list.map((page) => serializeContentDetail(page)));
+        const rows = [];
+        for (const page of page_list) {
+            const fieldsList = await getContentFields(db, page.id);
+            rows.push(serializeContentDetail(page, { fields: fieldsList }));
+        }
+        return c.json(rows);
     });
 
     // GET /page/:slug - 页面详情（支持数字 id 或 slug）
@@ -93,7 +98,6 @@ export function PageService(): Hono {
     // POST /page - 创建页面
     app.post('/', async (c: AppContext) => {
         const db = c.get('db');
-        const cache = c.get('cache');
         const admin = c.get('admin');
         const uid = c.get('uid');
         const body = await profileAsync(c, 'page_create_parse', () => c.req.json());
@@ -129,7 +133,6 @@ export function PageService(): Hono {
         }).returning({ insertedId: contents.id }));
 
         await profileAsync(c, 'page_create_fields', () => setContentFields(db, result[0].insertedId, fields));
-        await profileAsync(c, 'page_create_cache_invalidate', () => cache.deletePrefix('page_'));
 
         if (result.length === 0) {
             return c.text('Failed to insert', 500);
@@ -140,7 +143,6 @@ export function PageService(): Hono {
     // POST /page/:id - 更新页面
     app.post('/:id', async (c: AppContext) => {
         const db = c.get('db');
-        const cache = c.get('cache');
         const admin = c.get('admin');
         const uid = c.get('uid');
         const id_num = parseInt(c.req.param('id'));
@@ -176,7 +178,6 @@ export function PageService(): Hono {
         }).where(eq(contents.id, id_num)));
 
         await profileAsync(c, 'page_update_fields', () => setContentFields(db, id_num, fields));
-        await profileAsync(c, 'page_update_cache_invalidate', () => cache.deletePrefix('page_'));
         return c.text('Updated');
     });
 
@@ -196,7 +197,6 @@ export function PageService(): Hono {
     // DELETE /page/:id
     app.delete('/:id', async (c: AppContext) => {
         const db = c.get('db');
-        const cache = c.get('cache');
         const admin = c.get('admin');
         const uid = c.get('uid');
         const id_num = parseInt(c.req.param('id'));
@@ -214,7 +214,6 @@ export function PageService(): Hono {
         }
 
         await profileAsync(c, 'page_delete_db', () => db.delete(contents).where(eq(contents.id, id_num)));
-        await profileAsync(c, 'page_delete_cache_invalidate', () => cache.deletePrefix('page_'));
         return c.text('Deleted');
     });
 

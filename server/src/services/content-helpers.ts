@@ -1,4 +1,5 @@
 import { and, eq, inArray, lte, sql } from "drizzle-orm";
+import type { ContentField, FieldValue } from "@rin/api";
 import type { AppContext, DB } from "../core/hono-types";
 import { profileAsync } from "../core/server-timing";
 import { contents, fields, metas, relationships } from "../db/schema";
@@ -209,14 +210,6 @@ async function getMetasForContents(db: DB, contentIds: number[]) {
 // 自定义字段（Typecho fields 风格：str/int/float/json EAV）
 // ============================================================================
 
-export type FieldValue = string | number | boolean | object | null;
-
-export interface ContentField {
-    name: string;
-    type: "str" | "int" | "float" | "json";
-    value: FieldValue;
-}
-
 export async function getContentFields(db: DB, contentId: number): Promise<ContentField[]> {
     const rows = await db.select().from(fields).where(eq(fields.contentId, contentId)).orderBy(fields.id);
     return rows.map((row) => ({
@@ -230,12 +223,30 @@ export async function setContentFields(db: DB, contentId: number, fieldList: Con
     if (fieldList === undefined) {
         return;
     }
-    await db.delete(fields).where(eq(fields.contentId, contentId));
+    // 按 name 去重（last-wins），重复名会触发 unique(content_id, name) 冲突
+    const deduped = new Map<string, ContentField>();
     for (const field of fieldList) {
         if (!field || !field.name || !field.name.trim()) continue;
-        const type = (["str", "int", "float", "json"] as const).includes(field.type) ? field.type : "str";
-        await db.insert(fields).values(encodeFieldValue(contentId, field.name.trim(), type, field.value));
+        deduped.set(field.name.trim(), field);
     }
+    const entries = Array.from(deduped.values()).map((field) =>
+        encodeFieldValue(contentId, field.name.trim(), normalizeFieldType(field.type), field.value)
+    );
+    if (typeof (db as any).batch === "function") {
+        await (db as any).batch([
+            db.delete(fields).where(eq(fields.contentId, contentId)),
+            ...entries.map((entry) => db.insert(fields).values(entry)),
+        ]);
+    } else {
+        await db.delete(fields).where(eq(fields.contentId, contentId));
+        for (const entry of entries) {
+            await db.insert(fields).values(entry);
+        }
+    }
+}
+
+function normalizeFieldType(type: ContentField["type"]): ContentField["type"] {
+    return (["str", "int", "float", "json"] as const).includes(type) ? type : "str";
 }
 
 function decodeFieldValue(row: typeof fields.$inferSelect): FieldValue {
@@ -259,12 +270,23 @@ function decodeFieldValue(row: typeof fields.$inferSelect): FieldValue {
 function encodeFieldValue(contentId: number, name: string, type: ContentField["type"], value: FieldValue) {
     const base = { contentId, name, type };
     switch (type) {
-        case "int":
-            return { ...base, intValue: Number(value) || 0 };
-        case "float":
-            return { ...base, floatValue: Number(value) || 0 };
-        case "json":
-            return { ...base, strValue: JSON.stringify(value ?? null) };
+        case "int": {
+            const num = Number(value);
+            return { ...base, intValue: Number.isFinite(num) ? num : 0 };
+        }
+        case "float": {
+            const num = Number(value);
+            return { ...base, floatValue: Number.isFinite(num) ? num : 0 };
+        }
+        case "json": {
+            let serialized = String(value ?? "");
+            try {
+                serialized = JSON.stringify(value ?? null);
+            } catch {
+                serialized = "";
+            }
+            return { ...base, strValue: serialized };
+        }
         default:
             return { ...base, strValue: String(value ?? "") };
     }
