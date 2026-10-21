@@ -3,6 +3,8 @@ import { useTranslation } from "react-i18next";
 import Modal from "react-modal";
 import { Button, ButtonWithLoading } from "./button";
 
+Modal.setAppElement("#root");
+
 export type Confirm = {
     title: string;
     message: string;
@@ -61,14 +63,14 @@ export function useAlert() {
                 }
             }}
         >
-            <div className="flex flex-col items-start p-4 bg-w space-y-4 w-full min-w-56 sm:min-w-96">
-                <h1 className="text-2xl font-bold t-primary">
+            <div className="flex w-full min-w-56 flex-col items-start gap-4 rounded-xl border border-black/5 bg-w p-5 sm:min-w-96 dark:border-white/10">
+                <h1 className="text-lg font-semibold t-primary">
                     {t("alert")}
                 </h1>
-                <p className="text-base t-primary">
+                <p className="text-sm leading-6 t-secondary">
                     {alert?.message}
                 </p>
-                <div className="w-full flex flex-row items-center justify-center space-x-2 mt-4">
+                <div className="mt-2 flex w-full flex-row items-center justify-end gap-2">
                     <Button onClick={close} title={t('confirm')} />
                 </div>
             </div>
@@ -123,14 +125,14 @@ export function useConfirm() {
                 }
             }}
         >
-            <div className="flex flex-col items-start p-4 bg-w space-y-4 w-full min-w-56 sm:min-w-96">
-                <h1 className="text-2xl font-bold t-primary">
+            <div className="flex w-full min-w-56 flex-col items-start gap-4 rounded-xl border border-black/5 bg-w p-5 sm:min-w-96 dark:border-white/10">
+                <h1 className="text-lg font-semibold t-primary">
                     {confirm?.title}
                 </h1>
-                <p className="text-base t-primary">
+                <p className="text-sm leading-6 t-secondary">
                     {confirm?.message}
                 </p>
-                <div className="w-full flex flex-row items-center justify-center space-x-2 mt-4">
+                <div className="mt-2 flex w-full flex-row items-center justify-end gap-2">
                     <ButtonWithLoading
                         loading={loading}
                         onClick={async () => {

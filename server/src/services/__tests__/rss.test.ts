@@ -31,10 +31,10 @@ describe('RSSService', () => {
             INSERT INTO users (id, username, avatar, openid) VALUES (1, 'testuser', 'avatar.png', 'gh_test')
         `);
         sqlite.exec(`
-            INSERT INTO feeds (id, title, content, summary, uid, draft, listed, created_at, updated_at) VALUES 
-                (1, 'Test Feed 1', '# Hello\n\nThis is content', 'Summary 1', 1, 0, 1, unixepoch(), unixepoch()),
-                (2, 'Test Feed 2', '![image](https://example.com/img.png)', 'Summary 2', 1, 0, 1, unixepoch(), unixepoch()),
-                (3, 'Draft Feed', 'Draft content', '', 1, 1, 1, unixepoch(), unixepoch())
+            INSERT INTO contents (id, type, title, text, summary, uid, status, created_at, updated_at) VALUES 
+                (1, 'post', 'Test Feed 1', '# Hello\n\nThis is content', 'Summary 1', 1, 'publish', unixepoch(), unixepoch()),
+                (2, 'post', 'Test Feed 2', '![image](https://example.com/img.png)', 'Summary 2', 1, 'publish', unixepoch(), unixepoch()),
+                (3, 'post', 'Draft Feed', 'Draft content', '', 1, 'draft', unixepoch(), unixepoch())
         `);
     }
 
@@ -115,8 +115,8 @@ describe('RSSService', () => {
         it('should limit to 20 items', async () => {
             for (let i = 4; i <= 25; i++) {
                 sqlite.exec(`
-                    INSERT INTO feeds (id, title, content, uid, draft, listed, created_at) 
-                    VALUES (${i}, 'Feed ${i}', 'Content', 1, 0, 1, unixepoch())
+                    INSERT INTO contents (id, type, title, text, uid, status, created_at) 
+                    VALUES (${i}, 'post', 'Feed ${i}', 'Content', 1, 'publish', unixepoch())
                 `);
             }
             
@@ -189,9 +189,9 @@ describe('rssCrontab', () => {
         
         sqlite.exec(`INSERT INTO users (id, username, openid) VALUES (1, 'testuser', 'gh_test')`);
         sqlite.exec(`
-            INSERT INTO feeds (id, title, content, uid, draft, listed) VALUES 
-                (1, 'Feed 1', 'Content 1', 1, 0, 1),
-                (2, 'Feed 2', 'Content 2', 1, 0, 1)
+            INSERT INTO contents (id, type, title, text, uid, status) VALUES 
+                (1, 'post', 'Feed 1', 'Content 1', 1, 'publish'),
+                (2, 'post', 'Feed 2', 'Content 2', 1, 'publish')
         `);
     });
 
@@ -208,7 +208,7 @@ describe('rssCrontab', () => {
     });
 
     it('should handle missing feeds gracefully', async () => {
-        sqlite.exec('DELETE FROM feeds');
+        sqlite.exec('DELETE FROM contents');
         
         try {
             await rssCrontab(env, db);

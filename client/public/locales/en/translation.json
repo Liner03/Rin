@@ -10,7 +10,9 @@
     "queue_status_description": "Inspect AI summary queue progress, recent task results, and failures.",
     "settings_description": "Manage site behavior, integrations, and publishing rules in one place.",
     "title": "Admin",
-    "writing_description": "Write, edit, and publish content from the private management workspace."
+    "writing_description": "Write, edit, and publish content from the private management workspace.",
+    "pages_description": "Manage independent pages",
+    "categories_description": "Manage categories"
   },
   "compat_tasks": {
     "title": "Compatibility Tasks",
@@ -103,7 +105,16 @@
     "guest_name_required": "Guest name is required",
     "guest_name_placeholder": "Name (required)",
     "guest_email_placeholder": "Email (optional)",
-    "guest_website_placeholder": "Website (optional)"
+    "guest_website_placeholder": "Website (optional)",
+    "empty_state": "Be the first to comment",
+    "more_options": "More options (email, website)",
+    "less_options": "Fewer options",
+    "email_hint": "Email is never published",
+    "login_link": "Sign in to comment",
+    "login_hint": "Sign in to join the discussion",
+    "actions": "Comment actions",
+    "count": "Comments ({{count}})",
+    "email_invalid": "Please enter a valid email address"
   },
   "comparison": "Comparison",
   "confirm": "Confirm",
@@ -452,6 +463,46 @@
         "title": "Page Size",
         "desc": "Set the number of articles displayed per page in the list",
         "label": "Articles per page"
+      },
+      "hero_image": {
+        "title": "Homepage Banner",
+        "desc": "Banner image displayed at the top of the homepage",
+        "label": "Banner image URL"
+      },
+      "keywords": {
+        "title": "SEO Keywords",
+        "desc": "Meta keywords for the site (comma separated)",
+        "label": "Keywords",
+        "placeholder": "blog, tech, life"
+      },
+      "copyright": {
+        "title": "Copyright",
+        "desc": "Custom copyright text shown in the footer (leave empty for default)",
+        "label": "Copyright",
+        "placeholder": "© 2026 Your Name"
+      },
+      "rss_title": {
+        "title": "RSS Title",
+        "desc": "Feed title (falls back to site name)",
+        "label": "RSS title",
+        "placeholder": "My Blog Feed"
+      },
+      "rss_description": {
+        "title": "RSS Description",
+        "desc": "Feed description (falls back to site description)",
+        "label": "RSS description",
+        "placeholder": "Latest posts"
+      },
+      "nav": {
+        "title": "Navigation Menu",
+        "desc": "Customize the navigation menu. One item per line: Title|/path (empty = default menu)",
+        "label": "Navigation",
+        "placeholder": "Home|/\nAbout|/about"
+      },
+      "front_page": {
+        "title": "Homepage Page",
+        "desc": "Bind a page as the homepage (replaces the article list)",
+        "empty": "Article list (default)"
       }
     },
     "header_layout": {
@@ -765,5 +816,51 @@
   },
   "menu": "Menu",
   "avatar_alt": "Site avatar",
-  "back_to_top": "Back to top"
+  "back_to_top": "Back to top",
+  "password": "Password",
+  "password_required": "This content is password protected",
+  "unlock": "Unlock",
+  "pages": {
+    "title": "Pages",
+    "order": "Order",
+    "no_parent": "No parent",
+    "view": "View",
+    "empty": "No pages yet",
+    "vs_posts_hint": "Pages are standalone pages (e.g. About, Friends) served at /page/... They are NOT part of the homepage feed, and support parent-child hierarchy and ordering. Posts are managed in Writing.",
+    "fields": "Custom Fields",
+    "field_name": "Name",
+    "field_value": "Value",
+    "add_field": "Add field"
+  },
+  "categories": {
+    "title": "Categories",
+    "name": "Name",
+    "description": "Description",
+    "posts": "Posts",
+    "empty": "No categories yet",
+    "listed": "Show on homepage",
+    "listed_hint": "Uncheck to hide posts in this category from the homepage feed",
+    "hidden": "hidden from homepage"
+  },
+  "password_remove": "Remove password",
+  "cover": {
+    "title": "Cover Image",
+    "placeholder": "Cover image URL (falls back to first image in content)",
+    "extract": "Extract from content",
+    "clear": "Clear",
+    "preview": "Cover preview",
+    "not_found": "No image found in content"
+  },
+  "hero_image_alt": "Site banner",
+  "page_templates": {
+    "default": "Default",
+    "wide": "Wide",
+    "portfolio": "Portfolio",
+    "links": "Links",
+    "gallery": "Gallery",
+    "timeline": "Timeline",
+    "resume": "Resume",
+    "music": "Music",
+    "docs": "Documentation"
+  }
 }

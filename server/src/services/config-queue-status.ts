@@ -1,5 +1,5 @@
 import { eq, desc, ne } from "drizzle-orm";
-import { feeds } from "../db/schema";
+import { contents } from "../db/schema";
 import { clearFeedCache } from "./feed";
 import { syncFeedAISummaryQueueState } from "./feed-ai-summary";
 
@@ -36,8 +36,8 @@ export async function retryQueueStatusTask(
   env: Env,
   feedId: number,
 ) {
-  const feed = await db.query.feeds.findFirst({
-    where: eq(feeds.id, feedId),
+  const feed = await db.query.contents.findFirst({
+    where: eq(contents.id, feedId),
   });
 
   if (!feed) {
@@ -49,11 +49,11 @@ export async function retryQueueStatusTask(
   }
 
   await syncFeedAISummaryQueueState(db, serverConfig, env, feedId, {
-    draft: feed.draft === 1,
+    draft: feed.status === "draft",
     updatedAt: feed.updatedAt,
     resetSummary: false,
   });
-  await clearFeedCache(cache, feed.id, feed.alias, feed.alias);
+  await clearFeedCache(cache, feed.id, feed.slug, feed.slug);
 }
 
 export async function deleteQueueStatusTask(
@@ -61,8 +61,8 @@ export async function deleteQueueStatusTask(
   cache: any,
   feedId: number,
 ) {
-  const feed = await db.query.feeds.findFirst({
-    where: eq(feeds.id, feedId),
+  const feed = await db.query.contents.findFirst({
+    where: eq(contents.id, feedId),
   });
 
   if (!feed) {
@@ -74,14 +74,14 @@ export async function deleteQueueStatusTask(
   }
 
   await db
-    .update(feeds)
+    .update(contents)
     .set({
       ai_summary_status: "idle",
       ai_summary_error: "",
     })
-    .where(eq(feeds.id, feedId));
+    .where(eq(contents.id, feedId));
 
-  await clearFeedCache(cache, feed.id, feed.alias, feed.alias);
+  await clearFeedCache(cache, feed.id, feed.slug, feed.slug);
 }
 
 export async function buildQueueStatusResponse(
@@ -96,7 +96,7 @@ export async function buildQueueStatusResponse(
     failed: 0,
   };
 
-  const allFeeds = await db.query.feeds.findMany({
+  const allFeeds = await db.query.contents.findMany({
     columns: {
       id: true,
       ai_summary_status: true,
@@ -110,8 +110,8 @@ export async function buildQueueStatusResponse(
     }
   }
 
-  const items = await db.query.feeds.findMany({
-    where: ne(feeds.ai_summary_status, "idle"),
+  const items = await db.query.contents.findMany({
+    where: ne(contents.ai_summary_status, "idle"),
     columns: {
       id: true,
       title: true,
@@ -120,7 +120,7 @@ export async function buildQueueStatusResponse(
       updatedAt: true,
       createdAt: true,
     },
-    orderBy: [desc(feeds.updatedAt)],
+    orderBy: [desc(contents.updatedAt)],
     limit: 50,
   });
 

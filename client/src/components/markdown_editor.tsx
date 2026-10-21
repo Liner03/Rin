@@ -478,12 +478,14 @@ export function MarkdownEditor({ content, setContent, placeholder = "> Write you
             />
           </div>
         </div>
-        <div
-          className={"min-h-0 overflow-y-auto rounded-none border-0 bg-w px-4 py-4 border-t sm:border-none " + (preview === 'edit' ? "hidden" : "")}
-          style={{ height: height }}
-        >
-          <Markdown content={content ? content : placeholder} />
-        </div>
+        {preview !== 'edit' && (
+          <div
+            className={"min-h-0 overflow-y-auto rounded-none border-0 bg-w px-4 py-4 border-t sm:border-none"}
+            style={{ height: height }}
+          >
+            <Markdown content={content ? content : placeholder} />
+          </div>
+        )}
       </div>
       <AlertUI />
     </div>

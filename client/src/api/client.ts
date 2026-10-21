@@ -18,6 +18,13 @@ import type {
   UpdateProfileRequest,
   Tag,
   TagDetail,
+  Category,
+  CategoryDetail,
+  CreateCategoryRequest,
+  UpdateCategoryRequest,
+  Page,
+  CreatePageRequest,
+  UpdatePageRequest,
   Comment,
   CreateCommentRequest,
   Friend,
@@ -140,6 +147,13 @@ export type {
   UpdateProfileRequest,
   Tag,
   TagDetail,
+  Category,
+  CategoryDetail,
+  CreateCategoryRequest,
+  UpdateCategoryRequest,
+  Page,
+  CreatePageRequest,
+  UpdatePageRequest,
   Comment,
   CreateCommentRequest,
   Friend,
@@ -322,6 +336,80 @@ class FeedAPI {
   // POST /api/feed/top/:id
   async setTop(id: number, top: number): Promise<ApiResponse<void>> {
     return this.http.post<void>(`/api/feed/top/${id}`, { top });
+  }
+
+  // POST /api/feed/:id/unlock
+  async unlock(id: number | string, password: string): Promise<ApiResponse<void>> {
+    return this.http.post<void>(`/api/feed/${id}/unlock`, { password });
+  }
+}
+
+/**
+ * Page API methods
+ */
+class PageAPI {
+  constructor(private http: HttpClient) {}
+
+  // GET /api/page
+  async list(): Promise<ApiResponse<Page[]>> {
+    return this.http.get<Page[]>("/api/page");
+  }
+
+  // GET /api/page/:slug
+  async get(slug: string): Promise<ApiResponse<Page>> {
+    return this.http.get<Page>(`/api/page/${encodeURIComponent(slug)}`);
+  }
+
+  // POST /api/page
+  async create(body: CreatePageRequest): Promise<ApiResponse<{ insertedId: number }>> {
+    return this.http.post<{ insertedId: number }>("/api/page", body);
+  }
+
+  // POST /api/page/:id
+  async update(id: number, body: UpdatePageRequest): Promise<ApiResponse<void>> {
+    return this.http.post<void>(`/api/page/${id}`, body);
+  }
+
+  // POST /api/page/:id/unlock
+  async unlock(id: number, password: string): Promise<ApiResponse<void>> {
+    return this.http.post<void>(`/api/page/${id}/unlock`, { password });
+  }
+
+  // DELETE /api/page/:id
+  async delete(id: number): Promise<ApiResponse<void>> {
+    return this.http.delete<void>(`/api/page/${id}`);
+  }
+}
+
+/**
+ * Category API methods
+ */
+class CategoryAPI {
+  constructor(private http: HttpClient) {}
+
+  // GET /api/category
+  async list(): Promise<ApiResponse<Category[]>> {
+    return this.http.get<Category[]>("/api/category");
+  }
+
+  // GET /api/category/:slug
+  async get(slug: string): Promise<ApiResponse<CategoryDetail>> {
+    return this.http.get<CategoryDetail>(`/api/category/${encodeURIComponent(slug)}`);
+  }
+
+  // POST /api/category
+  async create(body: CreateCategoryRequest): Promise<ApiResponse<{ insertedId: number }>> {
+    return this.http.post<{ insertedId: number }>("/api/category", body);
+  }
+
+  // PUT /api/category/:id
+  async update(id: number, body: UpdateCategoryRequest): Promise<ApiResponse<void>> {
+    return this.http.put<void>(`/api/category/${id}`, body);
+  }
+
+  // DELETE /api/category/:id
+  async delete(id: number): Promise<ApiResponse<void>> {
+    return this.http.delete<void>(`/api/category/${id}`);
   }
 }
 
@@ -652,6 +740,8 @@ class RSSAPI {
 export class ApiClient {
   private http: HttpClient;
   feed: FeedAPI;
+  page: PageAPI;
+  category: CategoryAPI;
   tag: TagAPI;
   comment: CommentAPI;
   user: UserAPI;
@@ -668,6 +758,8 @@ export class ApiClient {
   constructor(baseUrl: string) {
     this.http = new HttpClient(baseUrl);
     this.feed = new FeedAPI(this.http);
+    this.page = new PageAPI(this.http);
+    this.category = new CategoryAPI(this.http);
     this.tag = new TagAPI(this.http);
     this.comment = new CommentAPI(this.http);
     this.user = new UserAPI(this.http);

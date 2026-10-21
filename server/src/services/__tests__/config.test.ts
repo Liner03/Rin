@@ -214,8 +214,8 @@ describe("ConfigService", () => {
 
         it("should return queue status for admin", async () => {
             sqlite.exec(`
-                INSERT INTO feeds (id, title, summary, ai_summary, ai_summary_status, ai_summary_error, content, listed, draft, top, uid)
-                VALUES (1, 'Queued Feed', '', '', 'pending', '', 'content', 1, 0, 0, 1)
+                INSERT INTO contents (id, type, title, summary, ai_summary, ai_summary_status, ai_summary_error, text, status, top, uid)
+                VALUES (1, 'post', 'Queued Feed', '', '', 'pending', '', 'content', 'publish', 0, 1)
             `);
 
             const res = await app.request("/queue-status", {
@@ -240,10 +240,10 @@ describe("ConfigService", () => {
     describe("Compatibility tasks", () => {
         it("should return compatibility task counts for admin", async () => {
             sqlite.exec(`
-                INSERT INTO feeds (id, title, summary, ai_summary, ai_summary_status, ai_summary_error, content, listed, draft, top, uid)
+                INSERT INTO contents (id, type, title, summary, ai_summary, ai_summary_status, ai_summary_error, text, status, top, uid)
                 VALUES
-                  (1, 'Needs AI', '', '', 'idle', '', 'content', 1, 0, 0, 1),
-                  (2, 'Needs Blurhash', '', 'summary', 'completed', '', '![img](https://example.com/a.png)', 1, 0, 0, 1)
+                  (1, 'post', 'Needs AI', '', '', 'idle', '', 'content', 'publish', 0, 1),
+                  (2, 'post', 'Needs Blurhash', '', 'summary', 'completed', '', '![img](https://example.com/a.png)', 'publish', 0, 1)
             `);
 
             const res = await app.request("/compat-tasks", {
@@ -286,11 +286,11 @@ describe("ConfigService", () => {
             });
 
             sqlite.exec(`
-                INSERT INTO feeds (id, title, summary, ai_summary, ai_summary_status, ai_summary_error, content, listed, draft, top, uid)
+                INSERT INTO contents (id, type, title, summary, ai_summary, ai_summary_status, ai_summary_error, text, status, top, uid)
                 VALUES
-                  (1, 'Needs AI', '', '', 'idle', '', 'content', 1, 0, 0, 1),
-                  (2, 'Skip Draft', '', '', 'idle', '', 'content', 1, 1, 0, 1),
-                  (3, 'Skip Completed', '', 'done', 'completed', '', 'content', 1, 0, 0, 1)
+                  (1, 'post', 'Needs AI', '', '', 'idle', '', 'content', 'publish', 0, 1),
+                  (2, 'post', 'Skip Draft', '', '', 'idle', '', 'content', 'draft', 0, 1),
+                  (3, 'post', 'Skip Completed', '', 'done', 'completed', '', 'content', 'publish', 0, 1)
             `);
 
             const res = await app.request("/compat-tasks/ai-summary", {
@@ -331,12 +331,12 @@ describe("ConfigService", () => {
             });
 
             sqlite.exec(`
-                INSERT INTO feeds (id, title, summary, ai_summary, ai_summary_status, ai_summary_error, content, listed, draft, top, uid)
+                INSERT INTO contents (id, type, title, summary, ai_summary, ai_summary_status, ai_summary_error, text, status, top, uid)
                 VALUES
-                  (1, 'Needs AI', '', '', 'idle', '', 'content', 1, 0, 0, 1),
-                  (2, 'Has Summary', '', 'done', 'completed', '', 'content', 1, 0, 0, 1),
-                  (3, 'Skip Draft', '', 'done', 'completed', '', 'content', 1, 1, 0, 1),
-                  (4, 'Skip Pending', '', '', 'pending', '', 'content', 1, 0, 0, 1)
+                  (1, 'post', 'Needs AI', '', '', 'idle', '', 'content', 'publish', 0, 1),
+                  (2, 'post', 'Has Summary', '', 'done', 'completed', '', 'content', 'publish', 0, 1),
+                  (3, 'post', 'Skip Draft', '', 'done', 'completed', '', 'content', 'draft', 0, 1),
+                  (4, 'post', 'Skip Pending', '', '', 'pending', '', 'content', 'publish', 0, 1)
             `);
 
             const res = await app.request("/compat-tasks/ai-summary", {
@@ -358,8 +358,8 @@ describe("ConfigService", () => {
 
         it("should update blurhash metadata without resetting AI summary state", async () => {
             sqlite.exec(`
-                INSERT INTO feeds (id, title, summary, ai_summary, ai_summary_status, ai_summary_error, content, listed, draft, top, uid)
-                VALUES (1, 'Blurhash Feed', '', 'summary', 'completed', '', '![img](https://example.com/a.png)', 1, 0, 0, 1)
+                INSERT INTO contents (id, type, title, summary, ai_summary, ai_summary_status, ai_summary_error, text, status, top, uid)
+                VALUES (1, 'post', 'Blurhash Feed', '', 'summary', 'completed', '', '![img](https://example.com/a.png)', 'publish', 0, 1)
             `);
 
             const res = await app.request("/compat-tasks/blurhash/1", {
@@ -374,8 +374,8 @@ describe("ConfigService", () => {
             });
 
             expect(res.status).toBe(200);
-            const row = sqlite.prepare("SELECT content, ai_summary, ai_summary_status FROM feeds WHERE id = 1").get() as any;
-            expect(row.content).toContain("#blurhash=test&width=100&height=50");
+            const row = sqlite.prepare("SELECT text, ai_summary, ai_summary_status FROM contents WHERE id = 1").get() as any;
+            expect(row.text).toContain("#blurhash=test&width=100&height=50");
             expect(row.ai_summary).toBe("summary");
             expect(row.ai_summary_status).toBe("completed");
         });
@@ -405,8 +405,8 @@ describe("ConfigService", () => {
             });
 
             sqlite.exec(`
-                INSERT INTO feeds (id, title, summary, ai_summary, ai_summary_status, ai_summary_error, content, listed, draft, top, uid)
-                VALUES (1, 'Failed Feed', '', '', 'failed', 'boom', 'content', 1, 0, 0, 1);
+                INSERT INTO contents (id, type, title, summary, ai_summary, ai_summary_status, ai_summary_error, text, status, top, uid)
+                VALUES (1, 'post', 'Failed Feed', '', '', 'failed', 'boom', 'content', 'publish', 0, 1);
             `);
 
             const res = await app.request("/queue-status/1/retry", {
@@ -419,15 +419,15 @@ describe("ConfigService", () => {
             expect(res.status).toBe(200);
             expect(sendCalls).toBe(1);
 
-            const row = sqlite.prepare("SELECT ai_summary_status, ai_summary_error FROM feeds WHERE id = 1").get() as any;
+            const row = sqlite.prepare("SELECT ai_summary_status, ai_summary_error FROM contents WHERE id = 1").get() as any;
             expect(row.ai_summary_status).toBe("pending");
             expect(row.ai_summary_error).toBe("");
         });
 
         it("should delete a completed queue task record", async () => {
             sqlite.exec(`
-                INSERT INTO feeds (id, title, summary, ai_summary, ai_summary_status, ai_summary_error, content, listed, draft, top, uid)
-                VALUES (1, 'Completed Feed', '', 'summary', 'completed', '', 'content', 1, 0, 0, 1);
+                INSERT INTO contents (id, type, title, summary, ai_summary, ai_summary_status, ai_summary_error, text, status, top, uid)
+                VALUES (1, 'post', 'Completed Feed', '', 'summary', 'completed', '', 'content', 'publish', 0, 1);
             `);
 
             const res = await app.request("/queue-status/1", {
@@ -439,7 +439,7 @@ describe("ConfigService", () => {
 
             expect(res.status).toBe(200);
 
-            const row = sqlite.prepare("SELECT ai_summary_status, ai_summary_error FROM feeds WHERE id = 1").get() as any;
+            const row = sqlite.prepare("SELECT ai_summary_status, ai_summary_error FROM contents WHERE id = 1").get() as any;
             expect(row.ai_summary_status).toBe("idle");
             expect(row.ai_summary_error).toBe("");
         });

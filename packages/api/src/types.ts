@@ -19,10 +19,27 @@ export interface RequestOptions {
 // Feed Types
 // ============================================================================
 
+export type ContentStatus = "publish" | "draft" | "hidden" | "private";
+export type ContentType = "post" | "page" | "attachment";
+
 export interface Feed {
   id: number;
+  type: ContentType;
   title: string | null;
   content: string;
+  summary?: string;
+  slug: string | null;
+  status: ContentStatus;
+  /** 文章封面图（手动设置，为空时服务端自动提取正文首图） */
+  cover?: string | null;
+  /** 兼容字段：draft 状态 */
+  draft: number;
+  /** 兼容字段：hidden 时 list 为 0 */
+  listed: number;
+  /** 密码保护中（未解锁） */
+  locked?: boolean;
+  /** 是否设置了密码（编辑页用于清除密码） */
+  hasPassword?: boolean;
   uid: number;
   createdAt: string;
   updatedAt: string;
@@ -30,6 +47,7 @@ export interface Feed {
   ai_summary_status: "idle" | "pending" | "processing" | "completed" | "failed";
   ai_summary_error: string;
   hashtags: Array<{ id: number; name: string }>;
+  categories: Array<{ id: number; name: string; slug: string | null }>;
   user: {
     avatar: string | null;
     id: number;
@@ -44,9 +62,13 @@ export interface FeedListResponse {
   size: number;
   data: Array<{
     id: number;
+    type: ContentType;
     title: string | null;
     summary: string;
+    slug: string | null;
+    status: ContentStatus;
     hashtags: Array<{ id: number; name: string }>;
+    categories: Array<{ id: number; name: string; slug: string | null }>;
     user: {
       avatar: string | null;
       id: number;
@@ -55,8 +77,6 @@ export interface FeedListResponse {
     avatar: string | null;
     createdAt: string;
     updatedAt: string;
-    pv: number;
-    uv: number;
   }>;
   hasNext: boolean;
 }
@@ -71,23 +91,40 @@ export interface CreateFeedRequest {
   title: string;
   content: string;
   summary?: string;
+  slug?: string;
+  /** @deprecated 使用 slug */
   alias?: string;
+  status?: ContentStatus;
   draft: boolean;
   listed: boolean;
+  password?: string;
+  cover?: string;
   createdAt?: string;
   tags: string[];
+  categories?: number[];
+  top?: number;
 }
 
 export interface UpdateFeedRequest {
   title?: string;
   content?: string;
   summary?: string;
+  slug?: string;
+  /** @deprecated 使用 slug */
   alias?: string;
-  listed: boolean;
+  listed?: boolean;
   draft?: boolean;
+  status?: ContentStatus;
+  password?: string;
+  cover?: string;
   createdAt?: string;
   tags?: string[];
+  categories?: number[];
   top?: number;
+}
+
+export interface UnlockRequest {
+  password: string;
 }
 
 export interface AdjacentFeed {
@@ -95,6 +132,7 @@ export interface AdjacentFeed {
   title: string | null;
   summary: string;
   hashtags: Array<{ id: number; name: string }>;
+  categories: Array<{ id: number; name: string; slug: string | null }>;
   createdAt: string;
   updatedAt: string;
 }
@@ -102,6 +140,122 @@ export interface AdjacentFeed {
 export interface AdjacentFeedResponse {
   previousFeed: AdjacentFeed | null;
   nextFeed: AdjacentFeed | null;
+}
+
+// ============================================================================
+// Page Types
+// ============================================================================
+
+/** 自定义字段值（Typecho fields 风格） */
+export type FieldValue = string | number | boolean | object | null;
+
+export interface ContentField {
+  name: string;
+  type: "str" | "int" | "float" | "json";
+  value: FieldValue;
+}
+
+export interface Page {
+  id: number;
+  title: string;
+  content: string;
+  slug: string | null;
+  status: ContentStatus;
+  /** 密码保护中（未解锁） */
+  locked?: boolean;
+  /** 是否设置了密码（编辑页用于清除密码） */
+  hasPassword?: boolean;
+  parent: number;
+  order: number;
+  template: string;
+  /** 自定义字段 */
+  fields?: ContentField[];
+  uid: number;
+  createdAt: string;
+  updatedAt: string;
+  user?: {
+    avatar: string | null;
+    id: number;
+    username: string;
+  };
+}
+
+export interface CreatePageRequest {
+  title: string;
+  content: string;
+  slug?: string;
+  status?: ContentStatus;
+  password?: string;
+  parent?: number;
+  order?: number;
+  template?: string;
+  fields?: ContentField[];
+}
+
+export interface UpdatePageRequest {
+  title?: string;
+  content?: string;
+  slug?: string;
+  status?: ContentStatus;
+  password?: string;
+  parent?: number;
+  order?: number;
+  template?: string;
+  fields?: ContentField[];
+}
+
+// ============================================================================
+// Category Types
+// ============================================================================
+
+export interface Category {
+  id: number;
+  name: string;
+  slug: string | null;
+  description: string;
+  count: number;
+  order: number;
+  parent: number;
+  /** 是否出现在首页文章流（0 = 该分类下文章不进首页） */
+  listed: number;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface CategoryDetail extends Category {
+  feeds: Array<{
+    id: number;
+    title: string | null;
+    summary: string;
+    slug: string | null;
+    hashtags: Array<{ id: number; name: string }>;
+    categories: Array<{ id: number; name: string; slug: string | null }>;
+    createdAt: string;
+    updatedAt: string;
+    user: {
+      avatar: string | null;
+      id: number;
+      username: string;
+    };
+  }>;
+}
+
+export interface CreateCategoryRequest {
+  name: string;
+  slug?: string;
+  description?: string;
+  parent?: number;
+  order?: number;
+  listed?: boolean;
+}
+
+export interface UpdateCategoryRequest {
+  name?: string;
+  slug?: string;
+  description?: string;
+  parent?: number;
+  order?: number;
+  listed?: boolean;
 }
 
 // ============================================================================
@@ -330,6 +484,22 @@ export const API_PATHS = {
   // Tag
   TAG_LIST: '/api/tag',
   TAG_GET: (name: string) => `/api/tag/${encodeURIComponent(name)}`,
+
+  // Category
+  CATEGORY_LIST: '/api/category',
+  CATEGORY_GET: (slug: string) => `/api/category/${encodeURIComponent(slug)}`,
+  CATEGORY_CREATE: '/api/category',
+  CATEGORY_UPDATE: (id: number) => `/api/category/${id}`,
+  CATEGORY_DELETE: (id: number) => `/api/category/${id}`,
+
+  // Page
+  PAGE_LIST: '/api/page',
+  PAGE_GET: (slug: string) => `/api/page/${encodeURIComponent(slug)}`,
+  PAGE_CREATE: '/api/page',
+  PAGE_UPDATE: (id: number) => `/api/page/${id}`,
+  PAGE_DELETE: (id: number) => `/api/page/${id}`,
+  PAGE_UNLOCK: (id: number) => `/api/page/${id}/unlock`,
+  FEED_UNLOCK: (id: number | string) => `/api/feed/${id}/unlock`,
 
   // Comment
   COMMENT_LIST: (feedId: number) => `/api/comment/${feedId}`,

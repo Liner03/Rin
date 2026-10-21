@@ -39,14 +39,14 @@ describe('CommentService', () => {
 
         // Insert test feeds
         sqlite.exec(`
-            INSERT INTO feeds (id, title, content, uid, draft, listed) VALUES 
-                (1, 'Feed 1', 'Content 1', 1, 0, 1),
-                (2, 'Feed 2', 'Content 2', 1, 0, 1)
+            INSERT INTO contents (id, type, title, text, uid, status, slug) VALUES 
+                (1, 'post', 'Feed 1', 'Content 1', 1, 'publish', 'feed-1'),
+                (2, 'post', 'Feed 2', 'Content 2', 1, 'publish', 'feed-2')
         `);
 
         // Insert test comments
         sqlite.exec(`
-            INSERT INTO comments (id, feed_id, user_id, content, created_at) VALUES 
+            INSERT INTO comments (id, content_id, user_id, content, created_at) VALUES 
                 (1, 1, 2, 'Comment 1 on feed 1', unixepoch()),
                 (2, 1, 2, 'Comment 2 on feed 1', unixepoch()),
                 (3, 2, 1, 'Comment on feed 2', unixepoch())
@@ -68,7 +68,7 @@ describe('CommentService', () => {
 
         it('should return empty array when feed has no comments', async () => {
             // Create new feed without comments
-            sqlite.exec(`INSERT INTO feeds (id, title, content, uid) VALUES (3, 'No Comments', 'Content', 1)`);
+            sqlite.exec(`INSERT INTO contents (id, type, title, text, uid, status) VALUES (3, 'post', 'No Comments', 'Content', 1, 'publish')`);
             
             const res = await app.request('/3', { method: 'GET' }, env);
             
@@ -95,12 +95,16 @@ describe('CommentService', () => {
             expect(data[0].user).toHaveProperty('permission');
         });
 
-        it('should order comments by createdAt descending', async () => {
+        it('should order comments by createdAt ascending (chronological)', async () => {
+            sqlite.exec(`UPDATE comments SET created_at = unixepoch() - 3600 WHERE id = 1`);
+            
             const res = await app.request('/1', { method: 'GET' }, env);
             
             expect(res.status).toBe(200);
             const data = await res.json() as any;
             expect(data.length).toBe(2);
+            expect(data[0].id).toBe(1);
+            expect(data[1].id).toBe(2);
         });
     });
 
@@ -118,7 +122,7 @@ describe('CommentService', () => {
             expect(res.status).toBe(200);
             
             // Verify comment was created
-            const comments = sqlite.prepare(`SELECT * FROM comments WHERE feed_id = 1`).all();
+            const comments = sqlite.prepare(`SELECT * FROM comments WHERE content_id = 1`).all();
             expect(comments.length).toBe(3);
         });
 
@@ -241,7 +245,7 @@ describe('CommentService', () => {
 
             expect(res.status).toBe(200);
 
-            const comments = sqlite.prepare(`SELECT * FROM comments WHERE feed_id = 1`).all();
+            const comments = sqlite.prepare(`SELECT * FROM comments WHERE content_id = 1`).all();
             expect(comments.length).toBe(3);
         });
     });

@@ -17,6 +17,13 @@ export const CLIENT_CONFIG_DEFAULTS = new Map(
     "site.name": "Rin",
     "site.description": "A lightweight personal blogging system",
     "site.avatar": "",
+    "site.hero_image": "",
+    "site.keywords": "",
+    "site.copyright": "",
+    "site.rss_title": "",
+    "site.rss_description": "",
+    "site.nav": "",
+    "site.front_page": "",
     "site.page_size": 5,
   }),
 );

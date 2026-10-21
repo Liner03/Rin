@@ -175,7 +175,7 @@ describe('FeedService', () => {
                 },
                 body: JSON.stringify({
                     title: 'Previous Feed',
-                    alias: '2',
+                    slug: '2',
                     content: 'Previous Content',
                     listed: true,
                     draft: false,
@@ -219,7 +219,7 @@ describe('FeedService', () => {
                 },
                 body: JSON.stringify({
                     title: 'Alias Feed',
-                    alias: 'custom-slug',
+                    slug: 'custom-slug',
                     content: 'Alias Content',
                     listed: true,
                     draft: false,
@@ -302,7 +302,7 @@ describe('FeedService', () => {
                 draft: 0,
                 listed: 1,
                 uid: 1,
-                alias: null,
+                slug: null,
                 hashtags: [],
                 user: { id: 1, username: 'testuser', avatar: 'avatar.png' },
             });
@@ -443,7 +443,7 @@ describe('FeedService', () => {
                 },
                 body: JSON.stringify({
                     title: 'Alias Title',
-                    alias: 'alias-post',
+                    slug: 'alias-post',
                     content: 'Original alias content',
                     listed: true,
                     draft: false,
@@ -467,7 +467,7 @@ describe('FeedService', () => {
                 },
                 body: JSON.stringify({
                     title: 'Alias Title Updated',
-                    alias: 'alias-post',
+                    slug: 'alias-post',
                     content: 'Updated alias content',
                     listed: true,
                 }),

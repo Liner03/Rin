@@ -44,12 +44,12 @@ export function ScrollProgress() {
       className="fixed inset-x-0 top-0 z-[1170] h-[2px] transition-opacity duration-300"
       style={{
         opacity: visible ? 1 : 0,
-        background: "linear-gradient(45deg, rgba(26,188,156,0), rgba(26,188,156,0.1) 25%, rgba(26,188,156,0.35) 50%, #1abc9c 75%, rgba(26,188,156,0.1))",
+        background: "linear-gradient(45deg, rgb(var(--theme-rgb) / 0), rgb(var(--theme-rgb) / 0.1) 25%, rgb(var(--theme-rgb) / 0.35) 50%, rgb(var(--theme-rgb)) 75%, rgb(var(--theme-rgb) / 0.1))",
       }}
     >
       <div
-        className="h-full bg-[#1abc9c]"
-        style={{ width: `${progress * 100}%`, transition: "width 0.1s linear" }}
+        className="h-full"
+        style={{ width: `${progress * 100}%`, background: "rgb(var(--theme-rgb))", transition: "width 0.1s linear" }}
       />
     </div>
   );

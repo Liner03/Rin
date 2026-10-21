@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach, afterEach } from 'bun:test';
-import { TagService, bindTagToPost } from '../tag';
+import { TagService, bindTagsToContent } from '../tag';
 import { Hono } from "hono";
 import type { Variables } from "../../core/hono-types";
 import { setupTestApp, seedTestData, cleanupTestDB } from '../../../tests/fixtures';
@@ -37,16 +37,16 @@ describe('TagService', () => {
             
             const testTag = data.find((t: any) => t.name === 'test');
             expect(testTag).toBeDefined();
-            expect(testTag.feeds).toBe(2);
+            expect(testTag.count).toBe(2);
             
             const integrationTag = data.find((t: any) => t.name === 'integration');
             expect(integrationTag).toBeDefined();
-            expect(integrationTag.feeds).toBe(1);
+            expect(integrationTag.count).toBe(1);
         });
 
         it('should return empty array when no tags exist', async () => {
-            sqlite.exec('DELETE FROM feed_hashtags');
-            sqlite.exec('DELETE FROM hashtags');
+            sqlite.exec('DELETE FROM relationships');
+            sqlite.exec('DELETE FROM metas');
             
             const res = await app.request('/', { method: 'GET' }, env);
             
@@ -68,8 +68,8 @@ describe('TagService', () => {
         });
 
         it('should decode URL-encoded tag names', async () => {
-            sqlite.exec(`INSERT INTO hashtags (id, name) VALUES (3, 'web dev')`);
-            sqlite.exec(`INSERT INTO feed_hashtags (feed_id, hashtag_id) VALUES (1, 3)`);
+            sqlite.exec(`INSERT INTO metas (id, type, name, slug) VALUES (3, 'tag', 'web dev', 'web-dev')`);
+            sqlite.exec(`INSERT INTO relationships (content_id, meta_id) VALUES (1, 3)`);
             
             const res = await app.request('/web%20dev', { method: 'GET' }, env);
             
@@ -85,17 +85,17 @@ describe('TagService', () => {
         });
 
         it('should exclude draft feeds for non-admin users', async () => {
-            sqlite.exec(`INSERT INTO feeds (id, title, content, uid, draft, listed) VALUES (3, 'Draft', 'Content', 1, 1, 1)`);
-            sqlite.exec(`INSERT INTO feed_hashtags (feed_id, hashtag_id) VALUES (3, 1)`);
+            sqlite.exec(`INSERT INTO contents (id, type, title, text, uid, status) VALUES (3, 'post', 'Draft', 'Content', 1, 'draft')`);
+            sqlite.exec(`INSERT INTO relationships (content_id, meta_id) VALUES (3, 1)`);
             
             const res = await app.request('/test', { method: 'GET' }, env);
             
             expect(res.status).toBe(200);
             const data = await res.json() as any;
-            expect(data.feeds.every((f: any) => f.draft !== 1)).toBe(true);
+            expect(data.feeds.every((f: any) => f.status !== 'draft')).toBe(true);
             
-            sqlite.exec(`DELETE FROM feed_hashtags WHERE feed_id = 3`);
-            sqlite.exec(`DELETE FROM feeds WHERE id = 3`);
+            sqlite.exec(`DELETE FROM relationships WHERE content_id = 3`);
+            sqlite.exec(`DELETE FROM contents WHERE id = 3`);
         });
 
         it('should include hashtags in feed data', async () => {
@@ -108,37 +108,37 @@ describe('TagService', () => {
         });
     });
 
-    describe('bindTagToPost function', () => {
+    describe('bindTagsToContent function', () => {
         it('should bind tags to a feed', async () => {
-            await bindTagToPost(db, 1, ['newtag1', 'newtag2']);
+            await bindTagsToContent(db, 1, ['newtag1', 'newtag2']);
             
             const result = sqlite.prepare(`
-                SELECT h.name FROM hashtags h
-                JOIN feed_hashtags fh ON h.id = fh.hashtag_id
-                WHERE fh.feed_id = 1
+                SELECT m.name FROM metas m
+                JOIN relationships r ON m.id = r.meta_id
+                WHERE r.content_id = 1 AND m.type = 'tag'
             `).all();
             
             expect(result.length).toBeGreaterThan(0);
         });
 
         it('should create new tags if they do not exist', async () => {
-            await bindTagToPost(db, 1, ['brandnewtag']);
+            await bindTagsToContent(db, 1, ['brandnewtag']);
             
             const tagResult = sqlite.prepare(`
-                SELECT * FROM hashtags WHERE name = 'brandnewtag'
+                SELECT * FROM metas WHERE name = 'brandnewtag' AND type = 'tag'
             `).all();
             
             expect(tagResult.length).toBe(1);
         });
 
         it('should remove existing tags before binding new ones', async () => {
-            await bindTagToPost(db, 1, ['tag1', 'tag2']);
-            await bindTagToPost(db, 1, ['tag3']);
+            await bindTagsToContent(db, 1, ['tag1', 'tag2']);
+            await bindTagsToContent(db, 1, ['tag3']);
             
             const result = sqlite.prepare(`
-                SELECT h.name FROM hashtags h
-                JOIN feed_hashtags fh ON h.id = fh.hashtag_id
-                WHERE fh.feed_id = 1
+                SELECT m.name FROM metas m
+                JOIN relationships r ON m.id = r.meta_id
+                WHERE r.content_id = 1 AND m.type = 'tag'
             `).all();
             
             const tagNames = result.map((r: any) => r.name);
@@ -148,26 +148,26 @@ describe('TagService', () => {
         });
 
         it('should reuse existing tags', async () => {
-            await bindTagToPost(db, 1, ['reusable']);
+            await bindTagsToContent(db, 1, ['reusable']);
             
-            const tagResult = sqlite.prepare(`SELECT id FROM hashtags WHERE name = 'reusable'`).all() as any[];
+            const tagResult = sqlite.prepare(`SELECT id FROM metas WHERE name = 'reusable'`).all() as any[];
             const tagId = tagResult[0]?.id;
             
-            await bindTagToPost(db, 2, ['reusable']);
+            await bindTagsToContent(db, 2, ['reusable']);
             
             const feed2Tags = sqlite.prepare(`
-                SELECT hashtag_id FROM feed_hashtags WHERE feed_id = 2
+                SELECT meta_id FROM relationships WHERE content_id = 2
             `).all() as any[];
             
-            expect(feed2Tags[0]?.hashtag_id).toBe(tagId);
+            expect(feed2Tags[0]?.meta_id).toBe(tagId);
         });
 
         it('should handle empty tags array', async () => {
-            await bindTagToPost(db, 1, ['tag1', 'tag2']);
-            await bindTagToPost(db, 1, []);
+            await bindTagsToContent(db, 1, ['tag1', 'tag2']);
+            await bindTagsToContent(db, 1, []);
             
             const result = sqlite.prepare(`
-                SELECT COUNT(*) as count FROM feed_hashtags WHERE feed_id = 1
+                SELECT COUNT(*) as count FROM relationships WHERE content_id = 1
             `).all() as any[];
             
             expect(result[0]?.count).toBe(0);

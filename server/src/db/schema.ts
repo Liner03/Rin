@@ -1,25 +1,77 @@
 import { relations, sql } from "drizzle-orm";
-import { integer, sqliteTable, text, unique } from "drizzle-orm/sqlite-core";
+import { index, integer, real, sqliteTable, text, unique } from "drizzle-orm/sqlite-core";
 
 const created_at = integer("created_at", { mode: 'timestamp' }).default(sql`(unixepoch())`).notNull();
 const updated_at = integer("updated_at", { mode: 'timestamp' }).default(sql`(unixepoch())`).notNull();
 
-export const feeds = sqliteTable("feeds", {
-    id: integer("id").primaryKey(),
-    alias: text("alias"),
-    title: text("title"),
+export const contents = sqliteTable("contents", {
+    id: integer("id").primaryKey({ autoIncrement: true }),
+    type: text("type").default("post").notNull(),
+    title: text("title").default("").notNull(),
+    slug: text("slug"),
+    text: text("text").default("").notNull(),
+    cover: text("cover"),
     summary: text("summary").default("").notNull(),
     ai_summary: text("ai_summary").default("").notNull(),
     ai_summary_status: text("ai_summary_status").default("idle").notNull(),
     ai_summary_error: text("ai_summary_error").default("").notNull(),
-    content: text("content").notNull(),
-    listed: integer("listed").default(1).notNull(),
-    draft: integer("draft").default(1).notNull(),
+    status: text("status").default("publish").notNull(),
+    password: text("password").default(""),
     top: integer("top").default(0).notNull(),
+    order: integer("order").default(0).notNull(),
+    template: text("template").default(""),
+    allowComment: integer("allow_comment").default(1).notNull(),
+    allowPing: integer("allow_ping").default(1).notNull(),
+    allowFeed: integer("allow_feed").default(1).notNull(),
+    parent: integer("parent").default(0).notNull(),
     uid: integer("uid").references(() => users.id).notNull(),
     createdAt: created_at,
     updatedAt: updated_at,
-});
+}, (table) => ({
+    slugUnique: unique().on(table.slug),
+    typeStatusCreatedIdx: index("idx_contents_type_status_created").on(table.type, table.status, table.createdAt),
+}));
+
+export const metas = sqliteTable("metas", {
+    id: integer("id").primaryKey({ autoIncrement: true }),
+    type: text("type").default("tag").notNull(),
+    name: text("name").notNull(),
+    slug: text("slug"),
+    description: text("description").default("").notNull(),
+    count: integer("count").default(0).notNull(),
+    order: integer("order").default(0).notNull(),
+    parent: integer("parent").default(0).notNull(),
+    listed: integer("listed").default(1).notNull(),
+    createdAt: created_at,
+    updatedAt: updated_at,
+}, (table) => ({
+    slugTypeUnique: unique().on(table.slug, table.type),
+    parentIdx: index("idx_metas_parent").on(table.parent),
+}));
+
+export const relationships = sqliteTable("relationships", {
+    contentId: integer("content_id").references(() => contents.id, { onDelete: 'cascade' }).notNull(),
+    metaId: integer("meta_id").references(() => metas.id, { onDelete: 'cascade' }).notNull(),
+    createdAt: created_at,
+    updatedAt: updated_at,
+}, (table) => ({
+    contentMetaUnique: unique().on(table.contentId, table.metaId),
+    metaIdIdx: index("idx_relationships_meta_id").on(table.metaId),
+}));
+
+export const fields = sqliteTable("fields", {
+    id: integer("id").primaryKey({ autoIncrement: true }),
+    contentId: integer("content_id").references(() => contents.id, { onDelete: 'cascade' }).notNull(),
+    name: text("name").notNull(),
+    type: text("type").default("str").notNull(),
+    strValue: text("str_value").default("").notNull(),
+    intValue: integer("int_value").default(0).notNull(),
+    floatValue: real("float_value").default(0).notNull(),
+    createdAt: created_at,
+    updatedAt: updated_at,
+}, (table) => ({
+    contentNameUnique: unique().on(table.contentId, table.name),
+}));
 
 export const moments = sqliteTable("moments", {
     id: integer("id").primaryKey(),
@@ -31,13 +83,15 @@ export const moments = sqliteTable("moments", {
 
 export const visits = sqliteTable("visits", {
     id: integer("id").primaryKey(),
-    feedId: integer("feed_id").references(() => feeds.id, { onDelete: 'cascade' }).notNull(),
+    contentId: integer("content_id").references(() => contents.id, { onDelete: 'cascade' }).notNull(),
     ip: text("ip").notNull(),
     createdAt: created_at,
-});
+}, (table) => ({
+    contentIdIdx: index("idx_visits_content_id").on(table.contentId),
+}));
 
 export const visitStats = sqliteTable("visit_stats", {
-    feedId: integer("feed_id").references(() => feeds.id, { onDelete: 'cascade' }).notNull().primaryKey(),
+    contentId: integer("content_id").references(() => contents.id, { onDelete: 'cascade' }).notNull().primaryKey(),
     pv: integer("pv").default(0).notNull(),
     hllData: text("hll_data").default("").notNull(),
     updatedAt: updated_at,
@@ -71,11 +125,13 @@ export const users = sqliteTable("users", {
     permission: integer("permission").default(0),
     createdAt: created_at,
     updatedAt: updated_at,
-});
+}, (table) => ({
+    usernameUnique: unique("idx_users_username").on(table.username),
+}));
 
 export const comments = sqliteTable("comments", {
     id: integer("id").primaryKey(),
-    feedId: integer("feed_id").references(() => feeds.id, { onDelete: 'cascade' }).notNull(),
+    contentId: integer("content_id").references(() => contents.id, { onDelete: 'cascade' }).notNull(),
     userId: integer("user_id").references(() => users.id, { onDelete: 'cascade' }),
     content: text("content").notNull(),
     guestName: text("guest_name").default(""),
@@ -84,21 +140,9 @@ export const comments = sqliteTable("comments", {
     approved: integer("approved").default(1).notNull(),
     createdAt: created_at,
     updatedAt: updated_at,
-});
-
-export const hashtags = sqliteTable("hashtags", {
-    id: integer("id").primaryKey(),
-    name: text("name").notNull(),
-    createdAt: created_at,
-    updatedAt: updated_at,
-});
-
-export const feedHashtags = sqliteTable("feed_hashtags", {
-    feedId: integer("feed_id").references(() => feeds.id, { onDelete: 'cascade' }).notNull(),
-    hashtagId: integer("hashtag_id").references(() => hashtags.id, { onDelete: 'cascade' }).notNull(),
-    createdAt: created_at,
-    updatedAt: updated_at,
-});
+}, (table) => ({
+    contentIdCreatedIdx: index("idx_comments_content_id_created").on(table.contentId, table.createdAt),
+}));
 
 export const cache = sqliteTable("cache", {
     id: integer("id").primaryKey(),
@@ -108,17 +152,41 @@ export const cache = sqliteTable("cache", {
     createdAt: created_at,
     updatedAt: updated_at,
 }, (table) => ({
-    // 复合唯一约束：key + type
     keyTypeUnique: unique().on(table.key, table.type),
 }));
 
-export const feedsRelations = relations(feeds, ({ many, one }) => ({
-    hashtags: many(feedHashtags),
+export const contentsRelations = relations(contents, ({ many, one }) => ({
+    metas: many(relationships),
     user: one(users, {
-        fields: [feeds.uid],
+        fields: [contents.uid],
         references: [users.id],
     }),
     comments: many(comments),
+    visits: many(visits),
+    visitStats: many(visitStats),
+    fields: many(fields),
+}));
+
+export const metasRelations = relations(metas, ({ many }) => ({
+    contents: many(relationships),
+}));
+
+export const relationshipsRelations = relations(relationships, ({ one }) => ({
+    content: one(contents, {
+        fields: [relationships.contentId],
+        references: [contents.id],
+    }),
+    meta: one(metas, {
+        fields: [relationships.metaId],
+        references: [metas.id],
+    }),
+}));
+
+export const fieldsRelations = relations(fields, ({ one }) => ({
+    content: one(contents, {
+        fields: [fields.contentId],
+        references: [contents.id],
+    }),
 }));
 
 export const momentsRelations = relations(moments, ({ one }) => ({
@@ -129,27 +197,12 @@ export const momentsRelations = relations(moments, ({ one }) => ({
 }));
 
 export const commentsRelations = relations(comments, ({ one }) => ({
-    feed: one(feeds, {
-        fields: [comments.feedId],
-        references: [feeds.id],
+    content: one(contents, {
+        fields: [comments.contentId],
+        references: [contents.id],
     }),
     user: one(users, {
         fields: [comments.userId],
         references: [users.id],
-    }),
-}));
-
-export const hashtagsRelations = relations(hashtags, ({ many }) => ({
-    feeds: many(feedHashtags),
-}));
-
-export const feedHashtagsRelations = relations(feedHashtags, ({ one }) => ({
-    feed: one(feeds, {
-        fields: [feedHashtags.feedId],
-        references: [feeds.id],
-    }),
-    hashtag: one(hashtags, {
-        fields: [feedHashtags.hashtagId],
-        references: [hashtags.id],
     }),
 }));
