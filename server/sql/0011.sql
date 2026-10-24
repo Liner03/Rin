@@ -1,6 +1,7 @@
 -- Typecho-aligned content model
 -- Create polymorphic contents table (post/page/attachment), metas (category/tag),
--- relationships (M2M), and custom fields.
+-- relationships (M2M), and custom fields. Copy parents before their children,
+-- preserving IDs, and only drop legacy tables after every copy succeeds.
 
 --> statement-breakpoint
 CREATE TABLE `contents` (
@@ -32,6 +33,23 @@ CREATE TABLE `contents` (
 CREATE UNIQUE INDEX `contents_slug_unique` ON `contents` (`slug`);
 
 --> statement-breakpoint
+-- SQL-only installations lack top; legacy installations may already have it.
+-- SQLite resolves top to the first matching column in this subquery: feeds.top
+-- when present, otherwise the appended default. NULL/empty aliases have no slug.
+-- Conflicting non-empty aliases deliberately fail instead of discarding posts.
+INSERT INTO `contents` (
+	`id`, `type`, `title`, `slug`, `text`, `summary`,
+	`ai_summary`, `ai_summary_status`, `ai_summary_error`,
+	`status`, `top`, `uid`, `created_at`, `updated_at`
+)
+SELECT
+	`id`, 'post', COALESCE(`title`, ''), NULLIF(`alias`, ''), `content`, `summary`,
+	`ai_summary`, `ai_summary_status`, `ai_summary_error`,
+	CASE WHEN `draft` = 1 THEN 'draft' WHEN `listed` = 0 THEN 'hidden' ELSE 'publish' END,
+	COALESCE(`top`, 0), `uid`, `created_at`, `updated_at`
+FROM (SELECT *, 0 AS `top` FROM `feeds`);
+
+--> statement-breakpoint
 CREATE TABLE `metas` (
 	`id` integer PRIMARY KEY AUTOINCREMENT NOT NULL,
 	`type` text DEFAULT 'tag' NOT NULL,
@@ -49,6 +67,12 @@ CREATE TABLE `metas` (
 CREATE UNIQUE INDEX `metas_slug_type_unique` ON `metas` (`slug`,`type`);
 
 --> statement-breakpoint
+-- Legacy tags are addressed by name and have no slug. Keep their names and IDs,
+-- including duplicate names, rather than inventing potentially conflicting slugs.
+INSERT INTO `metas` (`id`, `type`, `name`, `created_at`, `updated_at`)
+	SELECT `id`, 'tag', `name`, `created_at`, `updated_at` FROM `hashtags`;
+
+--> statement-breakpoint
 CREATE TABLE `relationships` (
 	`content_id` integer NOT NULL,
 	`meta_id` integer NOT NULL,
@@ -60,6 +84,24 @@ CREATE TABLE `relationships` (
 
 --> statement-breakpoint
 CREATE UNIQUE INDEX `relationships_content_id_meta_id_unique` ON `relationships` (`content_id`,`meta_id`);
+
+--> statement-breakpoint
+-- The old join table did not enforce uniqueness. Keep one binding per pair,
+-- retaining its earliest creation and latest update times.
+INSERT INTO `relationships` (`content_id`, `meta_id`, `created_at`, `updated_at`)
+	SELECT `feed_id`, `hashtag_id`, MIN(`created_at`), MAX(`updated_at`)
+	FROM `feed_hashtags`
+	GROUP BY `feed_id`, `hashtag_id`;
+
+--> statement-breakpoint
+UPDATE `metas` SET `count` = (
+	SELECT COUNT(*) FROM `relationships`
+	JOIN `contents` ON `contents`.`id` = `relationships`.`content_id`
+	WHERE `relationships`.`meta_id` = `metas`.`id`
+		AND `contents`.`type` = 'post'
+		AND `contents`.`status` = 'publish'
+		AND `contents`.`created_at` <= unixepoch()
+);
 
 --> statement-breakpoint
 CREATE TABLE `fields` (
@@ -80,7 +122,7 @@ CREATE UNIQUE INDEX `fields_content_id_name_unique` ON `fields` (`content_id`,`n
 
 --> statement-breakpoint
 -- Recreate comments referencing contents instead of feeds
-CREATE TABLE IF NOT EXISTS `comments_new` (
+CREATE TABLE `comments_new` (
 	`id` integer PRIMARY KEY NOT NULL,
 	`content_id` integer NOT NULL,
 	`user_id` integer,
@@ -106,11 +148,8 @@ DROP TABLE `comments`;
 ALTER TABLE `comments_new` RENAME TO `comments`;
 
 --> statement-breakpoint
--- Recreate visits referencing contents
-DROP TABLE `visits`;
-
---> statement-breakpoint
-CREATE TABLE `visits` (
+-- Copy raw visits before replacing their table and foreign key.
+CREATE TABLE `visits_new` (
 	`id` integer PRIMARY KEY NOT NULL,
 	`content_id` integer NOT NULL,
 	`ip` text NOT NULL,
@@ -119,11 +158,19 @@ CREATE TABLE `visits` (
 );
 
 --> statement-breakpoint
--- Recreate visit_stats referencing contents
-DROP TABLE `visit_stats`;
+INSERT INTO `visits_new` (`id`, `content_id`, `ip`, `created_at`)
+	SELECT `id`, `feed_id`, `ip`, `created_at` FROM `visits`;
 
 --> statement-breakpoint
-CREATE TABLE `visit_stats` (
+DROP TABLE `visits`;
+
+--> statement-breakpoint
+ALTER TABLE `visits_new` RENAME TO `visits`;
+
+--> statement-breakpoint
+-- Preserve aggregate PV and serialized HLL state, which may include visits
+-- no longer present in the raw visits table. Do not recalculate these values.
+CREATE TABLE `visit_stats_new` (
 	`content_id` integer PRIMARY KEY NOT NULL,
 	`pv` integer DEFAULT 0 NOT NULL,
 	`hll_data` text DEFAULT '' NOT NULL,
@@ -132,7 +179,17 @@ CREATE TABLE `visit_stats` (
 );
 
 --> statement-breakpoint
--- Drop old tables
+INSERT INTO `visit_stats_new` (`content_id`, `pv`, `hll_data`, `updated_at`)
+	SELECT `feed_id`, `pv`, `hll_data`, `updated_at` FROM `visit_stats`;
+
+--> statement-breakpoint
+DROP TABLE `visit_stats`;
+
+--> statement-breakpoint
+ALTER TABLE `visit_stats_new` RENAME TO `visit_stats`;
+
+--> statement-breakpoint
+-- All rows and referencing tables have now been migrated.
 DROP TABLE `feed_hashtags`;
 
 --> statement-breakpoint

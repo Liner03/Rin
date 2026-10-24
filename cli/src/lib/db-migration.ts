@@ -64,10 +64,15 @@ export async function fixTopField(type: "local" | "remote", db: string, infoExis
     `--${type}`,
     "--json",
     "--command",
-    "SELECT name FROM pragma_table_info('feeds') WHERE name='top'",
+    "SELECT name FROM pragma_table_info('feeds')",
   ]);
 
   if (result[0].results.length === 0) {
+    console.log("feeds table not exists, skip legacy top field check");
+    return;
+  }
+
+  if (!result[0].results.some((column: { name: string }) => column.name === "top")) {
     console.log("Adding top field to feeds table");
     await runWranglerQuiet([
       "d1",
