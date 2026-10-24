@@ -9,8 +9,8 @@ const MIRAGES_STATIC_TITLE_KEYS: Record<string, string> = {
   profile: "profile.title",
 };
 
-const MIRAGES_LIST_SEGMENTS: string[] = ["timeline", "moments", "friends", "hashtags", "hashtag"];
-const MIRAGES_NON_ARTICLE_SEGMENTS: string[] = ["admin", "callback", "user", "search"];
+const MIRAGES_LIST_SEGMENTS: string[] = ["timeline", "moments", "friends", "hashtags", "hashtag", "category"];
+const MIRAGES_NON_ARTICLE_SEGMENTS: string[] = ["admin", "callback", "user", "search", "page"];
 const MIRAGES_STATIC_SEGMENTS = Object.keys(MIRAGES_STATIC_TITLE_KEYS);
 
 export const firstSegmentOf = (location: string) => location.split("/")[1] || "";

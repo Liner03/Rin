@@ -830,6 +830,7 @@
     "fields": "自定义字段",
     "field_name": "字段名",
     "field_value": "值",
+    "invalid_field_value": "请为字段“{{name}}”填写有效的 {{type}} 值后再保存。",
     "add_field": "添加字段"
   },
   "categories": {

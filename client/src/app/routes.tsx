@@ -1,7 +1,7 @@
 import { lazy, Suspense, type ReactNode } from "react";
 import { useContext } from "react";
 import type { DefaultParams, PathPattern } from "wouter";
-import { Route, Switch } from "wouter";
+import { Route, Switch, useLocation } from "wouter";
 import { AdminLayout } from "../components/admin-layout";
 import Footer from "../components/footer";
 import { Header } from "../components/header";
@@ -17,6 +17,7 @@ import { LoginPage } from "../page/login";
 import { ProfileContext } from "../state/profile";
 import { tryInt } from "../utils/int";
 import { useTranslation } from "react-i18next";
+import { RouteMetadataProvider } from "./route-metadata";
 
 // 非首屏页面懒加载，避免写作编辑器（Monaco/mermaid）等进入公共 bundle
 const AdminCategoriesPage = lazy(() => import("../page/admin-categories").then((m) => ({ default: m.AdminCategoriesPage })));
@@ -170,6 +171,7 @@ function AppRoute({
 }) {
   const profile = useContext(ProfileContext);
   const siteConfig = useSiteConfig();
+  const [location] = useLocation();
   const { t } = useTranslation();
 
   const content =
@@ -181,12 +183,16 @@ function AppRoute({
         const resolvedContent = typeof content === "function" ? content(params) : content;
         const layoutDefinition = getHeaderLayoutDefinition(siteConfig.headerLayout);
 
-        return layoutDefinition.renderRouteShell({
-          header: <Header>{headerComponent}</Header>,
-          content: <Padding className={paddingClassName}><Suspense fallback={<div className="min-h-[40vh]" />}>{resolvedContent}</Suspense></Padding>,
-          footer: <Footer />,
-          paddingClassName,
-        });
+        return (
+          <RouteMetadataProvider key={location}>
+            {layoutDefinition.renderRouteShell({
+              header: <Header>{headerComponent}</Header>,
+              content: <Padding className={paddingClassName}><Suspense fallback={<div className="min-h-[40vh]" />}>{resolvedContent}</Suspense></Padding>,
+              footer: <Footer />,
+              paddingClassName,
+            })}
+          </RouteMetadataProvider>
+        );
       }}
     </Route>
   );

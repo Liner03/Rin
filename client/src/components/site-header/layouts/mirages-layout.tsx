@@ -159,7 +159,11 @@ function MiragesShell({ header, content, footer }: { header: React.ReactNode; co
                 <MiragesDrawer isOpen={isOpen} onClose={() => setIsOpen(false)} />
                 {header}
                 <MiragesHero />
-                <div className={`mirages-content mx-auto w-full ${containerClass}`} data-article={isArticle ? "true" : undefined}>
+                <div
+                    className={`mirages-content mx-auto w-full ${containerClass}`}
+                    data-article={isArticle ? "true" : undefined}
+                    data-page={location.startsWith("/page/") ? "true" : undefined}
+                >
                     {content}
                 </div>
                 <div className="mirages-footer">{footer}</div>

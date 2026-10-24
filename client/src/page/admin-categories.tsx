@@ -1,10 +1,11 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Link } from "wouter";
 import { FlatPanel, Input } from "@rin/ui";
 import type { Category } from "@rin/api";
 import { client } from "../app/runtime";
 import { useAlert } from "../components/dialog";
+import { buildHierarchy, getValidParentOptions, type HierarchyNode } from "../utils/hierarchy";
 
 export function AdminCategoriesPage() {
   const { t } = useTranslation();
@@ -77,12 +78,14 @@ export function AdminCategoriesPage() {
     setName(category.name);
     setSlug(category.slug || "");
     setDescription(category.description || "");
-    setParent(category.parent);
+    const validParents = getValidParentOptions(categories, category.id);
+    setParent(validParents.some((item) => item.id === category.parent) ? category.parent : 0);
     setOrder(category.order);
     setListed(category.listed === 1);
   }
 
-  const tree = buildCategoryTree(categories);
+  const tree = useMemo(() => buildHierarchy(categories), [categories]);
+  const parentOptions = useMemo(() => getValidParentOptions(categories, editingId), [categories, editingId]);
 
   return (
     <div className="flex flex-col gap-4">
@@ -99,7 +102,7 @@ export function AdminCategoriesPage() {
               className="w-full rounded-xl border border-black/10 bg-secondary px-3 py-2 text-sm t-primary dark:border-white/10"
             >
               <option value={0}>{t("pages.no_parent")}</option>
-              {categories.filter((c) => c.id !== editingId).map((c) => (
+              {parentOptions.map((c) => (
                 <option key={c.id} value={c.id}>{c.name}</option>
               ))}
             </select>
@@ -153,24 +156,7 @@ export function AdminCategoriesPage() {
   );
 }
 
-type CategoryNode = Category & { children: CategoryNode[] };
-
-function buildCategoryTree(list: Category[]): CategoryNode[] {
-  const nodes = new Map<number, CategoryNode>();
-  for (const item of list) {
-    nodes.set(item.id, { ...item, children: [] });
-  }
-  const roots: CategoryNode[] = [];
-  for (const node of nodes.values()) {
-    const parent = nodes.get(node.parent);
-    if (parent && node.parent !== 0) {
-      parent.children.push(node);
-    } else {
-      roots.push(node);
-    }
-  }
-  return roots;
-}
+type CategoryNode = HierarchyNode<Category>;
 
 function CategoryRow({
   node,

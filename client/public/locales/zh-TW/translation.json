@@ -830,6 +830,7 @@
     "fields": "自訂欄位",
     "field_name": "欄位名",
     "field_value": "值",
+    "invalid_field_value": "請為欄位「{{name}}」填寫有效的 {{type}} 值後再儲存。",
     "add_field": "新增欄位"
   },
   "categories": {

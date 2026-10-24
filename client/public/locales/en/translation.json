@@ -830,6 +830,7 @@
     "fields": "Custom Fields",
     "field_name": "Name",
     "field_value": "Value",
+    "invalid_field_value": "Enter a valid {{type}} value for \"{{name}}\" before saving.",
     "add_field": "Add field"
   },
   "categories": {

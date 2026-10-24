@@ -1,6 +1,6 @@
 import { and, asc, eq, lte } from "drizzle-orm";
 import { Hono } from "hono";
-import type { AppContext } from "../core/hono-types";
+import type { AppContext, DB } from "../core/hono-types";
 import { profileAsync } from "../core/server-timing";
 import { contents } from "../db/schema";
 import {
@@ -116,6 +116,11 @@ export function PageService(): Hono {
             return c.text('User ID is required', 400);
         }
 
+        const parentId = parent === undefined ? 0 : parent;
+        if (!await isValidPageParent(db, parentId)) {
+            return c.text('Parent page must exist and have a valid hierarchy', 400);
+        }
+
         const finalSlug = slug || await getUniqueSlug(db, generateSlug(title));
         const passwordHash = password ? await hashContentPassword(password) : "";
 
@@ -127,7 +132,7 @@ export function PageService(): Hono {
             slug: finalSlug,
             status: status || CONTENT_STATUS.PUBLISH,
             password: passwordHash,
-            parent: parent || 0,
+            parent: parentId,
             order: order || 0,
             template: template || "",
         }).returning({ insertedId: contents.id }));
@@ -159,6 +164,10 @@ export function PageService(): Hono {
 
         if (page.uid !== uid && !admin) {
             return c.text('Permission denied', 403);
+        }
+
+        if (parent !== undefined && !await isValidPageParent(db, parent, id_num)) {
+            return c.text('Parent page must exist and cannot be this page or one of its descendants', 400);
         }
 
         const finalSlug = slug || page.slug || await getUniqueSlug(db, generateSlug(title || page.title));
@@ -213,9 +222,36 @@ export function PageService(): Hono {
             return c.text('Permission denied', 403);
         }
 
+        const child = await db.query.contents.findFirst({
+            where: and(eq(contents.type, CONTENT_TYPE.PAGE), eq(contents.parent, id_num)),
+            columns: { id: true },
+        });
+        if (child) {
+            return c.text('Move or delete child pages before deleting this page', 409);
+        }
+
         await profileAsync(c, 'page_delete_db', () => db.delete(contents).where(eq(contents.id, id_num)));
         return c.text('Deleted');
     });
 
     return app;
+}
+
+async function isValidPageParent(db: DB, parent: unknown, pageId?: number): Promise<boolean> {
+    if (typeof parent !== 'number' || !Number.isSafeInteger(parent) || parent < 0) return false;
+    if (parent === 0) return true;
+
+    const pages = await db.select({ id: contents.id, parent: contents.parent }).from(contents)
+        .where(eq(contents.type, CONTENT_TYPE.PAGE));
+    const parents = new Map(pages.map((page) => [page.id, page.parent]));
+    const visited = new Set<number>();
+    let current = parent;
+    while (current !== 0) {
+        if (current === pageId || visited.has(current)) return false;
+        visited.add(current);
+        const next = parents.get(current);
+        if (next === undefined) return false;
+        current = next;
+    }
+    return true;
 }

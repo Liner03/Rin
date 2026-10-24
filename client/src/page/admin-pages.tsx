@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Link } from "wouter";
 import { FlatPanel, Input } from "@rin/ui";
@@ -7,6 +7,22 @@ import { client } from "../app/runtime";
 import { PAGE_TEMPLATES } from "../components/page-templates";
 import { useAlert } from "../components/dialog";
 import { MarkdownEditor } from "../components/markdown_editor";
+import { buildHierarchy, getValidParentOptions, type HierarchyNode } from "../utils/hierarchy";
+
+type FieldDraft = Omit<ContentField, "value"> & { value: string };
+
+function parseField(draft: FieldDraft): ContentField {
+  let value: ContentField["value"] = draft.value;
+  if (draft.type === "json") {
+    value = JSON.parse(draft.value);
+  } else if (draft.type === "int" || draft.type === "float") {
+    value = Number(draft.value);
+    if (!draft.value.trim() || !Number.isFinite(value) || (draft.type === "int" && !Number.isSafeInteger(value))) {
+      throw new Error("Invalid numeric field");
+    }
+  }
+  return { ...draft, name: draft.name.trim(), value };
+}
 
 export function AdminPagesPage() {
   const { t } = useTranslation();
@@ -17,11 +33,15 @@ export function AdminPagesPage() {
   const [slug, setSlug] = useState("");
   const [content, setContent] = useState("");
   const [password, setPassword] = useState("");
+  const [hasPassword, setHasPassword] = useState(false);
+  const [removePassword, setRemovePassword] = useState(false);
   const [order, setOrder] = useState(0);
   const [parent, setParent] = useState(0);
   const [status, setStatus] = useState<"publish" | "draft" | "hidden" | "private">("publish");
   const [template, setTemplate] = useState("default");
-  const [fields, setFields] = useState<ContentField[]>([]);
+  const [fields, setFields] = useState<FieldDraft[]>([]);
+  const tree = useMemo(() => buildHierarchy(pages), [pages]);
+  const parentOptions = useMemo(() => getValidParentOptions(pages, editingId), [pages, editingId]);
 
   const loadPages = useCallback(async () => {
     const { data } = await client.page.list();
@@ -38,6 +58,8 @@ export function AdminPagesPage() {
     setSlug("");
     setContent("");
     setPassword("");
+    setHasPassword(false);
+    setRemovePassword(false);
     setOrder(0);
     setParent(0);
     setStatus("publish");
@@ -54,16 +76,25 @@ export function AdminPagesPage() {
       showAlert(t("content.empty"));
       return;
     }
+    const parsedFields: ContentField[] = [];
+    for (const field of fields.filter((item) => item.name.trim())) {
+      try {
+        parsedFields.push(parseField(field));
+      } catch {
+        showAlert(t("pages.invalid_field_value", { name: field.name, type: field.type }));
+        return;
+      }
+    }
     const body = {
       title,
       slug: slug || undefined,
       content,
-      password: password || undefined,
+      password: removePassword ? "" : password || undefined,
       order,
       parent,
       status,
       template,
-      fields,
+      fields: parsedFields,
     };
     const { error } = editingId
       ? await client.page.update(editingId, body)
@@ -93,11 +124,17 @@ export function AdminPagesPage() {
     setSlug(page.slug || "");
     setContent(page.content);
     setPassword("");
+    setHasPassword(Boolean(page.hasPassword));
+    setRemovePassword(false);
     setOrder(page.order);
-    setParent(page.parent);
+    const validParents = getValidParentOptions(pages, page.id);
+    setParent(validParents.some((item) => item.id === page.parent) ? page.parent : 0);
     setStatus(page.status);
     setTemplate(page.template || "default");
-    setFields(Array.isArray(page.fields) ? page.fields : []);
+    setFields((Array.isArray(page.fields) ? page.fields : []).map((field) => ({
+      ...field,
+      value: field.type === "json" ? JSON.stringify(field.value, null, 2) : String(field.value ?? ""),
+    })));
   }
 
   return (
@@ -111,10 +148,21 @@ export function AdminPagesPage() {
           <Input value={title} setValue={setTitle} placeholder={t("title")} variant="flat" />
           <div className="grid gap-3 sm:grid-cols-3">
             <Input value={slug} setValue={setSlug} placeholder={t("alias")} variant="flat" />
-            <Input value={password} setValue={setPassword} placeholder={t("password")} variant="flat" />
+            <Input value={password} setValue={setPassword} placeholder={t("password")} type="password" disabled={removePassword} variant="flat" />
             <Input value={String(order)} setValue={(v) => setOrder(parseInt(v) || 0)} placeholder={t("pages.order")} variant="flat" />
           </div>
           <div className="flex flex-wrap items-center gap-4">
+            {editingId !== undefined && hasPassword && (
+              <label className="flex items-center gap-2 text-sm t-primary">
+                <input
+                  type="checkbox"
+                  checked={removePassword}
+                  onChange={(event) => setRemovePassword(event.target.checked)}
+                  className="h-3.5 w-3.5 rounded border-neutral-300 text-theme focus:ring-theme"
+                />
+                {t("password_remove")}
+              </label>
+            )}
             <label className="flex items-center gap-2 text-sm t-primary">
               <input
                 type="checkbox"
@@ -130,7 +178,7 @@ export function AdminPagesPage() {
               className="rounded-xl border border-black/10 bg-secondary px-3 py-2 text-sm t-primary dark:border-white/10"
             >
               <option value={0}>{t("pages.no_parent")}</option>
-              {pages.filter((p) => p.id !== editingId).map((p) => (
+              {parentOptions.map((p) => (
                 <option key={p.id} value={p.id}>{p.title}</option>
               ))}
             </select>
@@ -163,7 +211,7 @@ export function AdminPagesPage() {
           <p className="mb-2 text-xs font-semibold uppercase tracking-[0.18em] text-theme/70">{t("pages.fields")}</p>
           <div className="flex flex-col gap-2">
             {fields.map((field, index) => (
-              <div key={index} className="grid grid-cols-[1fr_5.5rem_2fr_auto] items-center gap-2">
+              <div key={index} className="grid grid-cols-[minmax(0,1fr)_5.5rem_auto] items-start gap-2 sm:grid-cols-[minmax(0,1fr)_5.5rem_minmax(0,2fr)_auto]">
                 <Input
                   value={field.name}
                   setValue={(value) => {
@@ -188,29 +236,23 @@ export function AdminPagesPage() {
                   <option value="float">float</option>
                   <option value="json">json</option>
                 </select>
-                <Input
-                  value={String(field.value ?? "")}
-                  setValue={(value) => {
+                <textarea
+                  value={field.value}
+                  onChange={(event) => {
                     const next = [...fields];
-                    const raw = value;
-                    const parsed = next[index].type === "int"
-                      ? parseInt(raw) || 0
-                      : next[index].type === "float"
-                        ? parseFloat(raw) || 0
-                        : next[index].type === "json"
-                          ? (() => { try { return JSON.parse(raw); } catch { return raw; } })()
-                          : raw;
-                    next[index] = { ...next[index], value: parsed };
+                    next[index] = { ...next[index], value: event.target.value };
                     setFields(next);
                   }}
+                  rows={field.type === "json" ? 4 : 1}
+                  aria-label={`${t("pages.field_value")}: ${field.name || index + 1}`}
                   placeholder={t("pages.field_value")}
-                  variant="flat"
+                  className="col-span-3 row-start-2 min-w-0 rounded-xl border border-black/10 bg-w px-3 py-2 text-sm t-primary focus:outline-none focus:ring-2 focus:ring-theme/10 dark:border-white/10 sm:col-span-1 sm:col-start-3 sm:row-start-1"
                 />
                 <button
                   type="button"
                   onClick={() => setFields(fields.filter((_, i) => i !== index))}
                   aria-label={t("delete.title")}
-                  className="rounded-lg p-1.5 text-neutral-400 transition-colors hover:bg-red-50 hover:text-red-500 dark:hover:bg-red-500/10"
+                  className="col-start-3 row-start-1 rounded-lg p-1.5 text-neutral-400 transition-colors hover:bg-red-50 hover:text-red-500 dark:hover:bg-red-500/10 sm:col-start-4"
                 >
                   <i className="ri-delete-bin-2-line text-base" />
                 </button>
@@ -235,7 +277,7 @@ export function AdminPagesPage() {
           {pages.length === 0 && (
             <p className="py-6 text-center text-sm text-neutral-500 dark:text-neutral-400">{t("pages.empty")}</p>
           )}
-          {buildPageTree(pages).map((page) => (
+          {tree.map((page) => (
             <PageRow key={page.id} node={page} depth={0} onEdit={edit} onDelete={remove} />
           ))}
         </div>
@@ -245,24 +287,7 @@ export function AdminPagesPage() {
   );
 }
 
-type PageNode = Page & { children: PageNode[] };
-
-function buildPageTree(list: Page[]): PageNode[] {
-  const nodes = new Map<number, PageNode>();
-  for (const item of list) {
-    nodes.set(item.id, { ...item, children: [] });
-  }
-  const roots: PageNode[] = [];
-  for (const node of nodes.values()) {
-    const parent = nodes.get(node.parent);
-    if (parent && node.parent !== 0) {
-      parent.children.push(node);
-    } else {
-      roots.push(node);
-    }
-  }
-  return roots;
-}
+type PageNode = HierarchyNode<Page>;
 
 function PageRow({
   node,

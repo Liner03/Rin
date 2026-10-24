@@ -1,14 +1,13 @@
-import { and, asc, desc, eq, inArray } from "drizzle-orm";
+import { and, asc, eq, inArray, ne } from "drizzle-orm";
 import { Hono } from "hono";
 import type { AppContext, DB } from "../core/hono-types";
 import { profileAsync } from "../core/server-timing";
-import { contents, metas, relationships } from "../db/schema";
+import { metas, relationships } from "../db/schema";
 import {
     CONTENT_TYPE,
     generateSlug,
     getCategoriesForContents,
     getTagsForContents,
-    getUniqueSlug,
     isPubliclyListed,
     refreshMetaCounts,
 } from "./content-helpers";
@@ -49,7 +48,7 @@ export function CategoryService(): Hono {
         const slugDecoded = decodeURI(c.req.param('slug'));
 
         // 缓存按角色区分（admin 可见密码/隐藏分类文章），CRUD 时 deletePrefix('category_') 失效
-        const cacheKey = `category_detail_v2_${admin ? "admin_" : ""}${slugDecoded}`;
+        const cacheKey = `category_detail_v3_${admin ? "admin_" : ""}${slugDecoded}`;
 
         const build = async () => {
             const category = await profileAsync(c, 'category_detail_db', () => db.query.metas.findFirst({
@@ -80,9 +79,10 @@ export function CategoryService(): Hono {
                 },
             }));
 
-            const postRows = rows
+            const posts = rows
                 .map((row) => row.content)
                 .filter((feed) => feed && feed.type === CONTENT_TYPE.POST && isPubliclyListed(feed, admin));
+            const postRows = Array.from(new Map(posts.map((feed) => [feed.id, feed])).values());
 
             const postIds = postRows.map((feed) => feed.id);
             const [tagsMap, categoriesMap] = await Promise.all([
@@ -121,26 +121,32 @@ export function CategoryService(): Hono {
         if (!admin) {
             return c.text('Permission denied', 403);
         }
-        if (!name) {
+        if (typeof name !== 'string' || !name.trim()) {
             return c.text('Name is required', 400);
         }
+        if (slug !== undefined && typeof slug !== 'string') {
+            return c.text('Slug must be a string', 400);
+        }
+        const parentId = parent === undefined ? 0 : parent;
+        if (!await isValidCategoryParent(db, parentId)) {
+            return c.text('Parent category must exist and have a valid hierarchy', 400);
+        }
 
-        const finalSlug = slug || await getUniqueSlug(db, generateSlug(name));
+        const finalSlug = slug?.trim() || await getUniqueCategorySlug(db, generateSlug(name));
         const result = await profileAsync(c, 'category_create_db', () => db.insert(metas).values({
             type: 'category',
             name,
             slug: finalSlug,
             description: description || "",
-            parent: parent || 0,
+            parent: parentId,
             order: order || 0,
             listed: listed === undefined ? 1 : (listed ? 1 : 0),
-        }).returning({ insertedId: metas.id }));
-
-        await profileAsync(c, 'category_create_cache_invalidate', () => cache.deletePrefix('category_'));
+        }).onConflictDoNothing({ target: [metas.slug, metas.type] }).returning({ insertedId: metas.id }));
 
         if (result.length === 0) {
-            return c.text('Failed to insert', 500);
+            return c.text('Category slug is already in use', 409);
         }
+        await profileAsync(c, 'category_create_cache_invalidate', () => cache.deletePrefix('category_'));
         return c.json(result[0]);
     });
 
@@ -163,15 +169,36 @@ export function CategoryService(): Hono {
         if (!category) {
             return c.text('Not found', 404);
         }
+        if (name !== undefined && (typeof name !== 'string' || !name.trim())) {
+            return c.text('Name is required', 400);
+        }
+        if (slug !== undefined && typeof slug !== 'string') {
+            return c.text('Slug must be a string', 400);
+        }
+        if (parent !== undefined && !await isValidCategoryParent(db, parent, id)) {
+            return c.text('Parent category must exist and cannot be this category or one of its descendants', 400);
+        }
 
-        await profileAsync(c, 'category_update_db', () => db.update(metas).set({
-            name,
-            slug,
-            description,
-            parent,
-            order,
-            listed: listed === undefined ? undefined : (listed ? 1 : 0),
-        }).where(eq(metas.id, id)));
+        const finalSlug = slug === undefined ? category.slug
+            : slug.trim() || await getUniqueCategorySlug(db, generateSlug(name ?? category.name), id);
+        if (finalSlug && await categorySlugExists(db, finalSlug, id)) {
+            return c.text('Category slug is already in use', 409);
+        }
+
+        try {
+            await profileAsync(c, 'category_update_db', () => db.update(metas).set({
+                name,
+                slug: finalSlug,
+                description,
+                parent,
+                order,
+                listed: listed === undefined ? undefined : (listed ? 1 : 0),
+            }).where(eq(metas.id, id)));
+        } catch (error) {
+            // The unique constraint also protects concurrent edits after the availability check.
+            if (isCategorySlugConflict(error)) return c.text('Category slug is already in use', 409);
+            throw error;
+        }
 
         await profileAsync(c, 'category_update_cache_invalidate', () => cache.deletePrefix('category_'));
         return c.text('Updated');
@@ -195,6 +222,14 @@ export function CategoryService(): Hono {
             return c.text('Not found', 404);
         }
 
+        const child = await db.query.metas.findFirst({
+            where: and(eq(metas.type, 'category'), eq(metas.parent, id)),
+            columns: { id: true },
+        });
+        if (child) {
+            return c.text('Move or delete child categories before deleting this category', 409);
+        }
+
         await profileAsync(c, 'category_delete_rels', () => db.delete(relationships).where(eq(relationships.metaId, id)));
         await profileAsync(c, 'category_delete_db', () => db.delete(metas).where(eq(metas.id, id)));
         await profileAsync(c, 'category_delete_cache_invalidate', () => cache.deletePrefix('category_'));
@@ -205,12 +240,71 @@ export function CategoryService(): Hono {
     return app;
 }
 
+async function categorySlugExists(db: DB, slug: string, excludeId?: number) {
+    const match = await db.query.metas.findFirst({
+        where: and(eq(metas.type, 'category'), eq(metas.slug, slug), excludeId === undefined ? undefined : ne(metas.id, excludeId)),
+        columns: { id: true },
+    });
+    return Boolean(match);
+}
+
+async function getUniqueCategorySlug(db: DB, base: string, excludeId?: number): Promise<string> {
+    let candidate = base;
+    for (let suffix = 1; await categorySlugExists(db, candidate, excludeId); suffix++) {
+        candidate = `${base}-${suffix}`;
+    }
+    return candidate;
+}
+
+function isCategorySlugConflict(error: unknown): boolean {
+    while (error instanceof Error) {
+        if (error.message.includes('UNIQUE constraint failed: metas.slug, metas.type')) return true;
+        error = error.cause;
+    }
+    return false;
+}
+
+async function getCategoryParents(db: DB) {
+    const categories = await db.select({ id: metas.id, parent: metas.parent }).from(metas)
+        .where(eq(metas.type, 'category'));
+    return new Map(categories.map((category) => [category.id, category.parent]));
+}
+
+async function isValidCategoryParent(db: DB, parent: unknown, categoryId?: number): Promise<boolean> {
+    if (typeof parent !== 'number' || !Number.isSafeInteger(parent) || parent < 0) return false;
+    if (parent === 0) return true;
+
+    const parents = await getCategoryParents(db);
+    const visited = new Set<number>();
+    let current = parent;
+    while (current !== 0) {
+        if (current === categoryId || visited.has(current)) return false;
+        visited.add(current);
+        const next = parents.get(current);
+        if (next === undefined) return false;
+        current = next;
+    }
+    return true;
+}
+
 async function collectChildIds(db: DB, parentId: number): Promise<number[]> {
-    const children = await db.select({ id: metas.id }).from(metas)
-        .where(and(eq(metas.type, 'category'), eq(metas.parent, parentId)));
-    const ids = children.map((child) => child.id);
-    for (const id of ids) {
-        ids.push(...await collectChildIds(db, id));
+    const children = new Map<number, number[]>();
+    for (const [id, parent] of await getCategoryParents(db)) {
+        const siblings = children.get(parent) || [];
+        siblings.push(id);
+        children.set(parent, siblings);
+    }
+    // A visited set also bounds reads of legacy hierarchies that already contain cycles.
+    const visited = new Set([parentId]);
+    const pending = [parentId];
+    const ids: number[] = [];
+    for (let index = 0; index < pending.length; index++) {
+        for (const id of children.get(pending[index]) || []) {
+            if (visited.has(id)) continue;
+            visited.add(id);
+            ids.push(id);
+            pending.push(id);
+        }
     }
     return ids;
 }

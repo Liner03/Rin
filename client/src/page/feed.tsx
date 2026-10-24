@@ -11,6 +11,7 @@ import { HashTag } from "../components/hashtag";
 import { Waiting } from "../components/loading";
 import { Markdown } from "../components/markdown";
 import { client } from "../app/runtime";
+import { usePublishRouteMetadata } from "../app/route-metadata";
 import { ClientConfigContext } from "../state/config";
 import { ProfileContext } from "../state/profile";
 import { useSiteConfig } from "../hooks/useSiteConfig";
@@ -28,10 +29,10 @@ export function FeedPage({ id, TOC }: { id: string, TOC: ReactNode }) {
   const profile = useContext(ProfileContext);
   const [feed, setFeed] = useState<Feed>();
   const [error, setError] = useState<string>();
-  const [headImage, setHeadImage] = useState<string>();
   const [password, setPassword] = useState("");
   const [unlockError, setUnlockError] = useState("");
-  const ref = useRef("");
+  const [reloadVersion, setReloadVersion] = useState(0);
+  const request = useRef<{ id: string; version: number; promise: ReturnType<typeof client.feed.get> }>();
   const [, setLocation] = useLocation();
   const { showAlert, AlertUI } = useAlert();
   const { showConfirm, ConfirmUI } = useConfirm();
@@ -41,6 +42,16 @@ export function FeedPage({ id, TOC }: { id: string, TOC: ReactNode }) {
   const hasAISummary = Boolean(feed?.ai_summary?.trim());
   const showAISummaryState = feed?.ai_summary_status === "pending" || feed?.ai_summary_status === "processing" || feed?.ai_summary_status === "failed";
   const hashtags = Array.isArray(feed?.hashtags) ? feed.hashtags : [];
+  const headImage = feed?.cover || extractFirstMarkdownImageUrl(feed?.content ?? "");
+  usePublishRouteMetadata(feed ? {
+    kind: "post",
+    title: feed.title ?? "",
+    coverImage: headImage,
+    author: feed.user?.username,
+    createdAt: feed.createdAt,
+    categoryName: feed.categories?.[0]?.name || hashtags[0]?.name,
+    pv: counterEnabled ? feed.pv : undefined,
+  } : undefined);
   function deleteFeed() {
     // Confirm
     showConfirm(
@@ -81,33 +92,33 @@ export function FeedPage({ id, TOC }: { id: string, TOC: ReactNode }) {
           });
       })
   }
-  function loadFeedState(id: string) {
-    client.feed
-      .get(id)
+  useEffect(() => {
+    let cancelled = false;
+    setFeed(undefined);
+    setError(undefined);
+    setPassword("");
+    setUnlockError("");
+    // Reuse this load during StrictMode's effect replay; an unlock starts a new version.
+    if (!request.current || request.current.id !== id || request.current.version !== reloadVersion) {
+      request.current = { id, version: reloadVersion, promise: client.feed.get(id) };
+    }
+    request.current.promise
       .then(({ data, error }) => {
+        if (cancelled) return;
         if (error) {
           setError(error.value as string);
         } else if (data && typeof data !== "string") {
-          setTimeout(() => {
-            setFeed(data);
-            setTop(data.top || 0);
-            const headImageUrl = data.cover || extractFirstMarkdownImageUrl(data.content);
-            if (headImageUrl) {
-              setHeadImage(headImageUrl);
-            }
-          }, 0);
+          setFeed(data);
+          setTop(data.top || 0);
+        } else {
+          setError("Not found");
         }
+      })
+      .catch((error: unknown) => {
+        if (!cancelled) setError(error instanceof Error ? error.message : String(error));
       });
-  }
-  useEffect(() => {
-    if (ref.current == id) return;
-    setFeed(undefined);
-    setError(undefined);
-    setHeadImage(undefined);
-    setUnlockError("");
-    loadFeedState(id);
-    ref.current = id;
-  }, [id]);
+    return () => { cancelled = true; };
+  }, [id, reloadVersion]);
   async function unlock() {
     if (!feed) return;
     const { error } = await client.feed.unlock(feed.id, password);
@@ -115,8 +126,7 @@ export function FeedPage({ id, TOC }: { id: string, TOC: ReactNode }) {
       setUnlockError(error.value as string);
     } else {
       setUnlockError("");
-      setFeed(undefined);
-      loadFeedState(id);
+      setReloadVersion((version) => version + 1);
     }
   }
   useEffect(() => {
@@ -201,7 +211,7 @@ export function FeedPage({ id, TOC }: { id: string, TOC: ReactNode }) {
           <div className="flex flex-col wauto rounded-2xl bg-w m-2 p-8 items-center justify-center space-y-3 text-center">
             <h1 className="text-xl font-bold t-primary">{feed.title}</h1>
             <p className="text-sm text-neutral-500 dark:text-neutral-400">{t("password_required")}</p>
-            <Input value={password} setValue={setPassword} placeholder={t("password")} variant="flat" className="w-full max-w-xs" />
+            <Input value={password} setValue={setPassword} placeholder={t("password")} type="password" variant="flat" className="w-full max-w-xs" />
             {unlockError && <p className="text-sm text-red-500">{unlockError}</p>}
             <Button title={t("unlock")} onClick={unlock} />
           </div>

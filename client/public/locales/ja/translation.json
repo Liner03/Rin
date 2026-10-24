@@ -821,6 +821,7 @@
     "fields": "カスタムフィールド",
     "field_name": "フィールド名",
     "field_value": "値",
+    "invalid_field_value": "保存する前に「{{name}}」に有効な {{type}} の値を入力してください。",
     "add_field": "フィールド追加"
   },
   "categories": {

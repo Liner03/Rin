@@ -96,7 +96,8 @@ body.mirages-layout-active .mirages-root [class*="z-40"] button {
 
 /* 隐藏各页大标题栏（masthead 已承载标题） */
 .mirages-content main > div.wauto.text-4xl,
-.mirages-content main > div.text-4xl {
+.mirages-content main > div.text-4xl,
+.mirages-content[data-page="true"] main > div.text-3xl {
   display: none !important;
 }
 
@@ -128,7 +129,7 @@ body.mirages-layout-active .mirages-content .w-80.hidden {
   right: auto !important;
   top: 54px !important;
   bottom: 0 !important;
-  width: 272px !important;
+  width: var(--mirages-toc-width, 272px) !important;
   flex: none !important;
   max-height: none !important;
   overflow: visible !important;
@@ -139,14 +140,22 @@ body.mirages-layout-active .mirages-content .w-80.hidden > div {
   top: 5.5rem !important;
   animation: none !important;
 }
-@media (min-width: 1024px) and (max-width: 1400px) {
-  body.mirages-layout-active .mirages-content[data-article="true"] {
-    max-width: calc(100vw - 320px) !important;
+@media (min-width: 1024px) {
+  /* 为悬浮目录和两侧边距留足空间；宽屏仍保持正文居中。 */
+  body.mirages-layout-active .mirages-content:has(.w-80.hidden) {
+    --mirages-toc-width: 272px;
+    --mirages-article-width: min(864px, calc(100% - var(--mirages-toc-width) - 56px));
+    max-width: var(--mirages-article-width) !important;
+    margin-left: min(
+      calc((100% - var(--mirages-article-width)) / 2),
+      calc(100% - var(--mirages-article-width) - var(--mirages-toc-width) - 40px)
+    ) !important;
+    margin-right: auto !important;
   }
-  body.mirages-layout-active .mirages-content .w-80.hidden {
-    left: calc(100% + 24px) !important;
-    right: auto !important;
-    width: 240px !important;
+}
+@media (min-width: 1024px) and (max-width: 1400px) {
+  body.mirages-layout-active .mirages-content:has(.w-80.hidden) {
+    --mirages-toc-width: 240px;
   }
 }
 /* 页面入场：Mirages 下禁用弹跳动画，改为轻微淡入（保持克制） */
