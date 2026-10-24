@@ -225,6 +225,7 @@ export interface Category {
 export interface CategoryDetail extends Category {
   feeds: Array<{
     id: number;
+    avatar?: string | null;
     title: string | null;
     summary: string;
     slug: string | null;
@@ -307,7 +308,7 @@ export interface Tag {
 }
 
 export interface TagDetail extends Tag {
-  feeds: Feed[];
+  feeds: Array<Feed & { avatar?: string | null }>;
 }
 
 // ============================================================================

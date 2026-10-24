@@ -4,6 +4,7 @@ import { Helmet } from 'react-helmet';
 import { useTranslation } from "react-i18next";
 import Modal from 'react-modal';
 import { FlatActionButton, FlatPanel, SearchableSelect } from "@rin/ui";
+import { ContentAvatar } from "../components/content-avatar";
 import { ShowAlertType, useAlert, useConfirm } from "../components/dialog";
 import { Input } from "../components/input";
 import { Waiting } from "../components/loading";
@@ -95,6 +96,9 @@ export function FriendsPage() {
         </Helmet>
         <Waiting for={friendsAvailable.length !== 0 || friendsUnavailable.length !== 0 || status === "idle"}>
             <main className="w-full flex flex-col justify-center items-center mb-8 t-primary ani-show">
+                {status === "idle" && !friendsAvailable.length && !friendsUnavailable.length && !waitList.length && !refusedList.length && !apply && (
+                    <p className="wauto py-12 text-center text-sm t-secondary">{t('friends.empty')}</p>
+                )}
                 <FriendList title={t('friends.title')} show={friendsAvailable.length > 0} friends={friendsAvailable} />
                 <FriendList title={t('friends.left')} show={friendsUnavailable.length > 0} friends={friendsUnavailable} />
                 <FriendList title={t('friends.review.waiting')} show={waitList.length > 0} friends={waitList} />
@@ -201,7 +205,7 @@ function Friend({ friend }: { friend: FriendItem }) {
         <>
             <a title={friend.name} href={friend.url} target="_blank" className="bg-button w-full bg-w rounded-xl p-4 flex flex-col justify-center items-center relative">
                 <div className="w-16 h-16">
-                    <img className={"rounded-full " + (friend.health.length > 0 ? "grayscale" : "")} src={friend.avatar} alt={friend.name} />
+                    <ContentAvatar src={friend.avatar} name={friend.name} className={`h-16 w-16 text-xl ${friend.health.length > 0 ? "grayscale" : ""}`} />
                 </div>
                 <p className="text-base text-center">{friend.name}</p>
                 {friend.health.length == 0 && <p className="text-sm text-neutral-500 text-center">{friend.desc}</p>}
@@ -243,7 +247,7 @@ function Friend({ friend }: { friend: FriendItem }) {
             >
                 <FlatPanel className="relative flex w-[80vw] flex-col items-center justify-start p-6 sm:w-[60vw] md:w-[50vw] lg:w-[40vw] xl:w-[30vw]">
                     <div className="w-16 h-16">
-                        <img className={"rounded-xl " + (friend.health.length > 0 ? "grayscale" : "")} src={friend.avatar} alt={friend.name} />
+                        <ContentAvatar src={friend.avatar} name={friend.name} className={`h-16 w-16 text-xl ${friend.health.length > 0 ? "grayscale" : ""}`} />
                     </div>
                     {profile?.permission &&
                         <div className="flex flex-col w-full items-start mt-4 px-4">

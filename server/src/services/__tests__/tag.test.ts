@@ -4,6 +4,7 @@ import { Hono } from "hono";
 import type { Variables } from "../../core/hono-types";
 import { setupTestApp, seedTestData, cleanupTestDB } from '../../../tests/fixtures';
 import type { Database } from 'bun:sqlite';
+import type { TagDetail } from '@rin/api';
 
 describe('TagService', () => {
     let db: any;
@@ -57,6 +58,14 @@ describe('TagService', () => {
     });
 
     describe('GET /:name - Get tag details', () => {
+        it.each([null, "https://example.test/cover.jpg"])("returns the article cover for tag cards (%s)", async (cover) => {
+            sqlite.query("UPDATE contents SET cover = ? WHERE id = 1").run(cover);
+            const response = await app.request('/test', {}, env);
+            expect(response.status).toBe(200);
+            const tag = await response.json() as TagDetail;
+            expect(tag.feeds.find((feed) => feed.id === 1)?.avatar).toBe(cover);
+        });
+
         it('should return tag with feeds', async () => {
             const res = await app.request('/test', { method: 'GET' }, env);
             

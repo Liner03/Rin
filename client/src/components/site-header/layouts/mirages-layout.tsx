@@ -148,8 +148,8 @@ function MiragesShell({ header, content, footer }: { header: React.ReactNode; co
     }, []);
 
     const containerClass = isListPage
-        ? "-mt-12 max-w-[952px] px-[48px] pt-[64px] pb-[56px] md:px-[60px] md:pt-[86px]"
-        : "max-w-[864px] px-0 pt-[46px] pb-[56px] md:px-4";
+        ? "-mt-[50px] max-w-[952px] px-3 pt-[64px] pb-[56px] md:px-[60px] md:pt-[86px]"
+        : "max-w-[864px] px-5 pt-6 pb-[56px] md:px-4 md:pt-[46px]";
 
     return (
         <MiragesSidebarContext.Provider value={{ isOpen, toggle: () => setIsOpen((v) => !v) }}>
@@ -162,6 +162,7 @@ function MiragesShell({ header, content, footer }: { header: React.ReactNode; co
                 <div
                     className={`mirages-content mx-auto w-full ${containerClass}`}
                     data-article={isArticle ? "true" : undefined}
+                    data-list={isListPage ? "true" : undefined}
                     data-page={location.startsWith("/page/") ? "true" : undefined}
                 >
                     {content}
@@ -185,13 +186,13 @@ export const miragesLayoutDefinition: HeaderLayoutDefinition = {
   kind: "top",
   renderDesktop({ children, profile, siteConfig }) {
     return (
-      <div className="mx-auto hidden h-16 w-full max-w-[1200px] items-center justify-between px-4 md:flex">
+      <div className="mx-auto hidden h-16 w-full max-w-[1170px] items-center justify-between px-4 md:flex">
         <div className="flex shrink-0 items-center pr-2">
           <Link href="/" aria-label="home" className="text-[20px] font-bold text-black/90 dark:text-white/90">
             {siteConfig.name}
           </Link>
         </div>
-        <div className="flex min-w-0 flex-1 items-center justify-center">
+        <div className="flex min-w-0 flex-1 items-center justify-start">
           <div className="flex min-w-max items-center gap-0 text-[16px]">
             <NavBar menu={false} itemClassName="px-2 py-2 text-[16px] hover:text-theme" />
           </div>

@@ -1,7 +1,7 @@
 import { createContext, useContext, useEffect, useState, type Dispatch, type ReactNode, type SetStateAction } from "react";
 
 interface RouteMetadata {
-  kind: "post" | "page" | "category";
+  kind: "post" | "page" | "category" | "search" | "error";
   title: string;
   description?: string;
   coverImage?: string;

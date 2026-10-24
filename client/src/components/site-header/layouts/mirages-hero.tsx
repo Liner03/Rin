@@ -47,22 +47,22 @@ export function MiragesHero() {
   ].filter(Boolean).join(" • ") : "";
 
   return (
-    <div className="relative flex h-[338px] items-center justify-center overflow-hidden bg-[#1e1e1f] md:h-[445px]">
+    <div className="mirages-hero relative flex h-[338px] items-center justify-center overflow-hidden bg-[#1e1e1f] md:h-[445px] md:pt-[60px]" data-cover={backgroundImage ? "true" : "false"}>
       <div
         className="absolute inset-0 bg-cover bg-center"
         style={{
           backgroundImage: backgroundImage
-            ? `linear-gradient(rgba(0,0,0,0.55), rgba(0,0,0,0.55)), url(${backgroundImage})`
-            : "linear-gradient(135deg, #1e1e1f 0%, #2c2a2a 100%)",
+            ? `linear-gradient(rgba(0,0,0,0.25), rgba(0,0,0,0.25)), url(${backgroundImage})`
+            : undefined,
         }}
       />
       <div className="relative z-10 px-6 text-center">
-        <h1 className="text-[28px] font-normal text-white md:text-[40px]">{title}</h1>
+        <h1 className="text-[28px] font-normal leading-normal text-white md:text-[40px] md:font-light">{title}</h1>
         {description ? (
-          <p className="mt-4 text-sm text-neutral-200 md:text-[15px]">{description}</p>
+          <p className="mt-3 text-sm text-neutral-200 md:text-[15px]">{description}</p>
         ) : null}
         {articleDetails ? (
-          <p className="mt-4 text-[13px] text-white/90 md:text-[13px]">
+          <p className="mt-3 text-[13px] text-white/90 md:text-[13px]">
             {articleDetails}
           </p>
         ) : null}

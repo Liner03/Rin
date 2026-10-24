@@ -1,0 +1,70 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Mirages 7.10.6 逐页视觉对照</title>
+<style>
+:root{font-family:system-ui,sans-serif;color:#252525;background:#f5f5f5;line-height:1.6;color-scheme:light}
+body{margin:0;padding:24px}h1{font-size:24px;margin:0 0 8px}p{margin:8px 0}a{color:#176654;text-underline-offset:3px}
+.controls{display:flex;align-items:end;flex-wrap:wrap;gap:16px;margin:24px 0}label{display:flex;flex-direction:column;gap:4px;font-size:14px}select{font:inherit;padding:8px;border:1px solid #aaa;border-radius:4px;background:#fff;color:#252525;min-width:140px}.toggle{flex-direction:row;align-items:center;padding:8px 0}
+#note{max-width:100ch}#comparison{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:16px;align-items:start}#comparison.with-before{grid-template-columns:repeat(3,minmax(0,1fr))}figure{margin:0;min-width:0}figcaption{font-size:14px;font-weight:600;padding:12px 0}img{display:block;width:100%;height:auto;background:white;border:1px solid #ddd;box-sizing:border-box}body.mobile figure img{max-width:390px;margin:auto}.missing{padding:24px;background:#fff;border:1px solid #ddd}.hint{color:#555;font-size:13px}.before{display:none}.with-before .before{display:block}
+@media(max-width:800px){body{padding:16px}#comparison,#comparison.with-before{grid-template-columns:1fr}.controls{gap:12px}}
+</style>
+</head>
+<body>
+<h1>Mirages 7.10.6 逐页视觉对照</h1>
+<p>本机 7.10.6 的 CSS、字体与模板结构参考，配合同一组合成内容。参考页未运行 PHP / Typecho。<a href="../../mirages-visual-comparison.md">阅读完整验收记录</a></p>
+<p class="hint">最终图由浏览器在 screen 媒体模式下导出整页 PDF，再转为 WebP；不是原生屏幕截图，也不是像素差分测试。点击图片可查看原尺寸。修复前图仅保留首屏；图中左上角蓝色按钮属于浏览器翻译扩展。</p>
+<div class="controls">
+<label>页面<select id="page"></select></label>
+<label>视口<select id="device"><option value="desktop">桌面 · 1280 × 900</option><option value="mobile">手机 · 390 × 844</option></select></label>
+<label>主题<select id="mode"><option value="light">浅色</option><option value="dark">深色</option></select></label>
+<label class="toggle"><input type="checkbox" id="before">显示修复前首屏</label>
+</div>
+<p id="note"></p>
+<div id="comparison" aria-live="polite"></div>
+<script>
+const pages=[
+['home','首页','/','列表宽度、横幅颜色、导航位置、卡片间距。'],
+['category','分类','/category/tech','使用原版 archive 结构；保留 Rin 的分类数据与路由。'],
+['post','文章','/feed/1','比较正文、引用、列表、代码和表格。Rin 保留自有目录、作者信息、相邻文章与评论系统；参考正文不含这些 Rin 组件。'],
+['page','独立页面 · default','/page/about','原版 page 结构；消除重复标题，校正正文版心与手机排版。'],
+['archives','文章归档','/timeline','原版 archives.php 与 Rin 时间线结构不同，比较共享框架并记录列表表现差异。'],
+['tags','标签列表','/hashtags','参考为原版 archives.php 中的标签云区块，不是原版独立标签列表页。'],
+['tag','标签文章','/hashtag/迁移','原版 archive 结构，检查标签标题与文章卡片。'],
+['search','搜索结果','/search/迁移','搜索关键字进入横幅标题，结果使用列表版心。'],
+['not-found','错误页','/rin-visual-check-missing','原版 404.php 使用插画、返回和搜索；Rin 保留通用错误提示与返回按钮。'],
+['links','独立页面 · links','/page/demo-links','Rin 扩展模板；与原版共享框架比较，不作一对一模板等价声明。'],
+['music','独立页面 · music','/page/demo-music','Rin 扩展模板；播放器不等同于原站插件。'],
+['wide','独立页面 · wide','/page/demo-wide','Rin 扩展模板；保留较宽的正文区域。'],
+['portfolio','独立页面 · portfolio','/page/demo-portfolio','Rin 扩展模板；网格不再误用相邻文章分隔线。'],
+['gallery','独立页面 · gallery','/page/demo-gallery','Rin 扩展模板；检查图片网格、说明及手机折行。'],
+['page-timeline','独立页面 · timeline','/page/demo-timeline','Rin 扩展模板；检查事件轴与正文。'],
+['resume','独立页面 · resume','/page/demo-resume','Rin 扩展模板；检查侧栏、技能及经历。'],
+['docs','独立页面 · docs','/page/demo-docs','Rin 扩展模板；检查目录与内容组合。'],
+['friends','友链','/friends','Rin 友链管理页面；该组数据为空，检查明确的空态提示。'],
+['moments','动态','/moments','Rin 动态页面；该组数据为空，检查空态及发布入口。'],
+];
+const reference=new Set(pages.slice(0,9).map(p=>p[0]));
+const picker=document.querySelector('#page');
+for(const [id,title] of pages){const option=document.createElement('option');option.value=id;option.textContent=title;picker.append(option)}
+function picture(folder,file,title,extra=''){
+ const figure=document.createElement('figure');figure.className=extra;
+ const caption=document.createElement('figcaption');caption.textContent=title;figure.append(caption);
+ const anchor=document.createElement('a');anchor.href=`${folder}/${file}.webp`;anchor.target='_blank';anchor.rel='noopener';
+ const img=document.createElement('img');img.src=anchor.href;img.alt=`${title} · ${file}`;img.loading='lazy';anchor.append(img);figure.append(anchor);return figure;
+}
+function render(){
+ const selected=pages.find(p=>p[0]===picker.value);const device=document.querySelector('#device').value;const mode=document.querySelector('#mode').value;
+ document.body.classList.toggle('mobile',device==='mobile');document.querySelector('#note').textContent=`${selected[2]} — ${selected[3]}`;
+ const container=document.querySelector('#comparison');container.replaceChildren();container.classList.toggle('with-before',document.querySelector('#before').checked);
+ const file=`${selected[0]}-${device}-${mode}`;
+ if(reference.has(selected[0]))container.append(picture('reference',file,'7.10.6 源码参考 · 整页'));
+ else{const f=document.createElement('figure');const caption=document.createElement('figcaption');caption.textContent='原版参考';const note=document.createElement('p');note.className='missing';note.textContent='原版没有与此 Rin 模板一一对应的页面。请结合首页、独立页面和报告中的差异记录查看共享样式。';f.append(caption,note);container.append(f)}
+ container.append(picture('before',file,'Rin 修复前 · 首屏','before'),picture('after',file,'Rin 修复后 · 整页'));
+}
+document.querySelectorAll('select,input').forEach(e=>e.addEventListener('change',render));render();
+</script>
+</body>
+</html>

@@ -190,6 +190,7 @@
     "rss": "RSS 購読リンク"
   },
   "friends": {
+    "empty": "リンクはまだありません",
     "apply": "友人リンクを申請",
     "create": "友人リンクを作成",
     "left": "一時的に離脱",
@@ -227,6 +228,7 @@
   "logout": "ログアウト",
   "main_content": "本文",
   "moments": {
+    "empty": "つぶやきはまだありません",
     "edit": "編集",
     "publish": "公開",
     "title": "動態",

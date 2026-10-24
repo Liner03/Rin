@@ -190,6 +190,7 @@
     "rss": "RSS 订阅链接"
   },
   "friends": {
+    "empty": "还没有友链",
     "apply": "申请友链",
     "create": "创建友链",
     "left": "暂时离开",
@@ -236,6 +237,7 @@
   "logout": "退出登录",
   "main_content": "正文",
   "moments": {
+    "empty": "还没有动态",
     "edit": "编辑动态",
     "publish": "发布动态",
     "title": "动态",

@@ -206,7 +206,7 @@ export function MomentsPage() {
                                     />
                                 ))}
                             </div>
-                        ) : null}
+                        ) : <p className="py-12 text-center text-sm t-secondary">{t('moments.empty')}</p>}
                         
                         <Waiting for={!loadingMore}>
                             <div className="py-4 text-center">

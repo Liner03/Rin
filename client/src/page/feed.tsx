@@ -6,6 +6,7 @@ import { Trans, useTranslation } from "react-i18next";
 import ReactModal from "react-modal";
 import Popup from "reactjs-popup";
 import { Link, useLocation } from "wouter";
+import { ContentAvatar } from "../components/content-avatar";
 import { useAlert, useConfirm } from "../components/dialog";
 import { HashTag } from "../components/hashtag";
 import { Waiting } from "../components/loading";
@@ -51,7 +52,7 @@ export function FeedPage({ id, TOC }: { id: string, TOC: ReactNode }) {
     createdAt: feed.createdAt,
     categoryName: feed.categories?.[0]?.name || hashtags[0]?.name,
     pv: counterEnabled ? feed.pv : undefined,
-  } : undefined);
+  } : error ? { kind: "error", title: t("error.title") } : undefined);
   function deleteFeed() {
     // Confirm
     showConfirm(
@@ -340,9 +341,10 @@ export function FeedPage({ id, TOC }: { id: string, TOC: ReactNode }) {
                     </div>
                   )}
                   <div className="flex flex-row items-center">
-                    <img
-                      src={feed.user?.avatar || "/avatar.png"}
-                      className="w-8 h-8 rounded-full"
+                    <ContentAvatar
+                      src={feed.user?.avatar}
+                      name={feed.user?.username || t("anonymous")}
+                      className="w-8 h-8 text-sm"
                     />
                     <div className="ml-2">
                       <span className="text-gray-400 text-sm cursor-default">
@@ -714,7 +716,6 @@ function CommentItem({
   const { t } = useTranslation();
   const profile = useContext(ProfileContext);
   const commenterName = comment.user?.username || comment.guestName || t("anonymous");
-  const commenterAvatar = comment.user?.avatar || "/avatar.png";
   function deleteComment() {
     showConfirm(
       t("delete.comment.title"),
@@ -733,10 +734,10 @@ function CommentItem({
   }
   return (
     <div className="flex flex-row items-start gap-3 py-4">
-      <img
-        src={commenterAvatar}
-        alt={commenterName}
-        className="mt-0.5 h-9 w-9 shrink-0 rounded-full object-cover"
+      <ContentAvatar
+        src={comment.user?.avatar}
+        name={commenterName}
+        className="mt-0.5 h-9 w-9 shrink-0 text-sm"
       />
       <div className="flex min-w-0 flex-1 flex-col">
         <div className="flex flex-row items-center gap-2">

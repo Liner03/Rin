@@ -190,6 +190,7 @@
     "rss": "RSS 訂閱連結"
   },
   "friends": {
+    "empty": "還沒有友鏈",
     "apply": "申請友情連結",
     "create": "創建友情連結",
     "left": "暫時離開",
@@ -236,6 +237,7 @@
   "logout": "登出",
   "main_content": "正文",
   "moments": {
+    "empty": "還沒有動態",
     "edit": "編輯動態",
     "publish": "發布動態",
     "title": "動態",

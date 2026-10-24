@@ -23,7 +23,7 @@ export function CategoryPage({ slug }: { slug: string }) {
     kind: "category",
     title: category.name,
     description: category.description ?? undefined,
-  } : undefined);
+  } : status === "idle" ? { kind: "error", title: t("error.title") } : undefined);
   useEffect(() => {
     let cancelled = false;
     setStatus("loading");

@@ -37,6 +37,14 @@ describe("CategoryService", () => {
     expect(category.feeds[0].categories?.map((item) => item.id)).toEqual([1, 2]);
   });
 
+  it.each([null, "https://example.test/cover.jpg"])("returns the article cover for category cards (%s)", async (cover) => {
+    ctx.sqlite.query("UPDATE contents SET cover = ? WHERE id = 101").run(cover);
+    const response = await ctx.app.request("/parent", {}, ctx.env);
+    expect(response.status).toBe(200);
+    const category = await response.json() as CategoryDetail;
+    expect(category.feeds[0].avatar).toBe(cover);
+  });
+
   it.each([1, 2])("rejects making the parent category its own ancestor (%i)", async (parent) => {
     const response = await write("/1", "PUT", { parent });
     expect(response.status).toBe(400);

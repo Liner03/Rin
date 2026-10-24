@@ -1,0 +1,57 @@
+[
+  {
+    "name": "theme-button",
+    "pass": true,
+    "tableColor": "rgb(214, 214, 214)",
+    "tableBackground": "rgb(57, 55, 55)"
+  },
+  {
+    "name": "mobile-drawer-navigation-and-close",
+    "pass": true
+  },
+  {
+    "name": "toc",
+    "width": 390,
+    "scrollWidth": 390,
+    "visible": false,
+    "left": 0,
+    "right": 0,
+    "pass": true
+  },
+  {
+    "name": "toc",
+    "width": 1024,
+    "scrollWidth": 1009,
+    "visible": true,
+    "left": 753,
+    "right": 993,
+    "pass": true
+  },
+  {
+    "name": "toc",
+    "width": 1280,
+    "scrollWidth": 1265,
+    "visible": true,
+    "left": 1009,
+    "right": 1249,
+    "pass": true
+  },
+  {
+    "name": "toc",
+    "width": 1440,
+    "scrollWidth": 1425,
+    "visible": true,
+    "left": 1137,
+    "right": 1409,
+    "pass": true
+  },
+  {
+    "name": "toc",
+    "width": 1920,
+    "scrollWidth": 1905,
+    "visible": true,
+    "left": 1408.5,
+    "right": 1680.5,
+    "pass": true
+  }
+]

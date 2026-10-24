@@ -48,7 +48,7 @@ export function CategoryService(): Hono {
         const slugDecoded = decodeURI(c.req.param('slug'));
 
         // 缓存按角色区分（admin 可见密码/隐藏分类文章），CRUD 时 deletePrefix('category_') 失效
-        const cacheKey = `category_detail_v3_${admin ? "admin_" : ""}${slugDecoded}`;
+        const cacheKey = `category_detail_v4_${admin ? "admin_" : ""}${slugDecoded}`;
 
         const build = async () => {
             const category = await profileAsync(c, 'category_detail_db', () => db.query.metas.findFirst({
@@ -69,7 +69,7 @@ export function CategoryService(): Hono {
                 with: {
                     content: {
                         columns: {
-                            id: true, title: true, summary: true, slug: true, status: true, type: true,
+                            id: true, title: true, summary: true, cover: true, slug: true, status: true, type: true,
                             createdAt: true, updatedAt: true,
                         },
                         with: {
@@ -93,6 +93,7 @@ export function CategoryService(): Hono {
             const feeds = postRows
                 .map((feed: any) => ({
                     ...feed,
+                    avatar: feed.cover || null,
                     hashtags: tagsMap.get(feed.id) || [],
                     categories: categoriesMap.get(feed.id) || [],
                 }))

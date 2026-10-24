@@ -22,7 +22,8 @@ export function PageDetail({ slug }: { slug: string }) {
   const [reloadVersion, setReloadVersion] = useState(0);
   const request = useRef<{ slug: string; version: number; promise: ReturnType<typeof client.page.get> }>();
 
-  usePublishRouteMetadata(page ? { kind: "page", title: page.title } : undefined);
+  usePublishRouteMetadata(page ? { kind: "page", title: page.title }
+    : status === "idle" ? { kind: "error", title: t("error.title") } : undefined);
 
   useEffect(() => {
     let cancelled = false;

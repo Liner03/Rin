@@ -67,7 +67,7 @@ export function Header({ children }: { children?: React.ReactNode }) {
       : `fixed inset-x-0 top-0 z-40 transition-transform duration-300 ${
           headerBehavior === "reveal" && !isRevealed ? "-translate-y-full" : "translate-y-0"
         }`;
-  const spacerClassName = !useTopHeader || headerBehavior === "static" ? "h-0" : headerLayout === "mirages" ? "h-16" : "h-20";
+  const spacerClassName = !useTopHeader || headerBehavior === "static" || headerLayout === "mirages" ? "h-0" : "h-20";
 
   return (
     <>
@@ -76,7 +76,7 @@ export function Header({ children }: { children?: React.ReactNode }) {
       ) : null}
       <div ref={headerRef} className={containerClassName}>
         <div className="w-screen">
-          {headerLayout === "compact" ? (
+          {headerLayout === "compact" || headerLayout === "mirages" ? (
             <div className="w-full">
               {layoutDefinition.renderMobile({ children, profile, siteConfig, behavior: headerBehavior, isAtTop })}
               {layoutDefinition.renderDesktop({ children, profile, siteConfig, behavior: headerBehavior, isAtTop })}

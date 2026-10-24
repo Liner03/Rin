@@ -5,6 +5,7 @@ import { Link, useSearch } from "wouter"
 import { FeedCard } from "../components/feed_card"
 import { Waiting } from "../components/loading"
 import { client } from "../app/runtime"
+import { usePublishRouteMetadata } from "../app/route-metadata";
 
 import { useSiteConfig } from "../hooks/useSiteConfig";
 import type { FeedListResponse } from "@rin/api";
@@ -42,6 +43,7 @@ export function SearchPage({ keyword }: { keyword: string }) {
         ref.current = key
     }, [page, limit, keyword])
     const title = t('article.search.title$keyword', { keyword })
+    usePublishRouteMetadata({ kind: "search", title });
     return (
         <>
             <Helmet>

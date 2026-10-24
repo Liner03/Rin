@@ -13,6 +13,7 @@ vi.mock("../runtime", () => ({
     feed: { get: vi.fn(), list: vi.fn(), unlock: vi.fn() },
     page: { get: vi.fn(), list: vi.fn(), unlock: vi.fn() },
     category: { get: vi.fn() },
+    search: { search: vi.fn() },
     comment: { list: vi.fn() },
   },
 }));
@@ -21,7 +22,7 @@ vi.mock("react-i18next", () => ({
   Trans: ({ children }: { children: ReactNode }) => <>{children}</>,
 }));
 vi.mock("../../hooks/useSiteConfig", () => ({
-  useSiteConfig: () => ({ name: "Test blog", headerLayout: "mirages", feedLayout: "list", avatar: "", heroImage: "", description: "", keywords: "" }),
+  useSiteConfig: () => ({ name: "Test blog", headerLayout: "mirages", feedLayout: "list", pageSize: 5, avatar: "", heroImage: "", description: "", keywords: "" }),
   useSiteNavItems: () => [],
 }));
 vi.mock("../../hooks/useTableOfContents", () => ({ default: () => ({ TOC: null }) }));
@@ -72,6 +73,7 @@ describe("Mirages content routes", () => {
     vi.mocked(client.page.list).mockResolvedValue({ data: [] });
     vi.mocked(client.page.unlock).mockResolvedValue({});
     vi.mocked(client.category.get).mockResolvedValue({ data: category });
+    vi.mocked(client.search.search).mockResolvedValue({ data: { data: [{ ...feed, avatar: null, summary: "Article summary" }], size: 1, hasNext: false } });
     vi.mocked(client.comment.list).mockResolvedValue({ data: [] });
   });
   afterEach(cleanup);
@@ -112,6 +114,28 @@ describe("Mirages content routes", () => {
     await act(async () => resolveNext({ data: { ...feed, id: 102, title: "Next article", content: "Next body" } }));
     await waitFor(() => expect(screen.getAllByRole("heading", { name: "Next article", level: 1 })).toHaveLength(2));
     expect(client.feed.get).toHaveBeenCalledTimes(2);
+  });
+
+  it("renders search results with a search hero and list layout", async () => {
+    openRoute("/search/article");
+    expect(await screen.findByText("Article title")).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "article.search.title$keyword", level: 1 })).toBeInTheDocument();
+    expect(isMiragesListPage("/search/article")).toBe(true);
+    expect(isMiragesArticlePage("/search/article")).toBe(false);
+    expect(client.search.search).toHaveBeenCalledWith("article", { page: 1, limit: 5 });
+    expect(client.feed.get).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    ["/feed/missing", "feed"],
+    ["/page/missing", "page"],
+    ["/category/missing", "category"],
+  ] as const)("gives failed content at %s an error hero", async (path, service) => {
+    vi.mocked(client[service].get).mockRejectedValueOnce(new Error("Content unavailable"));
+    openRoute(path);
+    expect(await screen.findByRole("heading", { name: "Content unavailable" })).toBeInTheDocument();
+    expect(await screen.findByRole("heading", { name: "error.title", level: 1 })).toBeInTheDocument();
+    expect(screen.queryByRole("heading", { name: "Article title", level: 1 })).not.toBeInTheDocument();
   });
 
   it.each([

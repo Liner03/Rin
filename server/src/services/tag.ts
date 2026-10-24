@@ -54,7 +54,7 @@ export function TagService(): Hono {
             with: {
                 content: {
                     columns: {
-                        id: true, title: true, summary: true, slug: true,
+                        id: true, title: true, summary: true, cover: true, slug: true,
                         createdAt: true, updatedAt: true, status: true, type: true,
                     },
                     with: {
@@ -72,6 +72,7 @@ export function TagService(): Hono {
 
         const tagFeeds = postRows.map((feed: any) => ({
             ...feed,
+            avatar: feed.cover || null,
             hashtags: tagsMap.get(feed.id) || [],
         }));
 
