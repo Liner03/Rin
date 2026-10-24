@@ -10,7 +10,9 @@
     "queue_status_description": "查看 AI 摘要佇列進度、最近任務結果與失敗資訊。",
     "settings_description": "在統一的後台空間中管理站點行為、整合配置與發佈規則。",
     "title": "後台管理",
-    "writing_description": "在獨立的管理工作區中編寫、編輯並發佈內容。"
+    "writing_description": "在獨立的管理工作區中編寫、編輯並發佈內容。",
+    "pages_description": "管理獨立頁面",
+    "categories_description": "管理分類"
   },
   "compat_tasks": {
     "title": "相容任務",
@@ -103,7 +105,16 @@
     "guest_name_required": "暱稱不能為空",
     "guest_name_placeholder": "暱稱（必填）",
     "guest_email_placeholder": "郵箱（可選）",
-    "guest_website_placeholder": "網站（可選）"
+    "guest_website_placeholder": "網站（可選）",
+    "empty_state": "還沒有評論，來搶頭香吧",
+    "more_options": "更多選項（信箱、網站）",
+    "less_options": "收起選項",
+    "email_hint": "信箱不會被公開",
+    "login_link": "登入後評論",
+    "login_hint": "登入後參與討論",
+    "actions": "評論操作",
+    "count": "評論（{{count}}）",
+    "email_invalid": "請輸入有效的信箱地址"
   },
   "comparison": "比較",
   "confirm": "確認",
@@ -164,6 +175,7 @@
     }
   },
   "error": {
+    "retry": "重試",
     "api_url": "Pages 環境變數中 API_URL 應為 Worker 地址，請檢查 Pages 環境變數中 API_URL 是否正確",
     "api_url_slash": "Pages 環境變數中 API_URL 應為 Worker 地址，請檢查 Pages 環境變數中 API_URL 是否正確，且 API_URL 末尾不能有 /",
     "github_callback": "GitHub OAuth 回調地址應為 `https://<Worker 地址>/api/user/github/callback`，請檢查 GitHub OAuth 回調地址是否正確",
@@ -179,6 +191,8 @@
     "rss": "RSS 訂閱連結"
   },
   "friends": {
+    "load_failed": "友鏈載入失敗，請重試。",
+    "empty": "還沒有友鏈",
     "apply": "申請友情連結",
     "create": "創建友情連結",
     "left": "暫時離開",
@@ -225,6 +239,8 @@
   "logout": "登出",
   "main_content": "正文",
   "moments": {
+    "load_failed": "動態載入失敗，請重試。",
+    "empty": "還沒有動態",
     "edit": "編輯動態",
     "publish": "發布動態",
     "title": "動態",
@@ -452,6 +468,46 @@
         "title": "分頁大小",
         "desc": "設定文章列表每頁顯示的數量",
         "label": "每頁文章數量"
+      },
+      "hero_image": {
+        "title": "首頁橫幅",
+        "desc": "顯示在首頁頂部的橫幅圖片",
+        "label": "橫幅圖片 URL"
+      },
+      "keywords": {
+        "title": "SEO 關鍵詞",
+        "desc": "全站 meta 關鍵詞（逗號分隔）",
+        "label": "關鍵詞",
+        "placeholder": "部落格, 技術, 生活"
+      },
+      "copyright": {
+        "title": "版權文案",
+        "desc": "頁尾顯示的自訂版權文字（留空使用預設）",
+        "label": "版權",
+        "placeholder": "© 2026 你的名字"
+      },
+      "rss_title": {
+        "title": "RSS 標題",
+        "desc": "Feed 標題（留空回退到站點名稱）",
+        "label": "RSS 標題",
+        "placeholder": "我的部落格 Feed"
+      },
+      "rss_description": {
+        "title": "RSS 描述",
+        "desc": "Feed 描述（留空回退到站點描述）",
+        "label": "RSS 描述",
+        "placeholder": "最新文章"
+      },
+      "nav": {
+        "title": "導覽選單",
+        "desc": "自訂導覽選單。每行一項：標題|/路徑（留空使用預設選單）",
+        "label": "導覽",
+        "placeholder": "首頁|/\n關於|/about"
+      },
+      "front_page": {
+        "title": "首頁頁面",
+        "desc": "將指定頁面設為首頁（取代文章列表）",
+        "empty": "文章列表（預設）"
       }
     },
     "header_layout": {
@@ -765,5 +821,52 @@
   },
   "menu": "選單",
   "avatar_alt": "站點頭像",
-  "back_to_top": "回到頂部"
+  "back_to_top": "回到頂部",
+  "password": "密碼",
+  "password_required": "此內容受密碼保護",
+  "unlock": "解鎖",
+  "pages": {
+    "title": "頁面",
+    "order": "排序",
+    "no_parent": "無上級頁面",
+    "view": "查看",
+    "empty": "還沒有頁面",
+    "vs_posts_hint": "頁面是獨立頁面（如「關於」「友鏈」），透過 /page/... 訪問，不進首頁文章流，支援父子層級與排序。文章請在「寫作」中管理。",
+    "fields": "自訂欄位",
+    "field_name": "欄位名",
+    "field_value": "值",
+    "invalid_field_value": "請為欄位「{{name}}」填寫有效的 {{type}} 值後再儲存。",
+    "add_field": "新增欄位"
+  },
+  "categories": {
+    "title": "分類",
+    "name": "名稱",
+    "description": "描述",
+    "posts": "文章數",
+    "empty": "還沒有分類",
+    "listed": "出現在首頁",
+    "listed_hint": "取消勾選後，該分類下的文章將不出現在首頁文章流",
+    "hidden": "首頁隱藏"
+  },
+  "password_remove": "移除密碼",
+  "cover": {
+    "title": "封面圖",
+    "placeholder": "封面圖 URL（留空時自動使用正文第一張圖）",
+    "extract": "從正文提取",
+    "clear": "清除",
+    "preview": "封面預覽",
+    "not_found": "正文中未找到圖片"
+  },
+  "hero_image_alt": "首頁橫幅",
+  "page_templates": {
+    "default": "預設模板",
+    "wide": "寬版模板",
+    "portfolio": "作品集",
+    "links": "連結導覽",
+    "gallery": "相簿",
+    "timeline": "時間軸",
+    "resume": "履歷",
+    "music": "音樂收藏",
+    "docs": "文件"
+  }
 }

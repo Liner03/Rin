@@ -21,14 +21,14 @@ describe('clearFeedCache', () => {
         expect(deletedPrefixes).toEqual([
             'feeds_',
             'search_',
+            'category_',
+            'page_',
             '42_previous_feed',
             '42_next_feed'
         ]);
         expect(deletedKeys).toEqual([
-            { key: 'feed_42', save: false },
-            { key: 'feed_id_42', save: false },
-            { key: 'feed_about', save: false },
-            { key: 'feed_alias_about', save: false }
+            { key: 'feed_detail_v2_id_42', save: false },
+            { key: 'feed_detail_v2_alias_about', save: false }
         ]);
     });
 
@@ -45,12 +45,9 @@ describe('clearFeedCache', () => {
         await clearFeedCache(cache, 42, 'about', 'about-us');
 
         expect(deletedKeys).toEqual([
-            { key: 'feed_42', save: false },
-            { key: 'feed_id_42', save: false },
-            { key: 'feed_about', save: false },
-            { key: 'feed_alias_about', save: false },
-            { key: 'feed_about-us', save: false },
-            { key: 'feed_alias_about-us', save: false }
+            { key: 'feed_detail_v2_id_42', save: false },
+            { key: 'feed_detail_v2_alias_about', save: false },
+            { key: 'feed_detail_v2_alias_about-us', save: false }
         ]);
     });
 
@@ -73,10 +70,10 @@ describe('clearFeedCache', () => {
         expect(operations).toEqual([
             'prefix:feeds_',
             'prefix:search_',
-            'delete:feed_42:false',
-            'delete:feed_id_42:false',
-            'delete:feed_about:false',
-            'delete:feed_alias_about:false',
+            'prefix:category_',
+            'prefix:page_',
+            'delete:feed_detail_v2_id_42:false',
+            'delete:feed_detail_v2_alias_about:false',
             'prefix:42_previous_feed',
             'prefix:42_next_feed',
             'save'

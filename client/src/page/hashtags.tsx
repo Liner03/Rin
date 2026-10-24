@@ -13,7 +13,7 @@ type Hashtag = {
     name: string;
     createdAt: Date;
     updatedAt: Date;
-    feeds: number;
+    count: number;
 }
 
 export function HashtagsPage() {
@@ -34,11 +34,11 @@ export function HashtagsPage() {
     }, []);
 
     const sortedHashtags = hashtags
-        ?.filter(({ feeds }) => feeds > 0)
+        ?.filter(({ count }) => count > 0)
         .sort((a, b) => {
             if (sortBy === 'popular') {
-                if (b.feeds !== a.feeds) {
-                    return b.feeds - a.feeds;
+                if (b.count !== a.count) {
+                    return b.count - a.count;
                 }
                 return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
             } else {
@@ -94,7 +94,7 @@ export function HashtagsPage() {
                                         </Link>
                                         <div className="flex-1" />
                                         <span className="t-secondary text-sm">
-                                            {t("article.total_short$count", { count: hashtag.feeds })}
+                                            {t("article.total_short$count", { count: hashtag.count })}
                                         </span>
                                     </div>
                                 </div>

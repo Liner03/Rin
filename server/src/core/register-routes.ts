@@ -1,11 +1,13 @@
 import type { RinApp } from "./app-types";
 import { PasswordAuthService } from "../services/auth";
+import { CategoryService } from "../services/category";
 import { CommentService } from "../services/comments";
 import { ConfigService } from "../services/config";
 import { FaviconService } from "../services/favicon";
 import { FeedService, SearchService, WordPressService } from "../services/feed";
 import { FriendService } from "../services/friends";
 import { MomentsService } from "../services/moments";
+import { PageService } from "../services/page";
 import { RSSService } from "../services/rss";
 import { BlobService, StorageService } from "../services/storage";
 import { TagService } from "../services/tag";
@@ -18,6 +20,8 @@ export function registerRoutes(app: RinApp) {
   app.route("/search", SearchService());
   app.route("/wp", WordPressService());
   app.route("/tag", TagService());
+  app.route("/category", CategoryService());
+  app.route("/page", PageService());
   app.route("/comment", CommentService());
   app.route("/storage", StorageService());
   app.route("/blob", BlobService());

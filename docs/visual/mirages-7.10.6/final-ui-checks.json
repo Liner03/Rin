@@ -1,0 +1,27 @@
+[
+  {
+    "name": "gallery-controls-and-images",
+    "pass": true,
+    "imageCount": 3,
+    "showBefore": true,
+    "note": "/feed/1 — 比较正文、引用、列表、代码和表格。Rin 保留自有目录、作者信息、相邻文章与评论系统；参考正文不含这些 Rin 组件。"
+  },
+  {
+    "name": "admin-moments-publish-visible",
+    "pass": true
+  },
+  {
+    "name": "admin-index-links-visible",
+    "pass": true,
+    "links": [
+      {
+        "label": "草稿箱",
+        "href": "/?type=draft"
+      },
+      {
+        "label": "未列出",
+        "href": "/?type=unlisted"
+      }
+    ]
+  }
+]

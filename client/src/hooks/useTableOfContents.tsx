@@ -25,10 +25,10 @@ const useTableOfContents = (selector: string) => {
     const debounceTimer = useRef<number | undefined>(undefined)
 
     useEffect(() => {
-        const content = document.querySelector(selector)
-        if (!content) return
+        let disposed = false
+        let setupDone = false
 
-        const buildToc = () => {
+        const buildToc = (content: Element) => {
             const headers = content.querySelectorAll<HTMLElement>(
                 'h1, h2, h3, h4, h5, h6'
             )
@@ -76,37 +76,61 @@ const useTableOfContents = (selector: string) => {
             })
         }
 
-        buildToc()
+        const setup = () => {
+            if (setupDone || disposed) return
+            const content = document.querySelector(selector)
+            if (!content) return
 
-        // Markdown renders asynchronously: watch for content changes and rebuild
-        // once the headers appear (debounced to avoid thrashing during rendering)
-        if (mutationObserverRef.current) mutationObserverRef.current.disconnect()
-        mutationObserverRef.current = new MutationObserver(() => {
-            window.clearTimeout(debounceTimer.current)
-            debounceTimer.current = window.setTimeout(buildToc, 120)
-        })
-        mutationObserverRef.current.observe(content, { childList: true, subtree: true, characterData: true })
+            setupDone = true
+            buildToc(content)
+
+            // Markdown renders asynchronously: watch for content changes and rebuild
+            // once the headers appear (debounced to avoid thrashing during rendering)
+            if (mutationObserverRef.current) mutationObserverRef.current.disconnect()
+            mutationObserverRef.current = new MutationObserver(() => {
+                window.clearTimeout(debounceTimer.current)
+                debounceTimer.current = window.setTimeout(() => {
+                    if (!disposed) {
+                        const el = document.querySelector(selector)
+                        if (el) buildToc(el)
+                    }
+                }, 120)
+            })
+            const el = document.querySelector(selector)
+            if (el) mutationObserverRef.current.observe(el, { childList: true, subtree: true, characterData: true })
+        }
+
+        // 内容容器可能异步出现（Markdown 延迟渲染），轮询等待后建立观察
+        setup()
+        const poll = window.setInterval(() => {
+            if (setupDone || disposed) {
+                window.clearInterval(poll)
+                return
+            }
+            setup()
+        }, 300)
 
         return () => {
+            disposed = true
+            window.clearInterval(poll)
             window.clearTimeout(debounceTimer.current)
             if (ioRef.current) ioRef.current.disconnect()
             if (mutationObserverRef.current) mutationObserverRef.current.disconnect()
         }
     }, [selector])
 
-    const TOC = (
-        <nav className="toc-nav">
-                <p className="mb-4 text-[13px] font-semibold uppercase tracking-[0.14em] text-neutral-400 dark:text-neutral-500">
+    const TOC = tableOfContents.length === 0
+        ? null
+        : (
+            <nav className="toc-nav">
+                <p className="mb-3 text-[12px] font-semibold uppercase tracking-[0.14em] text-neutral-400 dark:text-neutral-500">
                     {t("index.title")}
                 </p>
-                <ul className="space-y-[3px] border-l border-black/10 dark:border-white/10">
-                    {tableOfContents.length === 0 && (
-                        <li className="py-1.5 pl-4 text-[13px] leading-6 text-neutral-400 dark:text-neutral-500">{t("index.empty.title")}</li>
-                    )}
+                <ul className="space-y-px border-l border-black/10 dark:border-white/10">
                     {tableOfContents.map((item) => (
                         <li
                             key={`toc$${item.index}`}
-                            className={`group relative cursor-pointer text-[13px] leading-6 transition-colors duration-150 ${
+                            className={`group relative cursor-pointer text-[12px] leading-5 transition-colors duration-150 ${
                                 activeIndex === item.index
                                     ? "font-medium text-theme"
                                     : "text-neutral-600 hover:text-neutral-900 dark:text-neutral-400 dark:hover:text-neutral-100"
@@ -121,18 +145,18 @@ const useTableOfContents = (selector: string) => {
                             }}
                         >
                             <span
-                                className={`absolute -left-px top-1/2 h-3.5 w-0.5 -translate-y-1/2 rounded-full bg-theme transition-opacity duration-150 ${
+                                className={`absolute -left-px top-1/2 h-3 w-0.5 -translate-y-1/2 rounded-full bg-theme transition-opacity duration-150 ${
                                     activeIndex === item.index ? "opacity-100" : "opacity-0"
                                 }`}
                             />
-                            <span className={`block py-1 transition-colors ${activeIndex === item.index ? "text-theme" : ""}`}>
+                            <span className={`block py-0.5 transition-colors ${activeIndex === item.index ? "text-theme" : ""}`}>
                                 {item.text}
                             </span>
                         </li>
                     ))}
                 </ul>
             </nav>
-    )
+        )
 
     return { TOC }
 }

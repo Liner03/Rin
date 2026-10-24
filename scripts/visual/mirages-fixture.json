@@ -1,0 +1,8 @@
+{
+  "name": "Rin 视觉验收",
+  "description": "开发、写作与日常探索",
+  "postTitle": "迁移后的第一篇文章",
+  "markdown": "## 从这里开始\n\n这里记录开发、写作与日常探索。清晰的层级、舒适的行距和稳定的版心，让文字本身成为阅读的重点。\n\n## 分类与页面\n\n[查看分类](/category/tech) · [独立页面](/page/about)\n\n> 在桌面与手机上，正文都应保留足够的阅读空间。\n\n### 代码与列表\n\n使用 `content_id` 关联内容。\n\n- 文章与标签\n- 独立页面与自定义字段\n- 评论和访问统计\n\n```ts\nconst title = \"Mirages\";\nconsole.log(title);\n```\n\n| 项目 | 状态 |\n| --- | --- |\n| 内容迁移 | 完成 |\n| 视觉对照 | 进行中 |",
+  "html": "<h2>从这里开始</h2><p>这里记录开发、写作与日常探索。清晰的层级、舒适的行距和稳定的版心，让文字本身成为阅读的重点。</p><h2>分类与页面</h2><p><a href=\"?kind=category\">查看分类</a> · <a href=\"?kind=page\">独立页面</a></p><blockquote><p>在桌面与手机上，正文都应保留足够的阅读空间。</p></blockquote><h3>代码与列表</h3><p>使用 <code>content_id</code> 关联内容。</p><ul><li>文章与标签</li><li>独立页面与自定义字段</li><li>评论和访问统计</li></ul><pre><code>const title = \"Mirages\";\nconsole.log(title);</code></pre><table><thead><tr><th>项目</th><th>状态</th></tr></thead><tbody><tr><td>内容迁移</td><td>完成</td></tr><tr><td>视觉对照</td><td>进行中</td></tr></tbody></table>",
+  "cover": "data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSI2NDAiIGhlaWdodD0iNDIwIj48cmVjdCB3aWR0aD0iNjQwIiBoZWlnaHQ9IjQyMCIgZmlsbD0iI2U4ZTJkOSIvPjxwYXRoIGQ9Ik0wIDQyMEwyMTAgOTBMNDYwIDQyMFoiIGZpbGw9IiM3NTczNmIiLz48cGF0aCBkPSJNMjkwIDQyMEw0NzAgMTQwTDY0MCA0MjBaIiBmaWxsPSIjYWFhNDk2Ii8+PC9zdmc+"
+}

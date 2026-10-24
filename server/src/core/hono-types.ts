@@ -19,7 +19,7 @@ export interface CacheImpl {
     get(key: string): Promise<any | null>;
     set(key: string, value: any, save?: boolean): Promise<void>;
     delete(key: string, save?: boolean): Promise<void>;
-    deletePrefix(prefix: string): Promise<void>;
+    deletePrefix(prefix: string, save?: boolean): Promise<void>;
     getOrSet<T>(key: string, factory: () => Promise<T>): Promise<T>;
     getOrDefault<T>(key: string, defaultValue: T): Promise<T>;
     getBySuffix(suffix: string): Promise<any[]>;

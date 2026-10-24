@@ -14,7 +14,13 @@ function applyViewportScaling() {
 export function useAppBootstrap() {
   const initializedRef = useRef(false);
   const [profile, setProfile] = useState<Profile | undefined | null>(undefined);
-  const [config, setConfig] = useState<ConfigWrapper>(new ConfigWrapper({}, new Map()));
+  const [config, setConfig] = useState<ConfigWrapper>(() => {
+    // Read config before mounting pages so a layout change cannot repeat their detail requests.
+    const bootstrapped = readBootstrappedClientConfig();
+    const cached = sessionStorage.getItem("config");
+    const initialConfig = bootstrapped ?? (cached ? JSON.parse(cached) as Record<string, unknown> : {});
+    return new ConfigWrapper(initialConfig, defaultClientConfig);
+  });
 
   useEffect(() => {
     applyViewportScaling();

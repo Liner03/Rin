@@ -1,7 +1,7 @@
 import { Hono } from "hono";
 import type { AppContext } from "../core/hono-types";
-import { desc, eq } from "drizzle-orm";
-import { comments, feeds, users } from "../db/schema";
+import { asc, eq } from "drizzle-orm";
+import { comments, contents, users } from "../db/schema";
 import { profileAsync } from "../core/server-timing";
 import { notify } from "../utils/webhook";
 import { resolveWebhookConfig } from "./config-helpers";
@@ -14,14 +14,14 @@ export function CommentService(): Hono {
         const feedId = parseInt(c.req.param('feed'));
         
         const comment_list = await profileAsync(c, 'comment_list_db', () => db.query.comments.findMany({
-            where: eq(comments.feedId, feedId),
-            columns: { feedId: false, userId: false },
+            where: eq(comments.contentId, feedId),
+            columns: { contentId: false, userId: false },
             with: {
                 user: {
                     columns: { id: true, username: true, avatar: true, permission: true }
                 }
             },
-            orderBy: [desc(comments.createdAt)]
+            orderBy: [asc(comments.createdAt), asc(comments.id)]
         }));
         
         // 将结果统一为前端兼容格式：登录用户用 user 字段，游客用 guestName 等
@@ -57,7 +57,7 @@ export function CommentService(): Hono {
             return c.text('Content is required', 400);
         }
         
-        const exist = await profileAsync(c, 'comment_create_feed', () => db.query.feeds.findFirst({ where: eq(feeds.id, feedId) }));
+        const exist = await profileAsync(c, 'comment_create_feed', () => db.query.contents.findFirst({ where: eq(contents.id, feedId) }));
         if (!exist) {
             return c.text('Feed not found', 400);
         }
@@ -70,7 +70,7 @@ export function CommentService(): Hono {
             }
 
             await db.insert(comments).values({
-                feedId,
+                contentId: feedId,
                 userId: uid,
                 content
             });
@@ -108,7 +108,7 @@ export function CommentService(): Hono {
         }
 
         await db.insert(comments).values({
-            feedId,
+            contentId: feedId,
             userId: null,
             content,
             guestName: guestName.trim(),

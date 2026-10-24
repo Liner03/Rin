@@ -2,7 +2,7 @@ import { createContext, useContext, useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Link, useLocation } from "wouter";
 import { HeaderActions, NavBar } from "..";
-import { useSiteConfig } from "../../../hooks/useSiteConfig";
+import { useSiteConfig, useSiteNavItems } from "../../../hooks/useSiteConfig";
 import type { Profile } from "../../../state/profile";
 import { ProfileContext } from "../../../state/profile";
 import type { HeaderLayoutDefinition } from "../layout-types";
@@ -27,6 +27,7 @@ function useMiragesSidebar() {
 function MiragesDrawer({ isOpen, onClose }: { isOpen: boolean; onClose: () => void }) {
   const { t } = useTranslation();
   const siteConfig = useSiteConfig();
+  const navItems = useSiteNavItems();
   const profile = useContext(ProfileContext);
   return (
     <>
@@ -66,12 +67,15 @@ function MiragesDrawer({ isOpen, onClose }: { isOpen: boolean; onClose: () => vo
         </div>
 
         <nav className="flex flex-col gap-1">
-          <SidebarItem href="/" title={t("article.title")} onClose={onClose} selectedPrefix="/feed" />
-          <SidebarItem href="/timeline" title={t("timeline")} onClose={onClose} />
-          <SidebarItem href="/moments" title={t("moments.title")} onClose={onClose} />
-          <SidebarItem href="/hashtags" title={t("hashtags")} onClose={onClose} />
-          <SidebarItem href="/friends" title={t("friends.title")} onClose={onClose} />
-          <SidebarItem href="/about" title={t("about.title")} onClose={onClose} />
+          {navItems.map((item) => (
+            <SidebarItem
+              key={item.href}
+              href={item.href}
+              title={item.title}
+              onClose={onClose}
+              selectedPrefix={item.selectedPrefix}
+            />
+          ))}
         </nav>
 
         <div className="mt-auto flex items-center justify-center gap-3 pt-6 text-neutral-400 dark:text-neutral-500">
@@ -144,8 +148,8 @@ function MiragesShell({ header, content, footer }: { header: React.ReactNode; co
     }, []);
 
     const containerClass = isListPage
-        ? "-mt-12 max-w-[952px] px-[48px] pt-[64px] pb-[56px] md:px-[60px] md:pt-[86px]"
-        : "max-w-[864px] px-0 pt-[46px] pb-[56px] md:px-4";
+        ? "-mt-[50px] max-w-[952px] px-3 pt-[64px] pb-[56px] md:px-[60px] md:pt-[86px]"
+        : "max-w-[864px] px-5 pt-6 pb-[56px] md:px-4 md:pt-[46px]";
 
     return (
         <MiragesSidebarContext.Provider value={{ isOpen, toggle: () => setIsOpen((v) => !v) }}>
@@ -155,7 +159,12 @@ function MiragesShell({ header, content, footer }: { header: React.ReactNode; co
                 <MiragesDrawer isOpen={isOpen} onClose={() => setIsOpen(false)} />
                 {header}
                 <MiragesHero />
-                <div className={`mirages-content mx-auto w-full ${containerClass}`} data-article={isArticle ? "true" : undefined}>
+                <div
+                    className={`mirages-content mx-auto w-full ${containerClass}`}
+                    data-article={isArticle ? "true" : undefined}
+                    data-list={isListPage ? "true" : undefined}
+                    data-page={location.startsWith("/page/") ? "true" : undefined}
+                >
                     {content}
                 </div>
                 <div className="mirages-footer">{footer}</div>
@@ -177,18 +186,18 @@ export const miragesLayoutDefinition: HeaderLayoutDefinition = {
   kind: "top",
   renderDesktop({ children, profile, siteConfig }) {
     return (
-      <div className="mx-auto hidden h-16 w-full max-w-[1200px] items-center justify-between px-4 md:flex">
-        <div className="flex min-w-0 flex-1 items-center">
+      <div className="mx-auto hidden h-16 w-full max-w-[1170px] items-center justify-between px-4 md:flex">
+        <div className="flex shrink-0 items-center pr-2">
           <Link href="/" aria-label="home" className="text-[20px] font-bold text-black/90 dark:text-white/90">
             {siteConfig.name}
           </Link>
         </div>
-        <div className="flex min-w-0 flex-1 items-center justify-center">
+        <div className="flex min-w-0 flex-1 items-center justify-start">
           <div className="flex min-w-max items-center gap-0 text-[16px]">
-            <NavBar menu={false} itemClassName="px-2 py-2 text-[16px] text-black/90 dark:text-white/90 hover:text-theme duration-300" />
+            <NavBar menu={false} itemClassName="px-2 py-2 text-[16px] hover:text-theme" />
           </div>
         </div>
-        <div className="ml-4 flex flex-1 items-center justify-end gap-2">
+        <div className="flex shrink-0 items-center justify-end gap-2">
           <MiragesHeaderActions children={children} profile={profile} className="mirages-header-actions flex flex-row items-center gap-2" />
         </div>
       </div>

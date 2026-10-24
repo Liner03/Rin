@@ -36,23 +36,73 @@ export function createMockDB() {
             updated_at INTEGER DEFAULT (unixepoch())
         );
 
-        -- Feeds table
-        CREATE TABLE IF NOT EXISTS feeds (
+        -- Contents table (posts/pages/attachments, Typecho-aligned)
+        CREATE TABLE IF NOT EXISTS contents (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
-            alias TEXT,
-            title TEXT,
+            type TEXT DEFAULT 'post' NOT NULL,
+            title TEXT DEFAULT '' NOT NULL,
+            slug TEXT UNIQUE,
+            text TEXT DEFAULT '' NOT NULL,
+            cover TEXT,
             summary TEXT DEFAULT '' NOT NULL,
             ai_summary TEXT DEFAULT '' NOT NULL,
             ai_summary_status TEXT DEFAULT 'idle' NOT NULL,
             ai_summary_error TEXT DEFAULT '' NOT NULL,
-            content TEXT NOT NULL,
-            listed INTEGER DEFAULT 1 NOT NULL,
-            draft INTEGER DEFAULT 1 NOT NULL,
+            status TEXT DEFAULT 'publish' NOT NULL,
+            password TEXT DEFAULT '',
             top INTEGER DEFAULT 0 NOT NULL,
+            "order" INTEGER DEFAULT 0 NOT NULL,
+            template TEXT DEFAULT '',
+            allow_comment INTEGER DEFAULT 1 NOT NULL,
+            allow_ping INTEGER DEFAULT 1 NOT NULL,
+            allow_feed INTEGER DEFAULT 1 NOT NULL,
+            parent INTEGER DEFAULT 0 NOT NULL,
             uid INTEGER NOT NULL,
             created_at INTEGER DEFAULT (unixepoch()),
             updated_at INTEGER DEFAULT (unixepoch()),
             FOREIGN KEY (uid) REFERENCES users(id)
+        );
+
+        -- Metas table (categories + tags, Typecho-aligned)
+        CREATE TABLE IF NOT EXISTS metas (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            type TEXT DEFAULT 'tag' NOT NULL,
+            name TEXT NOT NULL,
+            slug TEXT,
+            description TEXT DEFAULT '' NOT NULL,
+            count INTEGER DEFAULT 0 NOT NULL,
+            "order" INTEGER DEFAULT 0 NOT NULL,
+            parent INTEGER DEFAULT 0 NOT NULL,
+            listed INTEGER DEFAULT 1 NOT NULL,
+            created_at INTEGER DEFAULT (unixepoch()),
+            updated_at INTEGER DEFAULT (unixepoch()),
+            UNIQUE(slug, type)
+        );
+
+        -- Relationships table (contents <-> metas M2M)
+        CREATE TABLE IF NOT EXISTS relationships (
+            content_id INTEGER NOT NULL,
+            meta_id INTEGER NOT NULL,
+            created_at INTEGER DEFAULT (unixepoch()),
+            updated_at INTEGER DEFAULT (unixepoch()),
+            PRIMARY KEY (content_id, meta_id),
+            FOREIGN KEY (content_id) REFERENCES contents(id) ON DELETE CASCADE,
+            FOREIGN KEY (meta_id) REFERENCES metas(id) ON DELETE CASCADE
+        );
+
+        -- Fields table (custom fields)
+        CREATE TABLE IF NOT EXISTS fields (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            content_id INTEGER NOT NULL,
+            name TEXT NOT NULL,
+            type TEXT DEFAULT 'str' NOT NULL,
+            str_value TEXT DEFAULT '' NOT NULL,
+            int_value INTEGER DEFAULT 0 NOT NULL,
+            float_value REAL DEFAULT 0 NOT NULL,
+            created_at INTEGER DEFAULT (unixepoch()),
+            updated_at INTEGER DEFAULT (unixepoch()),
+            FOREIGN KEY (content_id) REFERENCES contents(id) ON DELETE CASCADE,
+            UNIQUE(content_id, name)
         );
 
         -- Moments table
@@ -68,19 +118,19 @@ export function createMockDB() {
         -- Visits table
         CREATE TABLE IF NOT EXISTS visits (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
-            feed_id INTEGER NOT NULL,
+            content_id INTEGER NOT NULL,
             ip TEXT NOT NULL,
             created_at INTEGER DEFAULT (unixepoch()),
-            FOREIGN KEY (feed_id) REFERENCES feeds(id) ON DELETE CASCADE
+            FOREIGN KEY (content_id) REFERENCES contents(id) ON DELETE CASCADE
         );
 
         -- Visit stats table
         CREATE TABLE IF NOT EXISTS visit_stats (
-            feed_id INTEGER PRIMARY KEY NOT NULL,
+            content_id INTEGER PRIMARY KEY NOT NULL,
             pv INTEGER DEFAULT 0 NOT NULL,
             hll_data TEXT DEFAULT '' NOT NULL,
             updated_at INTEGER DEFAULT (unixepoch()),
-            FOREIGN KEY (feed_id) REFERENCES feeds(id) ON DELETE CASCADE
+            FOREIGN KEY (content_id) REFERENCES contents(id) ON DELETE CASCADE
         );
 
         -- Info table
@@ -109,7 +159,7 @@ export function createMockDB() {
         -- Comments table
         CREATE TABLE IF NOT EXISTS comments (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
-            feed_id INTEGER NOT NULL,
+            content_id INTEGER NOT NULL,
             user_id INTEGER,
             content TEXT NOT NULL,
             guest_name TEXT DEFAULT '',
@@ -118,27 +168,8 @@ export function createMockDB() {
             approved INTEGER DEFAULT 1 NOT NULL,
             created_at INTEGER DEFAULT (unixepoch()),
             updated_at INTEGER DEFAULT (unixepoch()),
-            FOREIGN KEY (feed_id) REFERENCES feeds(id) ON DELETE CASCADE,
+            FOREIGN KEY (content_id) REFERENCES contents(id) ON DELETE CASCADE,
             FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
-        );
-
-        -- Hashtags table (note: named "hashtags" not "tags")
-        CREATE TABLE IF NOT EXISTS hashtags (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            name TEXT NOT NULL,
-            created_at INTEGER DEFAULT (unixepoch()),
-            updated_at INTEGER DEFAULT (unixepoch())
-        );
-
-        -- Feed-Hashtag relation table (note: named "feed_hashtags" not "feed_tags")
-        CREATE TABLE IF NOT EXISTS feed_hashtags (
-            feed_id INTEGER NOT NULL,
-            hashtag_id INTEGER NOT NULL,
-            created_at INTEGER DEFAULT (unixepoch()),
-            updated_at INTEGER DEFAULT (unixepoch()),
-            PRIMARY KEY (feed_id, hashtag_id),
-            FOREIGN KEY (feed_id) REFERENCES feeds(id) ON DELETE CASCADE,
-            FOREIGN KEY (hashtag_id) REFERENCES hashtags(id) ON DELETE CASCADE
         );
 
         -- Cache table
@@ -249,7 +280,7 @@ export class TestCacheImpl implements CacheImpl {
         this.data.delete(key);
     }
 
-    async deletePrefix(prefix: string): Promise<void> {
+    async deletePrefix(prefix: string, _save?: boolean): Promise<void> {
         for (const key of this.data.keys()) {
             if (key.startsWith(prefix)) {
                 this.data.delete(key);
@@ -427,21 +458,21 @@ export function seedTestData(sqlite: Database) {
 
     // Insert test feeds
     sqlite.exec(`
-        INSERT INTO feeds (id, title, content, uid, draft, listed) VALUES 
-            (1, 'Test Feed 1', 'Content 1', 1, 0, 1),
-            (2, 'Test Feed 2', 'Content 2', 1, 0, 1)
+        INSERT INTO contents (id, type, title, text, uid, status, slug) VALUES 
+            (1, 'post', 'Test Feed 1', 'Content 1', 1, 'publish', 'test-feed-1'),
+            (2, 'post', 'Test Feed 2', 'Content 2', 1, 'publish', 'test-feed-2')
     `);
 
     // Insert test tags
     sqlite.exec(`
-        INSERT INTO hashtags (id, name) VALUES 
-            (1, 'test'),
-            (2, 'integration')
+        INSERT INTO metas (id, type, name, slug, count) VALUES 
+            (1, 'tag', 'test', 'test', 2),
+            (2, 'tag', 'integration', 'integration', 1)
     `);
 
     // Insert feed-tag relationships
     sqlite.exec(`
-        INSERT INTO feed_hashtags (feed_id, hashtag_id) VALUES 
+        INSERT INTO relationships (content_id, meta_id) VALUES 
             (1, 1),
             (1, 2),
             (2, 1)
@@ -449,7 +480,7 @@ export function seedTestData(sqlite: Database) {
 
     // Insert test comments
     sqlite.exec(`
-        INSERT INTO comments (id, feed_id, user_id, content, created_at) VALUES 
+        INSERT INTO comments (id, content_id, user_id, content, created_at) VALUES 
             (1, 1, 2, 'Test comment 1', unixepoch()),
             (2, 1, 1, 'Test comment 2', unixepoch())
     `);

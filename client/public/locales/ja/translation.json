@@ -10,7 +10,9 @@
     "queue_status_description": "AI 要約キューの進行状況、最近のタスク結果、失敗内容を確認します。",
     "settings_description": "サイトの挙動、連携設定、公開ルールを一か所で管理します。",
     "title": "管理画面",
-    "writing_description": "非公開の管理ワークスペースから記事を作成、編集、公開します。"
+    "writing_description": "非公開の管理ワークスペースから記事を作成、編集、公開します。",
+    "pages_description": "独立ページを管理",
+    "categories_description": "カテゴリーを管理"
   },
   "compat_tasks": {
     "title": "互換タスク",
@@ -103,7 +105,16 @@
     "guest_name_required": "ゲスト名は必須です",
     "guest_name_placeholder": "名前（必須）",
     "guest_email_placeholder": "メール（任意）",
-    "guest_website_placeholder": "ウェブサイト（任意）"
+    "guest_website_placeholder": "ウェブサイト（任意）",
+    "empty_state": "最初のコメントを投稿しましょう",
+    "more_options": "詳細オプション（メール、ウェブサイト）",
+    "less_options": "オプションを閉じる",
+    "email_hint": "メールアドレスは公開されません",
+    "login_link": "ログインしてコメント",
+    "login_hint": "ログインして議論に参加",
+    "actions": "コメント操作",
+    "count": "コメント（{{count}}）",
+    "email_invalid": "有効なメールアドレスを入力してください"
   },
   "comparison": "対比",
   "confirm": "確認",
@@ -164,6 +175,7 @@
     }
   },
   "error": {
+    "retry": "再試行",
     "api_url": "Pages 環境変数のAPI_URLはWorkerアドレスである必要があります。Pages環境変数のAPI_URLが正しいか確認してください。",
     "api_url_slash": "Pages 環境変数のAPI_URLはWorkerアドレスである必要があります。Pages環境変数のAPI_URLが正しいか、またAPI_URLの末尾にスラッシュ（/）がないか確認してください。",
     "github_callback": "GitHub OAuthコールバックURLは`https://<Workerアドレス>/api/user/github/callback`である必要があります。GitHub OAuthコールバックURLが正しいか確認してください。",
@@ -179,6 +191,8 @@
     "rss": "RSS 購読リンク"
   },
   "friends": {
+    "load_failed": "リンクの読み込みに失敗しました。もう一度お試しください。",
+    "empty": "リンクはまだありません",
     "apply": "友人リンクを申請",
     "create": "友人リンクを作成",
     "left": "一時的に離脱",
@@ -216,6 +230,8 @@
   "logout": "ログアウト",
   "main_content": "本文",
   "moments": {
+    "load_failed": "つぶやきの読み込みに失敗しました。もう一度お試しください。",
+    "empty": "つぶやきはまだありません",
     "edit": "編集",
     "publish": "公開",
     "title": "動態",
@@ -443,6 +459,46 @@
         "title": "ページサイズ",
         "desc": "記事一覧で 1 ページあたりに表示する件数を設定します",
         "label": "1ページあたりの記事数"
+      },
+      "hero_image": {
+        "title": "ホームバナー",
+        "desc": "ホームページ上部に表示するバナー画像",
+        "label": "バナー画像 URL"
+      },
+      "keywords": {
+        "title": "SEO キーワード",
+        "desc": "サイト全体のメタキーワード（カンマ区切り）",
+        "label": "キーワード",
+        "placeholder": "ブログ, テック, ライフ"
+      },
+      "copyright": {
+        "title": "著作権表記",
+        "desc": "フッターに表示するカスタム著作権テキスト（空欄でデフォルト）",
+        "label": "著作権",
+        "placeholder": "© 2026 名前"
+      },
+      "rss_title": {
+        "title": "RSS タイトル",
+        "desc": "フィードのタイトル（空欄でサイト名にフォールバック）",
+        "label": "RSS タイトル",
+        "placeholder": "ブログフィード"
+      },
+      "rss_description": {
+        "title": "RSS 説明",
+        "desc": "フィードの説明（空欄でサイト説明にフォールバック）",
+        "label": "RSS 説明",
+        "placeholder": "最新記事"
+      },
+      "nav": {
+        "title": "ナビゲーションメニュー",
+        "desc": "ナビゲーションメニューをカスタマイズ。1行に1項目：タイトル|/パス（空欄でデフォルト）",
+        "label": "ナビゲーション",
+        "placeholder": "ホーム|/\n自己紹介|/about"
+      },
+      "front_page": {
+        "title": "ホームページ",
+        "desc": "指定したページをホームページとして設定（記事リストの代わり）",
+        "empty": "記事リスト（デフォルト）"
       }
     },
     "header_layout": {
@@ -756,5 +812,52 @@
   },
   "menu": "メニュー",
   "avatar_alt": "サイトのアバター",
-  "back_to_top": "トップに戻る"
+  "back_to_top": "トップに戻る",
+  "password": "パスワード",
+  "password_required": "このコンテンツはパスワードで保護されています",
+  "unlock": "解除",
+  "pages": {
+    "title": "ページ",
+    "order": "順序",
+    "no_parent": "親なし",
+    "view": "表示",
+    "empty": "ページがありません",
+    "vs_posts_hint": "ページは独立したページ（例：自己紹介、リンク集）で、/page/... でアクセスします。ホームフィードには含まれず、親子階層と並び順をサポートします。記事は「執筆」で管理します。",
+    "fields": "カスタムフィールド",
+    "field_name": "フィールド名",
+    "field_value": "値",
+    "invalid_field_value": "保存する前に「{{name}}」に有効な {{type}} の値を入力してください。",
+    "add_field": "フィールド追加"
+  },
+  "categories": {
+    "title": "カテゴリー",
+    "name": "名前",
+    "description": "説明",
+    "posts": "記事数",
+    "empty": "カテゴリーがありません",
+    "listed": "ホームに表示",
+    "listed_hint": "オフにすると、このカテゴリの記事はホームフィードに表示されません",
+    "hidden": "ホーム非表示"
+  },
+  "password_remove": "パスワードを削除",
+  "cover": {
+    "title": "カバー画像",
+    "placeholder": "カバー画像 URL（空欄時は本文の最初の画像を使用）",
+    "extract": "本文から抽出",
+    "clear": "クリア",
+    "preview": "カバー画像プレビュー",
+    "not_found": "本文に画像が見つかりません"
+  },
+  "hero_image_alt": "ホームページバナー",
+  "page_templates": {
+    "default": "デフォルト",
+    "wide": "ワイド",
+    "portfolio": "ポートフォリオ",
+    "links": "リンク",
+    "gallery": "ギャラリー",
+    "timeline": "タイムライン",
+    "resume": "履歴書",
+    "music": "ミュージック",
+    "docs": "ドキュメント"
+  }
 }

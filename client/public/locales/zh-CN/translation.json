@@ -10,7 +10,9 @@
     "queue_status_description": "查看 AI 摘要队列进度、最近任务结果和失败信息。",
     "settings_description": "在统一的后台空间中管理站点行为、集成配置和发布规则。",
     "title": "后台管理",
-    "writing_description": "在独立的管理工作区中编写、编辑和发布内容。"
+    "writing_description": "在独立的管理工作区中编写、编辑和发布内容。",
+    "pages_description": "管理独立页面",
+    "categories_description": "管理分类"
   },
   "compat_tasks": {
     "title": "兼容任务",
@@ -103,7 +105,16 @@
     "guest_name_required": "昵称不能为空",
     "guest_name_placeholder": "昵称（必填）",
     "guest_email_placeholder": "邮箱（可选）",
-    "guest_website_placeholder": "网站（可选）"
+    "guest_website_placeholder": "网站（可选）",
+    "empty_state": "还没有评论，来抢沙发吧",
+    "more_options": "更多选项（邮箱、网站）",
+    "less_options": "收起选项",
+    "email_hint": "邮箱不会被公开",
+    "login_link": "登录后评论",
+    "login_hint": "登录后参与讨论",
+    "actions": "评论操作",
+    "count": "评论（{{count}}）",
+    "email_invalid": "请输入有效的邮箱地址"
   },
   "comparison": "对比",
   "confirm": "确认",
@@ -164,6 +175,7 @@
     }
   },
   "error": {
+    "retry": "重试",
     "api_url": "Pages 环境变量中 API_URL 应为 Worker 地址，请检查 Pages 环境变量中 API_URL 是否正确",
     "api_url_slash": "Pages 环境变量中 API_URL 应为 Worker 地址，请检查 Pages 环境变量中 API_URL 是否正确，且 API_URL 末尾不能有 /",
     "github_callback": "GitHub OAuth 回调地址应为 `https://<Worker 地址>/api/user/github/callback`，请检查 GitHub OAuth 回调地址是否正确",
@@ -179,6 +191,8 @@
     "rss": "RSS 订阅链接"
   },
   "friends": {
+    "load_failed": "友链加载失败，请重试。",
+    "empty": "还没有友链",
     "apply": "申请友链",
     "create": "创建友链",
     "left": "暂时离开",
@@ -225,6 +239,8 @@
   "logout": "退出登录",
   "main_content": "正文",
   "moments": {
+    "load_failed": "动态加载失败，请重试。",
+    "empty": "还没有动态",
     "edit": "编辑动态",
     "publish": "发布动态",
     "title": "动态",
@@ -452,6 +468,46 @@
         "title": "分页大小",
         "desc": "设置文章列表每页显示的数量",
         "label": "每页文章数"
+      },
+      "hero_image": {
+        "title": "首页横幅",
+        "desc": "显示在首页顶部的横幅图片",
+        "label": "横幅图片 URL"
+      },
+      "keywords": {
+        "title": "SEO 关键词",
+        "desc": "全站 meta 关键词（逗号分隔）",
+        "label": "关键词",
+        "placeholder": "博客, 技术, 生活"
+      },
+      "copyright": {
+        "title": "版权文案",
+        "desc": "页脚显示的自定义版权文字（留空使用默认）",
+        "label": "版权",
+        "placeholder": "© 2026 你的名字"
+      },
+      "rss_title": {
+        "title": "RSS 标题",
+        "desc": "Feed 标题（留空回退到站点名称）",
+        "label": "RSS 标题",
+        "placeholder": "我的博客 Feed"
+      },
+      "rss_description": {
+        "title": "RSS 描述",
+        "desc": "Feed 描述（留空回退到站点描述）",
+        "label": "RSS 描述",
+        "placeholder": "最新文章"
+      },
+      "nav": {
+        "title": "导航菜单",
+        "desc": "自定义导航菜单。每行一项：标题|/路径（留空使用默认菜单）",
+        "label": "导航",
+        "placeholder": "首页|/\n关于|/about"
+      },
+      "front_page": {
+        "title": "首页页面",
+        "desc": "将指定页面设为首页（替换文章列表）",
+        "empty": "文章列表（默认）"
       }
     },
     "header_layout": {
@@ -765,5 +821,52 @@
   },
   "menu": "菜单",
   "avatar_alt": "站点头像",
-  "back_to_top": "回到顶部"
+  "back_to_top": "回到顶部",
+  "password": "密码",
+  "password_required": "此内容受密码保护",
+  "unlock": "解锁",
+  "pages": {
+    "title": "页面",
+    "order": "排序",
+    "no_parent": "无上级页面",
+    "view": "查看",
+    "empty": "还没有页面",
+    "vs_posts_hint": "页面是独立页面（如「关于」「友链」），通过 /page/... 访问，不进首页文章流，支持父子层级与排序。文章请在「写作」中管理。",
+    "fields": "自定义字段",
+    "field_name": "字段名",
+    "field_value": "值",
+    "invalid_field_value": "请为字段“{{name}}”填写有效的 {{type}} 值后再保存。",
+    "add_field": "添加字段"
+  },
+  "categories": {
+    "title": "分类",
+    "name": "名称",
+    "description": "描述",
+    "posts": "文章数",
+    "empty": "还没有分类",
+    "listed": "出现在首页",
+    "listed_hint": "取消勾选后，该分类下的文章将不出现在首页文章流",
+    "hidden": "首页隐藏"
+  },
+  "password_remove": "移除密码",
+  "cover": {
+    "title": "封面图",
+    "placeholder": "封面图 URL（留空时自动使用正文第一张图）",
+    "extract": "从正文提取",
+    "clear": "清除",
+    "preview": "封面预览",
+    "not_found": "正文中未找到图片"
+  },
+  "hero_image_alt": "首页横幅",
+  "page_templates": {
+    "default": "默认模板",
+    "wide": "宽版模板",
+    "portfolio": "作品集",
+    "links": "链接导航",
+    "gallery": "相册",
+    "timeline": "时间线",
+    "resume": "简历",
+    "music": "音乐收藏",
+    "docs": "文档"
+  }
 }

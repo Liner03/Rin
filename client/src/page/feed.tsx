@@ -6,30 +6,23 @@ import { Trans, useTranslation } from "react-i18next";
 import ReactModal from "react-modal";
 import Popup from "reactjs-popup";
 import { Link, useLocation } from "wouter";
+import { ContentAvatar } from "../components/content-avatar";
 import { useAlert, useConfirm } from "../components/dialog";
 import { HashTag } from "../components/hashtag";
 import { Waiting } from "../components/loading";
 import { Markdown } from "../components/markdown";
 import { client } from "../app/runtime";
+import { usePublishRouteMetadata } from "../app/route-metadata";
 import { ClientConfigContext } from "../state/config";
 import { ProfileContext } from "../state/profile";
 import { useSiteConfig } from "../hooks/useSiteConfig";
 import { siteName } from "../utils/constants";
 import { timeago } from "../utils/timeago";
 import { Button } from "../components/button";
+import { Input } from "../components/input";
 import { Tips } from "../components/tips";
-import mermaid from "mermaid";
 import { AdjacentSection } from "../components/adjacent_feed.tsx";
-import { stripImageUrlMetadata } from "../utils/image-upload";
-
-function extractFirstMarkdownImageUrl(content: string) {
-  const match = /!\[.*?\]\((\S+?)(?:\s+"[^"]*")?\)/.exec(content);
-  if (!match) {
-    return undefined;
-  }
-
-  return stripImageUrlMetadata(match[1]);
-}
+import { extractFirstMarkdownImageUrl } from "../utils/image-upload";
 
 export function FeedPage({ id, TOC }: { id: string, TOC: ReactNode }) {
   const { t } = useTranslation();
@@ -37,8 +30,10 @@ export function FeedPage({ id, TOC }: { id: string, TOC: ReactNode }) {
   const profile = useContext(ProfileContext);
   const [feed, setFeed] = useState<Feed>();
   const [error, setError] = useState<string>();
-  const [headImage, setHeadImage] = useState<string>();
-  const ref = useRef("");
+  const [password, setPassword] = useState("");
+  const [unlockError, setUnlockError] = useState("");
+  const [reloadVersion, setReloadVersion] = useState(0);
+  const request = useRef<{ id: string; version: number; promise: ReturnType<typeof client.feed.get> }>();
   const [, setLocation] = useLocation();
   const { showAlert, AlertUI } = useAlert();
   const { showConfirm, ConfirmUI } = useConfirm();
@@ -48,6 +43,16 @@ export function FeedPage({ id, TOC }: { id: string, TOC: ReactNode }) {
   const hasAISummary = Boolean(feed?.ai_summary?.trim());
   const showAISummaryState = feed?.ai_summary_status === "pending" || feed?.ai_summary_status === "processing" || feed?.ai_summary_status === "failed";
   const hashtags = Array.isArray(feed?.hashtags) ? feed.hashtags : [];
+  const headImage = feed?.cover || extractFirstMarkdownImageUrl(feed?.content ?? "");
+  usePublishRouteMetadata(feed ? {
+    kind: "post",
+    title: feed.title ?? "",
+    coverImage: headImage,
+    author: feed.user?.username,
+    createdAt: feed.createdAt,
+    categoryName: feed.categories?.[0]?.name || hashtags[0]?.name,
+    pv: counterEnabled ? feed.pv : undefined,
+  } : error ? { kind: "error", title: t("error.title") } : undefined);
   function deleteFeed() {
     // Confirm
     showConfirm(
@@ -89,47 +94,71 @@ export function FeedPage({ id, TOC }: { id: string, TOC: ReactNode }) {
       })
   }
   useEffect(() => {
-    if (ref.current == id) return;
+    let cancelled = false;
     setFeed(undefined);
     setError(undefined);
-    setHeadImage(undefined);
-    client.feed
-      .get(id)
+    setPassword("");
+    setUnlockError("");
+    // Reuse this load during StrictMode's effect replay; an unlock starts a new version.
+    if (!request.current || request.current.id !== id || request.current.version !== reloadVersion) {
+      request.current = { id, version: reloadVersion, promise: client.feed.get(id) };
+    }
+    request.current.promise
       .then(({ data, error }) => {
+        if (cancelled) return;
         if (error) {
           setError(error.value as string);
         } else if (data && typeof data !== "string") {
-          setTimeout(() => {
-            setFeed(data);
-            setTop(data.top || 0);
-            const headImageUrl = extractFirstMarkdownImageUrl(data.content);
-            if (headImageUrl) {
-              setHeadImage(headImageUrl);
-            }
-          }, 0);
+          setFeed(data);
+          setTop(data.top || 0);
+        } else {
+          setError("Not found");
         }
+      })
+      .catch((error: unknown) => {
+        if (!cancelled) setError(error instanceof Error ? error.message : String(error));
       });
-    ref.current = id;
-  }, [id]);
+    return () => { cancelled = true; };
+  }, [id, reloadVersion]);
+  async function unlock() {
+    if (!feed) return;
+    const { error } = await client.feed.unlock(feed.id, password);
+    if (error) {
+      setUnlockError(error.value as string);
+    } else {
+      setUnlockError("");
+      setReloadVersion((version) => version + 1);
+    }
+  }
   useEffect(() => {
-    mermaid.initialize({
-      startOnLoad: false,
-      theme: "default",
-    });
-    mermaid.run({
-      suppressErrors: true,
-      nodes: document.querySelectorAll("pre.mermaid_default")
-    }).then(() => {
+    // 无 mermaid 代码块时不加载 mermaid（约 73KB gzip）
+    if (!feed?.content || !feed.content.includes("```mermaid")) return;
+    let cancelled = false;
+    import("mermaid").then(({ default: mermaid }) => {
+      if (cancelled) return;
       mermaid.initialize({
         startOnLoad: false,
-        theme: "dark",
+        theme: "default",
       });
       mermaid.run({
         suppressErrors: true,
-        nodes: document.querySelectorAll("pre.mermaid_dark")
-      });
-    })
-  }, [feed]);
+        nodes: document.querySelectorAll("pre.mermaid_default")
+      }).then(() => {
+        if (cancelled) return;
+        mermaid.initialize({
+          startOnLoad: false,
+          theme: "dark",
+        });
+        mermaid.run({
+          suppressErrors: true,
+          nodes: document.querySelectorAll("pre.mermaid_dark")
+        });
+      })
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [feed?.content]);
 
   return (
     <Waiting for={feed || error}>
@@ -149,10 +178,10 @@ export function FeedPage({ id, TOC }: { id: string, TOC: ReactNode }) {
                 : feed.content
             }
           />
-          <meta name="author" content={feed.user.username} />
+          <meta name="author" content={feed.user?.username ?? ""} />
           <meta
             name="keywords"
-            content={hashtags.map(({ name }) => name).join(", ")}
+            content={[siteConfig.keywords, hashtags.map(({ name }) => name).join(", ")].filter(Boolean).join(", ")}
           />
           <meta
             name="description"
@@ -179,7 +208,16 @@ export function FeedPage({ id, TOC }: { id: string, TOC: ReactNode }) {
             </div>
           </>
         )}
-        {feed && !error && (
+        {feed && !error && feed.locked && (
+          <div className="flex flex-col wauto rounded-2xl bg-w m-2 p-8 items-center justify-center space-y-3 text-center">
+            <h1 className="text-xl font-bold t-primary">{feed.title}</h1>
+            <p className="text-sm text-neutral-500 dark:text-neutral-400">{t("password_required")}</p>
+            <Input value={password} setValue={setPassword} placeholder={t("password")} type="password" variant="flat" className="w-full max-w-xs" />
+            {unlockError && <p className="text-sm text-red-500">{unlockError}</p>}
+            <Button title={t("unlock")} onClick={unlock} />
+          </div>
+        )}
+        {feed && !error && !feed.locked && (
           <>
             <div className="xl:w-64" />
             <main className="wauto">
@@ -303,13 +341,14 @@ export function FeedPage({ id, TOC }: { id: string, TOC: ReactNode }) {
                     </div>
                   )}
                   <div className="flex flex-row items-center">
-                    <img
-                      src={feed.user.avatar || "/avatar.png"}
-                      className="w-8 h-8 rounded-full"
+                    <ContentAvatar
+                      src={feed.user?.avatar}
+                      name={feed.user?.username || t("anonymous")}
+                      className="w-8 h-8 text-sm"
                     />
                     <div className="ml-2">
                       <span className="text-gray-400 text-sm cursor-default">
-                        {feed.user.username}
+                        {feed.user?.username}
                       </span>
                     </div>
                   </div>
@@ -319,13 +358,15 @@ export function FeedPage({ id, TOC }: { id: string, TOC: ReactNode }) {
               {feed && <Comments id={`${feed.id}`} />}
               <div className="h-16" />
             </main>
-            <div className="w-80 hidden lg:block relative">
-              <div
-                className={`start-0 end-0 top-[5.5rem] sticky`}
-              >
-                {TOC}
+            {TOC && (
+              <div className="w-80 hidden lg:block relative">
+                <div
+                  className={`start-0 end-0 top-[5.5rem] sticky`}
+                >
+                  {TOC}
+                </div>
               </div>
-            </div>
+            )}
           </>
         )}
       </div>
@@ -337,6 +378,10 @@ export function FeedPage({ id, TOC }: { id: string, TOC: ReactNode }) {
 
 export function TOCHeader({ TOC }: { TOC: ReactNode }) {
   const [isOpened, setIsOpened] = useState(false);
+
+  if (!TOC) {
+    return null;
+  }
 
   return (
     <div className="shrink-0 lg:hidden">
@@ -380,6 +425,8 @@ export function TOCHeader({ TOC }: { TOC: ReactNode }) {
   );
 }
 
+const commentFieldClass = "w-full rounded-xl border border-black/10 bg-transparent px-4 py-3 text-sm t-primary outline-none transition-colors placeholder:text-neutral-500 focus:border-black/40 focus:ring-2 focus:ring-theme/60 dark:border-white/15 dark:placeholder:text-neutral-400 dark:focus:border-white/40 dark:focus:ring-theme/70";
+
 function CommentInput({
   id,
   onRefresh,
@@ -392,8 +439,16 @@ function CommentInput({
   const [guestName, setGuestName] = useState("");
   const [guestEmail, setGuestEmail] = useState("");
   const [guestWebsite, setGuestWebsite] = useState("");
+  const [moreOpen, setMoreOpen] = useState(true);
+  const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState("");
-  const { showAlert, AlertUI } = useAlert();
+  const [success, setSuccess] = useState(false);
+  const successTimer = useRef<number | undefined>(undefined);
+  useEffect(() => {
+    return () => {
+      window.clearTimeout(successTimer.current);
+    };
+  }, []);
   const profile = useContext(ProfileContext);
   const [, setLocation] = useLocation();
   const config = useContext(ClientConfigContext);
@@ -406,24 +461,42 @@ function CommentInput({
     else if (error === "Guest name is required") return t("comment.guest_name_required");
     return error;
   }
+  function showSuccess() {
+    setSuccess(true);
+    window.clearTimeout(successTimer.current);
+    successTimer.current = window.setTimeout(() => setSuccess(false), 2500);
+  }
   function submit() {
+    if (submitting) return;
+    if (!content.trim()) {
+      setError(t("comment.empty"));
+      return;
+    }
+    setSubmitting(true);
+    setError("");
     if (profile) {
       client.comment
         .create(parseInt(id), { content })
         .then(({ error }) => {
           if (error) {
             setError(errorHumanize(error.value as string));
+            setSubmitting(false);
           } else {
             setContent("");
-            setError("");
-            showAlert(t("comment.success"), () => {
-              onRefresh();
-            });
+            setSubmitting(false);
+            showSuccess();
+            onRefresh();
           }
         });
     } else if (guestEnabled) {
       if (!guestName.trim()) {
         setError(t("comment.guest_name_required"));
+        setSubmitting(false);
+        return;
+      }
+      if (guestEmail.trim() && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(guestEmail.trim())) {
+        setError(t("comment.email_invalid"));
+        setSubmitting(false);
         return;
       }
       client.comment
@@ -436,15 +509,15 @@ function CommentInput({
         .then(({ error }) => {
           if (error) {
             setError(errorHumanize(error.value as string));
+            setSubmitting(false);
           } else {
             setContent("");
             setGuestName("");
             setGuestEmail("");
             setGuestWebsite("");
-            setError("");
-            showAlert(t("comment.success"), () => {
-              onRefresh();
-            });
+            setSubmitting(false);
+            showSuccess();
+            onRefresh();
           }
         });
     } else {
@@ -452,71 +525,114 @@ function CommentInput({
     }
   }
   return (
-    <div className="w-full rounded-2xl bg-w t-primary p-6 items-end flex flex-col">
-      <div className="flex flex-col w-full items-start mb-4">
-        <label htmlFor="comment">{t("comment.title")}</label>
-      </div>
-      {profile ? (<>
-        <textarea
-          id="comment"
-          placeholder={t("comment.placeholder.title")}
-          className="bg-w w-full h-24 rounded-lg"
-          value={content}
-          onChange={(e) => setContent(e.target.value)}
-        />
-        <button
-          className="mt-4 bg-theme text-white px-4 py-2 rounded-full"
-          onClick={submit}
-        >
-          {t("comment.submit")}
-        </button>
-      </>) : guestEnabled ? (<>
-        <input
-          type="text"
-          placeholder={t("comment.guest_name_placeholder")}
-          className="bg-w w-full rounded-lg px-3 py-2 mb-2 border border-gray-200 dark:border-gray-700"
-          value={guestName}
-          onChange={(e) => setGuestName(e.target.value)}
-        />
-        <input
-          type="email"
-          placeholder={t("comment.guest_email_placeholder")}
-          className="bg-w w-full rounded-lg px-3 py-2 mb-2 border border-gray-200 dark:border-gray-700"
-          value={guestEmail}
-          onChange={(e) => setGuestEmail(e.target.value)}
-        />
-        <input
-          type="url"
-          placeholder={t("comment.guest_website_placeholder")}
-          className="bg-w w-full rounded-lg px-3 py-2 mb-2 border border-gray-200 dark:border-gray-700"
-          value={guestWebsite}
-          onChange={(e) => setGuestWebsite(e.target.value)}
-        />
-        <textarea
-          id="comment"
-          placeholder={t("comment.placeholder.title")}
-          className="bg-w w-full h-24 rounded-lg"
-          value={content}
-          onChange={(e) => setContent(e.target.value)}
-        />
-        <button
-          className="mt-4 bg-theme text-white px-4 py-2 rounded-full"
-          onClick={submit}
-        >
-          {t("comment.submit")}
-        </button>
-      </>) : (
-        <div className="flex flex-row w-full items-center justify-center space-x-2 py-12">
+    <div className="w-full pt-6">
+      {profile ? (
+        <div className="flex flex-col">
+          <textarea
+            id="comment"
+            aria-label={t("comment.placeholder.title")}
+            placeholder={t("comment.placeholder.title")}
+            className={`${commentFieldClass} h-24 resize-y`}
+            value={content}
+            onChange={(e) => { setContent(e.target.value); setError(""); }}
+          />
+          <div className="mt-3 flex items-center justify-end gap-3">
+            {success && <p aria-live="polite" className="text-[13px] font-medium text-theme">{t("comment.success")}</p>}
+            {error && <p role="alert" className="text-[13px] text-red-500">{error}</p>}
+            <button
+              type="button"
+              disabled={submitting}
+              onClick={submit}
+              className="min-h-11 rounded-xl bg-theme-hover px-5 py-2 text-sm font-semibold text-white transition-colors hover:bg-theme-active active:bg-theme-active disabled:cursor-not-allowed disabled:opacity-60"
+            >
+              {t("comment.submit")}
+            </button>
+          </div>
+        </div>
+      ) : guestEnabled ? (
+        <div className="flex flex-col">
+          <input
+            id="guest-name"
+            type="text"
+            aria-label={t("comment.guest_name_placeholder")}
+            placeholder={t("comment.guest_name_placeholder")}
+            className={commentFieldClass}
+            value={guestName}
+            onChange={(e) => { setGuestName(e.target.value); setError(""); }}
+          />
+          {moreOpen && (
+            <div className="mt-3 grid gap-3 sm:grid-cols-2">
+              <input
+                type="email"
+                aria-label={t("comment.guest_email_placeholder")}
+                placeholder={t("comment.guest_email_placeholder")}
+                className={commentFieldClass}
+                value={guestEmail}
+                onChange={(e) => setGuestEmail(e.target.value)}
+              />
+              <input
+                type="url"
+                aria-label={t("comment.guest_website_placeholder")}
+                placeholder={t("comment.guest_website_placeholder")}
+                className={commentFieldClass}
+                value={guestWebsite}
+                onChange={(e) => setGuestWebsite(e.target.value)}
+              />
+            </div>
+          )}
           <button
-            className="mt-2 bg-theme text-white px-4 py-2 rounded-full"
+            type="button"
+            aria-expanded={moreOpen}
+            onClick={() => setMoreOpen((open) => !open)}
+            className="-mx-2 mt-2 self-start px-2 py-1.5 text-[13px] text-neutral-500 transition-colors hover:text-theme dark:text-neutral-400 dark:hover:text-theme"
+          >
+            {moreOpen ? t("comment.less_options") : t("comment.more_options")}
+          </button>
+          <textarea
+            id="comment"
+            aria-label={t("comment.placeholder.title")}
+            placeholder={t("comment.placeholder.title")}
+            className={`${commentFieldClass} mt-3 h-24 resize-y`}
+            value={content}
+            onChange={(e) => { setContent(e.target.value); setError(""); }}
+          />
+          <div className="mt-3 flex flex-wrap items-center justify-between gap-3">
+            <p className="text-[12px] text-neutral-500 dark:text-neutral-400">
+              {t("comment.email_hint")} ·{" "}
+              <button
+                type="button"
+                onClick={() => setLocation('/login')}
+                className="-mx-1.5 px-1.5 py-1 transition-colors hover:text-theme"
+              >
+                {t("comment.login_link")}
+              </button>
+            </p>
+            <div className="flex items-center gap-3">
+              {success && <p aria-live="polite" className="text-[13px] font-medium text-theme">{t("comment.success")}</p>}
+              {error && <p role="alert" className="text-[13px] text-red-500">{error}</p>}
+              <button
+                type="button"
+                disabled={submitting}
+                onClick={submit}
+                className="min-h-11 rounded-xl bg-theme-hover px-5 py-2 text-sm font-semibold text-white transition-colors hover:bg-theme-active active:bg-theme-active disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                {t("comment.submit")}
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : (
+        <div className="flex flex-col items-center gap-3 py-8 text-center">
+          <p className="text-sm text-neutral-500 dark:text-neutral-400">{t("comment.login_hint")}</p>
+          <button
+            type="button"
             onClick={() => setLocation('/login')}
+            className="rounded-xl bg-theme px-5 py-2 text-sm font-medium text-white transition-colors hover:bg-theme-hover active:bg-theme-active"
           >
             {t("login.required")}
           </button>
         </div>
       )}
-      {error && <p className="text-red-500 text-sm mt-2">{error}</p>}
-      <AlertUI />
     </div>
   );
 }
@@ -547,23 +663,31 @@ function Comments({ id }: { id: string }) {
   return (
     <>
       {config.getBoolean('comment.enabled') &&
-        <div className="m-2 flex flex-col justify-center items-center">
-          <CommentInput id={id} onRefresh={loadComments} />
+        <section className="mx-auto w-full max-w-[642px]" aria-label={t("comment.title")}>
+          <div className="flex items-center gap-3 border-t border-dashed border-black/10 pt-6 dark:border-white/10">
+            <h2 className="text-[15px] font-semibold t-primary">
+              {t("comment.count", { count: comments.length })}
+            </h2>
+          </div>
           {error && (
-            <>
-              <div className="flex flex-col wauto rounded-2xl bg-w t-primary m-2 p-6 items-center justify-center">
-                <h1 className="text-xl font-bold t-primary">{error}</h1>
-                <button
-                  className="mt-2 bg-theme text-white px-4 py-2 rounded-full"
-                  onClick={loadComments}
-                >
-                  {t("reload")}
-                </button>
-              </div>
-            </>
+            <div className="flex flex-col items-center gap-3 py-8">
+              <p className="text-sm text-red-500">{error}</p>
+              <button
+                type="button"
+                onClick={loadComments}
+                className="rounded-xl border border-black/10 px-4 py-1.5 text-sm t-primary transition-colors hover:bg-neutral-100 dark:border-white/10 dark:hover:bg-white/5"
+              >
+                {t("reload")}
+              </button>
+            </div>
+          )}
+          {!error && comments.length === 0 && (
+            <p className="py-6 text-center text-[13px] text-neutral-500 dark:text-neutral-400">
+              {t("comment.empty_state")}
+            </p>
           )}
           {comments.length > 0 && (
-            <div className="w-full">
+            <div className="w-full divide-y divide-dashed divide-black/10 dark:divide-white/10">
               {comments.map((comment) => (
                 <CommentItem
                   key={comment.id}
@@ -573,7 +697,8 @@ function Comments({ id }: { id: string }) {
               ))}
             </div>
           )}
-        </div>
+          <CommentInput id={id} onRefresh={loadComments} />
+        </section>
       }
     </>
   );
@@ -591,7 +716,6 @@ function CommentItem({
   const { t } = useTranslation();
   const profile = useContext(ProfileContext);
   const commenterName = comment.user?.username || comment.guestName || t("anonymous");
-  const commenterAvatar = comment.user?.avatar || "/avatar.png";
   function deleteComment() {
     showConfirm(
       t("delete.comment.title"),
@@ -603,22 +727,21 @@ function CommentItem({
             if (error) {
               showAlert(error.value as string);
             } else {
-              showAlert(t("delete.success"), () => {
-                onRefresh();
-              });
+              onRefresh();
             }
           });
       })
   }
   return (
-    <div className="flex flex-row items-start rounded-xl mt-2">
-      <img
-        src={commenterAvatar}
-        className="w-8 h-8 rounded-full mt-4"
+    <div className="flex flex-row items-start gap-3 py-4">
+      <ContentAvatar
+        src={comment.user?.avatar}
+        name={commenterName}
+        className="mt-0.5 h-9 w-9 shrink-0 text-sm"
       />
-      <div className="flex flex-col flex-1 w-0 ml-2 bg-w rounded-xl p-4">
-        <div className="flex flex-row">
-          <span className="t-primary text-base font-bold">
+      <div className="flex min-w-0 flex-1 flex-col">
+        <div className="flex flex-row items-center gap-2">
+          <span className="text-sm font-medium t-primary">
             {commenterName}
           </span>
           {comment.guestWebsite && (
@@ -626,27 +749,29 @@ function CommentItem({
               href={comment.guestWebsite}
               target="_blank"
               rel="noopener noreferrer"
-              className="ml-2 text-gray-400 hover:text-theme transition-colors"
+              aria-label={commenterName}
+              className="text-neutral-500 transition-colors hover:text-theme dark:text-neutral-400"
             >
-              <i className="ri-external-link-line"></i>
+              <i className="ri-external-link-line text-sm"></i>
             </a>
           )}
-          <div className="flex-1 w-0" />
           <span
             title={new Date(comment.createdAt).toLocaleString()}
-            className="text-gray-400 text-sm"
+            className="text-xs text-neutral-500 dark:text-neutral-400"
           >
             {timeago(comment.createdAt)}
           </span>
-        </div>
-        <p className="t-primary break-words">{comment.content}</p>
-        <div className="flex flex-row justify-end">
+          <div className="flex-1 w-0" />
           {(profile?.permission || (comment.user && profile?.id == comment.user.id)) && (
             <Popup
               arrow={false}
               trigger={
-                <button className="px-2 py bg-secondary rounded-full">
-                  <i className="ri-more-fill t-secondary"></i>
+                <button
+                  type="button"
+                  aria-label={t("comment.actions")}
+                  className="rounded-lg p-2 text-neutral-500 transition-colors hover:bg-secondary hover:text-theme dark:text-neutral-400"
+                >
+                  <i className="ri-more-fill text-base"></i>
                 </button>
               }
               position="left center"
@@ -655,14 +780,15 @@ function CommentItem({
                 <button
                   onClick={deleteComment}
                   aria-label={t("delete.comment.title")}
-                  className="px-2 py bg-secondary rounded-full"
+                  className="rounded-lg p-1.5 text-neutral-500 transition-colors hover:bg-red-50 hover:text-red-500 dark:hover:bg-red-500/10"
                 >
-                  <i className="ri-delete-bin-2-line t-secondary"></i>
+                  <i className="ri-delete-bin-2-line text-base"></i>
                 </button>
               </div>
             </Popup>
           )}
         </div>
+        <p className="mt-1 break-words text-[14px] leading-6 t-primary">{comment.content}</p>
       </div>
       <ConfirmUI />
       <AlertUI />

@@ -1,4 +1,4 @@
-import type { FeedListResponse } from "@rin/api";
+import type { FeedListResponse, Page } from "@rin/api";
 import { useContext, useEffect, useRef, useState } from "react"
 import { Helmet } from 'react-helmet'
 import { Link, useSearch } from "wouter"
@@ -9,6 +9,7 @@ import { ProfileContext } from "../state/profile"
 
 import { useSiteConfig } from "../hooks/useSiteConfig";
 import { siteName } from "../utils/constants"
+import { getPageTemplate } from "../components/page-templates"
 import { tryInt } from "../utils/int"
 import { useTranslation } from "react-i18next";
 
@@ -36,6 +37,20 @@ export function FeedsPage() {
     const currentFeeds = feeds[listState] ?? { size: 0, data: [], hasNext: false };
     const currentFeedData = Array.isArray(currentFeeds.data) ? currentFeeds.data : [];
     const ref = useRef("")
+    const [frontPage, setFrontPage] = useState<Page>();
+    useEffect(() => {
+        let cancelled = false;
+        if (siteConfig.frontPage && listState === 'normal') {
+            client.page.get(siteConfig.frontPage).then(({ data }) => {
+                if (!cancelled && data && !data.locked) setFrontPage(data);
+            }).catch(() => {});
+        } else {
+            setFrontPage(undefined);
+        }
+        return () => {
+            cancelled = true;
+        };
+    }, [siteConfig.frontPage, listState]);
     function fetchFeeds(type: FeedType) {
         client.feed.list({
             page: page,
@@ -71,7 +86,14 @@ export function FeedsPage() {
                 <meta property="og:image" content={siteConfig.avatar} />
                 <meta property="og:type" content="article" />
                 <meta property="og:url" content={document.URL} />
+                {siteConfig.keywords && <meta name="keywords" content={siteConfig.keywords} />}
+                {siteConfig.description && <meta name="description" content={siteConfig.description} />}
             </Helmet>
+            {siteConfig.frontPage && frontPage && listState === 'normal' ? (
+                <main className="w-full flex flex-col justify-center items-center mb-8">
+                    {getPageTemplate(frontPage.template).render({ page: frontPage })}
+                </main>
+            ) : (
             <Waiting for={feeds.draft.size + feeds.normal.size + feeds.unlisted.size > 0 || status === 'idle'}>
                 <main className="w-full flex flex-col justify-center items-center mb-8">
                     <div className="wauto text-start text-black dark:text-white py-4 text-4xl font-bold">
@@ -118,6 +140,7 @@ export function FeedsPage() {
                     </Waiting>
                 </main>
             </Waiting>
+            )}
         </>
     )
 }

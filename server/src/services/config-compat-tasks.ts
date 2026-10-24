@@ -1,6 +1,6 @@
 import { desc, eq } from "drizzle-orm";
 import type { CacheImpl, DB } from "../core/hono-types";
-import { feeds } from "../db/schema";
+import { contents } from "../db/schema";
 import { syncFeedAISummaryQueueState } from "./feed-ai-summary";
 import { clearFeedCache } from "./feed";
 import { contentHasImagesMissingMetadata } from "../utils/image";
@@ -11,11 +11,11 @@ type ConfigReader = {
 };
 
 function isAISummaryBackfillEligible(feed: {
-  draft: number;
+  status: string;
   ai_summary: string;
   ai_summary_status: string;
 }) {
-  if (feed.draft === 1) {
+  if (feed.status === "draft") {
     return false;
   }
 
@@ -27,10 +27,10 @@ function isAISummaryBackfillEligible(feed: {
 }
 
 function isAISummaryForceBackfillEligible(feed: {
-  draft: number;
+  status: string;
   ai_summary_status: string;
 }) {
-  if (feed.draft === 1) {
+  if (feed.status === "draft") {
     return false;
   }
 
@@ -39,13 +39,13 @@ function isAISummaryForceBackfillEligible(feed: {
 
 export async function buildCompatTasksResponse(db: DB, serverConfig: ConfigReader, env: Env) {
   const aiConfig = await getAIConfig(serverConfig);
-  const items = await db.query.feeds.findMany({
+  const items = await db.query.contents.findMany({
     columns: {
       id: true,
-      content: true,
+      text: true,
       ai_summary: true,
       ai_summary_status: true,
-      draft: true,
+      status: true,
     },
   });
 
@@ -58,7 +58,7 @@ export async function buildCompatTasksResponse(db: DB, serverConfig: ConfigReade
       forceEligible: items.filter(isAISummaryForceBackfillEligible).length,
     },
     blurhash: {
-      eligible: items.filter((item) => contentHasImagesMissingMetadata(item.content)).length,
+      eligible: items.filter((item) => contentHasImagesMissingMetadata(item.text)).length,
     },
   };
 }
@@ -78,16 +78,16 @@ export async function runCompatAISummaryBackfill(
     throw new Error("TASK_QUEUE binding is not configured");
   }
 
-  const items = await db.query.feeds.findMany({
+  const items = await db.query.contents.findMany({
     columns: {
       id: true,
-      alias: true,
+      slug: true,
       updatedAt: true,
       ai_summary: true,
       ai_summary_status: true,
-      draft: true,
+      status: true,
     },
-    orderBy: [desc(feeds.updatedAt)],
+    orderBy: [desc(contents.updatedAt)],
   });
 
   let queued = 0;
@@ -108,7 +108,7 @@ export async function runCompatAISummaryBackfill(
       updatedAt: item.updatedAt,
       resetSummary: true,
     });
-    await clearFeedCache(cache, item.id, item.alias, item.alias);
+    await clearFeedCache(cache, item.id, item.slug, item.slug);
     queued += 1;
   }
 
@@ -120,28 +120,28 @@ export async function runCompatAISummaryBackfill(
 }
 
 export async function listBlurhashCompatCandidates(db: DB) {
-  const items = await db.query.feeds.findMany({
+  const items = await db.query.contents.findMany({
     columns: {
       id: true,
       title: true,
-      content: true,
+      text: true,
     },
-    orderBy: [desc(feeds.updatedAt)],
+    orderBy: [desc(contents.updatedAt)],
   });
 
   return {
     generatedAt: new Date().toISOString(),
-    items: items.filter((item) => contentHasImagesMissingMetadata(item.content)),
+    items: items.filter((item) => contentHasImagesMissingMetadata(item.text)),
   };
 }
 
 export async function applyBlurhashCompatUpdate(db: DB, cache: CacheImpl, feedId: number, content: string) {
-  const feed = await db.query.feeds.findFirst({
-    where: eq(feeds.id, feedId),
+  const feed = await db.query.contents.findFirst({
+    where: eq(contents.id, feedId),
     columns: {
       id: true,
-      alias: true,
-      content: true,
+      slug: true,
+      text: true,
     },
   });
 
@@ -149,12 +149,12 @@ export async function applyBlurhashCompatUpdate(db: DB, cache: CacheImpl, feedId
     throw new Error("Feed not found");
   }
 
-  if (feed.content === content) {
+  if (feed.text === content) {
     return { updated: false };
   }
 
-  await db.update(feeds).set({ content }).where(eq(feeds.id, feed.id));
-  await clearFeedCache(cache, feed.id, feed.alias, feed.alias);
+  await db.update(contents).set({ text: content }).where(eq(contents.id, feed.id));
+  await clearFeedCache(cache, feed.id, feed.slug, feed.slug);
 
   return { updated: true };
 }

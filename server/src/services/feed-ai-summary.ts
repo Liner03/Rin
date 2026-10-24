@@ -1,5 +1,5 @@
 import { eq } from "drizzle-orm";
-import { feeds } from "../db/schema";
+import { contents } from "../db/schema";
 import type { CacheImpl, DB } from "../core/hono-types";
 import { createTaskQueue, createFeedAISummaryTask, type FeedAISummaryStatus } from "../queue";
 import { generateAISummaryResult } from "../utils/ai";
@@ -89,33 +89,33 @@ export async function syncFeedAISummaryQueueState(
 
   if (!shouldQueue) {
     await db
-      .update(feeds)
+      .update(contents)
       .set(
         buildStatusUpdate("idle", options.resetSummary ? { ai_summary: "" } : undefined),
       )
-      .where(eq(feeds.id, feedId));
+      .where(eq(contents.id, feedId));
     return;
   }
 
   await db
-    .update(feeds)
+    .update(contents)
     .set(
       buildStatusUpdate("pending", {
         ai_summary: options.resetSummary ? "" : undefined,
       }),
     )
-    .where(eq(feeds.id, feedId));
+    .where(eq(contents.id, feedId));
 
   const enqueueResult = await enqueueFeedAISummary(env, feedId, options.updatedAt);
   if (!enqueueResult.ok) {
     await db
-      .update(feeds)
+      .update(contents)
       .set(
         buildStatusUpdate("failed", {
           ai_summary_error: enqueueResult.error,
         }),
       )
-      .where(eq(feeds.id, feedId));
+      .where(eq(contents.id, feedId));
   }
 }
 
@@ -131,8 +131,8 @@ export async function processFeedAISummaryTask(
   },
   clearFeedCache: (cache: CacheImpl, id: number, alias: string | null, newAlias: string | null) => Promise<void>,
 ) {
-  const feed = await db.query.feeds.findFirst({
-    where: eq(feeds.id, payload.feedId),
+  const feed = await db.query.contents.findFirst({
+    where: eq(contents.id, payload.feedId),
   });
 
   if (!feed) {
@@ -144,45 +144,45 @@ export async function processFeedAISummaryTask(
   }
 
   const aiConfig = await getAIConfig(serverConfig);
-  if (!aiConfig.enabled || feed.draft === 1) {
+  if (!aiConfig.enabled || feed.status === "draft") {
     await db
-      .update(feeds)
+      .update(contents)
       .set(buildStatusUpdate("idle"))
-      .where(eq(feeds.id, feed.id));
-    await clearFeedCache(cache, feed.id, feed.alias, feed.alias);
+      .where(eq(contents.id, feed.id));
+    await clearFeedCache(cache, feed.id, feed.slug, feed.slug);
     return;
   }
 
   await db
-    .update(feeds)
+    .update(contents)
     .set(buildStatusUpdate("processing"))
-    .where(eq(feeds.id, feed.id));
+    .where(eq(contents.id, feed.id));
 
-  const result = await generateAISummaryResult(env, serverConfig, feed.content);
+  const result = await generateAISummaryResult(env, serverConfig, feed.text);
   if (result.summary) {
     await db
-      .update(feeds)
+      .update(contents)
       .set(
         buildStatusUpdate("completed", {
           ai_summary: result.summary,
         }),
       )
-      .where(eq(feeds.id, feed.id));
+      .where(eq(contents.id, feed.id));
   } else if (result.skipped) {
     await db
-      .update(feeds)
+      .update(contents)
       .set(buildStatusUpdate("idle"))
-      .where(eq(feeds.id, feed.id));
+      .where(eq(contents.id, feed.id));
   } else {
     await db
-      .update(feeds)
+      .update(contents)
       .set(
         buildStatusUpdate("failed", {
           ai_summary_error: result.error ?? "Unknown AI summary generation error",
         }),
       )
-      .where(eq(feeds.id, feed.id));
+      .where(eq(contents.id, feed.id));
   }
 
-  await clearFeedCache(cache, feed.id, feed.alias, feed.alias);
+  await clearFeedCache(cache, feed.id, feed.slug, feed.slug);
 }

@@ -1,5 +1,5 @@
 import i18n from 'i18next';
-import _ from 'lodash';
+import debounce from 'lodash/debounce';
 import {useCallback, useEffect, useState} from "react";
 import {Helmet} from "react-helmet";
 import {useTranslation} from "react-i18next";
@@ -11,7 +11,6 @@ import { client } from "../app/runtime";
 import {Cache} from '../utils/cache';
 import {useSiteConfig} from "../hooks/useSiteConfig";
 import {siteName} from "../utils/constants";
-import mermaid from 'mermaid';
 import { MarkdownEditor } from '../components/markdown_editor';
 
 async function publish({
@@ -21,6 +20,9 @@ async function publish({
   content,
   summary,
   tags,
+  categories,
+  password,
+  cover,
   draft,
   createdAt,
   onCompleted,
@@ -31,6 +33,9 @@ async function publish({
   content: string;
   summary: string;
   tags: string[];
+  categories: number[];
+  password: string;
+  cover: string;
   draft: boolean;
   alias?: string;
   createdAt?: Date;
@@ -45,6 +50,9 @@ async function publish({
       content,
       summary,
       tags,
+      categories,
+      password: password || undefined,
+      cover: cover || undefined,
       listed,
       draft,
       createdAt: createdAt?.toISOString(),
@@ -71,6 +79,9 @@ async function update({
   content,
   summary,
   tags,
+  categories,
+  password,
+  cover,
   listed,
   draft,
   createdAt,
@@ -84,6 +95,10 @@ async function update({
   content?: string;
   summary?: string;
   tags?: string[];
+  categories?: number[];
+  /** 空字符串表示清除密码，undefined 表示保持不变 */
+  password?: string;
+  cover?: string;
   draft?: boolean;
   createdAt?: Date;
   onCompleted?: () => void;
@@ -98,6 +113,9 @@ async function update({
       content,
       summary,
       tags,
+      categories,
+      password,
+      cover,
       listed,
       draft,
       createdAt: createdAt?.toISOString(),
@@ -125,6 +143,12 @@ export function WritingPage({ id }: { id?: number }) {
   const [summary, setSummary] = cache.useCache("summary", "");
   const [tags, setTags] = cache.useCache("tags", "");
   const [alias, setAlias] = cache.useCache("alias", "");
+  const [password, setPassword] = useState("");
+  const [hasPassword, setHasPassword] = useState(false);
+  const [removePassword, setRemovePassword] = useState(false);
+  const [cover, setCover] = cache.useCache("cover", "");
+  const [categories, setCategories] = useState<number[]>([]);
+  const [categoryList, setCategoryList] = useState<Array<{ id: number; name: string; parent: number }>>([]);
   const [draft, setDraft] = useState(false);
   const [listed, setListed] = useState(true);
   const [content, setContent] = cache.useCache("content", "");
@@ -147,6 +171,9 @@ export function WritingPage({ id }: { id?: number }) {
         summary,
         alias,
         tags: tagsplit,
+        categories,
+        password: removePassword ? "" : password || undefined,
+        cover,
         draft,
         listed,
         createdAt,
@@ -170,6 +197,9 @@ export function WritingPage({ id }: { id?: number }) {
         content,
         summary,
         tags: tagsplit,
+        categories,
+        password,
+        cover,
         draft,
         alias,
         listed,
@@ -183,6 +213,12 @@ export function WritingPage({ id }: { id?: number }) {
   }
 
   useEffect(() => {
+    client.category.list().then(({ data }) => {
+      if (data) setCategoryList(data);
+    });
+  }, []);
+
+  useEffect(() => {
     if (id) {
       client.feed
         .get(id)
@@ -191,35 +227,41 @@ export function WritingPage({ id }: { id?: number }) {
             if (title == "" && data.title) setTitle(data.title);
             if (tags == "" && Array.isArray(data.hashtags))
               setTags(data.hashtags.map(({ name }: {name: string}) => `#${name}`).join(" "));
-            if (alias == "" && (data as any).alias) setAlias((data as any).alias);
+            if (alias == "" && data.slug) setAlias(data.slug);
             if (content == "") setContent(data.content);
-            if (summary == "") setSummary((data as any).summary || "");
-            setListed((data as any).listed === 1);
-            setDraft((data as any).draft === 1);
+            if (summary == "") setSummary(data.summary || "");
+            if (cover == "" && data.cover) setCover(data.cover);
+            if (Array.isArray(data.categories))
+              setCategories(data.categories.map(({ id }: {id: number}) => id));
+            setHasPassword(Boolean(data.hasPassword));
+            setListed(data.listed === 1);
+            setDraft(data.draft === 1);
             setCreatedAt(new Date(data.createdAt));
           }
         });
     }
   }, []);
   const debouncedUpdate = useCallback(
-    _.debounce(() => {
-      mermaid.initialize({
-        startOnLoad: false,
-        theme: "default",
-      });
-      mermaid.run({
-        suppressErrors: true,
-        nodes: document.querySelectorAll("pre.mermaid_default")
-      }).then(()=>{
+    debounce(() => {
+      import("mermaid").then(({ default: mermaid }) => {
         mermaid.initialize({
           startOnLoad: false,
-          theme: "dark",
+          theme: "default",
         });
         mermaid.run({
           suppressErrors: true,
-          nodes: document.querySelectorAll("pre.mermaid_dark")
-        });
-      })
+          nodes: document.querySelectorAll("pre.mermaid_default")
+        }).then(() => {
+          mermaid.initialize({
+            startOnLoad: false,
+            theme: "dark",
+          });
+          mermaid.run({
+            suppressErrors: true,
+            nodes: document.querySelectorAll("pre.mermaid_dark")
+          });
+        })
+      });
     }, 100),
     []
   );
@@ -279,6 +321,27 @@ export function WritingPage({ id }: { id?: number }) {
             />
             <Input
               id={id}
+              value={password}
+              setValue={setPassword}
+              placeholder={t("password")}
+              variant="flat"
+            />
+            {id !== undefined && hasPassword && (
+              <FlatMetaRow
+                className="cursor-pointer rounded-none border-0 bg-transparent px-0 py-2 sm:rounded-2xl sm:border sm:bg-secondary sm:px-4 sm:py-3"
+                onClick={() => setRemovePassword(!removePassword)}
+              >
+                <p>{t("password_remove")}</p>
+                <Checkbox
+                  id="removePassword"
+                  value={removePassword}
+                  setValue={setRemovePassword}
+                  placeholder={t("password_remove")}
+                />
+              </FlatMetaRow>
+            )}
+            <Input
+              id={id}
               value={tags}
               setValue={setTags}
               placeholder={t("tags")}
@@ -286,6 +349,66 @@ export function WritingPage({ id }: { id?: number }) {
               className="lg:col-span-2"
             />
           </div>
+
+          <div className="mt-5">
+            <p className="mb-2 text-xs font-semibold uppercase tracking-[0.18em] text-theme/70">{t("cover.title")}</p>
+            <div className="flex flex-col gap-2 sm:flex-row">
+              <Input
+                id={id}
+                value={cover}
+                setValue={setCover}
+                placeholder={t("cover.placeholder")}
+                variant="flat"
+              />
+              <button
+                type="button"
+                onClick={() => {
+                  const extracted = extractFirstImageUrl(content);
+                  if (extracted) {
+                    setCover(extracted);
+                  } else {
+                    showAlert(t("cover.not_found"));
+                  }
+                }}
+                className="shrink-0 rounded-xl border border-black/10 bg-secondary px-4 py-2 text-sm t-primary transition-colors hover:bg-neutral-100 dark:border-white/10 dark:hover:bg-white/5"
+              >
+                {t("cover.extract")}
+              </button>
+              {cover && (
+                <button
+                  type="button"
+                  onClick={() => setCover("")}
+                  className="shrink-0 rounded-xl border border-black/10 bg-secondary px-4 py-2 text-sm t-primary transition-colors hover:bg-neutral-100 dark:border-white/10 dark:hover:bg-white/5"
+                >
+                  {t("cover.clear")}
+                </button>
+              )}
+            </div>
+            {cover && (
+              <img
+                src={cover}
+                alt={t("cover.preview")}
+                className="mt-3 h-40 w-full rounded-xl border border-black/10 object-cover dark:border-white/10"
+              />
+            )}
+          </div>
+
+          {categoryList.length > 0 && (
+            <div className="mt-5">
+              <p className="mb-2 text-xs font-semibold uppercase tracking-[0.18em] text-theme/70">{t("categories.title")}</p>
+              <div className="flex flex-wrap gap-2">
+                {buildCategoryTree(categoryList).map((category) => (
+                  <CategoryCheckbox
+                    key={category.id}
+                    category={category}
+                    depth={0}
+                    selected={categories}
+                    setSelected={setCategories}
+                  />
+                ))}
+              </div>
+            </div>
+          )}
 
           <div className="mt-5 grid gap-2 sm:gap-3 xl:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_minmax(18rem,2fr)]">
             <FlatMetaRow
@@ -342,5 +465,75 @@ export function WritingPage({ id }: { id?: number }) {
       </div>
       <AlertUI />
     </>
+  );
+}
+
+type CategoryNode = { id: number; name: string; parent: number; children: CategoryNode[] };
+
+function extractFirstImageUrl(content: string): string | null {
+  const match = content.match(/!\[[^\]]*\]\((https?:\/\/[^)\s]+)\)/);
+  return match ? match[1] : null;
+}
+
+function buildCategoryTree(list: Array<{ id: number; name: string; parent: number }>): CategoryNode[] {
+  const nodes = new Map<number, CategoryNode>();
+  for (const item of list) {
+    nodes.set(item.id, { ...item, children: [] });
+  }
+  const roots: CategoryNode[] = [];
+  for (const node of nodes.values()) {
+    const parent = nodes.get(node.parent);
+    if (parent && node.parent !== 0) {
+      parent.children.push(node);
+    } else {
+      roots.push(node);
+    }
+  }
+  return roots;
+}
+
+function CategoryCheckbox({
+  category,
+  depth,
+  selected,
+  setSelected,
+}: {
+  category: CategoryNode;
+  depth: number;
+  selected: number[];
+  setSelected: (value: number[]) => void;
+}) {
+  const toggle = () => {
+    if (selected.includes(category.id)) {
+      setSelected(selected.filter((id) => id !== category.id));
+    } else {
+      setSelected([...selected, category.id]);
+    }
+  };
+  return (
+    <div style={{ marginLeft: depth * 16 }}>
+      <label className="flex cursor-pointer items-center gap-1.5 py-0.5">
+        <input
+          type="checkbox"
+          checked={selected.includes(category.id)}
+          onChange={toggle}
+          className="h-3.5 w-3.5 rounded border-neutral-300 text-theme focus:ring-theme"
+        />
+        <span className="text-sm text-neutral-700 dark:text-neutral-300">{category.name}</span>
+      </label>
+      {category.children.length > 0 && (
+        <div className="flex flex-col gap-0.5">
+          {category.children.map((child) => (
+            <CategoryCheckbox
+              key={child.id}
+              category={child}
+              depth={depth + 1}
+              selected={selected}
+              setSelected={setSelected}
+            />
+          ))}
+        </div>
+      )}
+    </div>
   );
 }
