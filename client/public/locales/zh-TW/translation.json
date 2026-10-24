@@ -175,6 +175,7 @@
     }
   },
   "error": {
+    "retry": "重試",
     "api_url": "Pages 環境變數中 API_URL 應為 Worker 地址，請檢查 Pages 環境變數中 API_URL 是否正確",
     "api_url_slash": "Pages 環境變數中 API_URL 應為 Worker 地址，請檢查 Pages 環境變數中 API_URL 是否正確，且 API_URL 末尾不能有 /",
     "github_callback": "GitHub OAuth 回調地址應為 `https://<Worker 地址>/api/user/github/callback`，請檢查 GitHub OAuth 回調地址是否正確",
@@ -190,6 +191,7 @@
     "rss": "RSS 訂閱連結"
   },
   "friends": {
+    "load_failed": "友鏈載入失敗，請重試。",
     "empty": "還沒有友鏈",
     "apply": "申請友情連結",
     "create": "創建友情連結",
@@ -237,6 +239,7 @@
   "logout": "登出",
   "main_content": "正文",
   "moments": {
+    "load_failed": "動態載入失敗，請重試。",
     "empty": "還沒有動態",
     "edit": "編輯動態",
     "publish": "發布動態",

@@ -175,6 +175,7 @@
     }
   },
   "error": {
+    "retry": "重试",
     "api_url": "Pages 环境变量中 API_URL 应为 Worker 地址，请检查 Pages 环境变量中 API_URL 是否正确",
     "api_url_slash": "Pages 环境变量中 API_URL 应为 Worker 地址，请检查 Pages 环境变量中 API_URL 是否正确，且 API_URL 末尾不能有 /",
     "github_callback": "GitHub OAuth 回调地址应为 `https://<Worker 地址>/api/user/github/callback`，请检查 GitHub OAuth 回调地址是否正确",
@@ -190,6 +191,7 @@
     "rss": "RSS 订阅链接"
   },
   "friends": {
+    "load_failed": "友链加载失败，请重试。",
     "empty": "还没有友链",
     "apply": "申请友链",
     "create": "创建友链",
@@ -237,6 +239,7 @@
   "logout": "退出登录",
   "main_content": "正文",
   "moments": {
+    "load_failed": "动态加载失败，请重试。",
     "empty": "还没有动态",
     "edit": "编辑动态",
     "publish": "发布动态",

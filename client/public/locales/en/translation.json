@@ -175,6 +175,7 @@
     }
   },
   "error": {
+    "retry": "Retry",
     "api_url": "API_URL in Pages environment variables should be the Worker address. Please check if API_URL in Pages environment variables is correct.",
     "api_url_slash": "API_URL in Pages environment variables should be the Worker address. Please check if API_URL in Pages environment variables is correct and ensure API_URL does not end with a slash (/).",
     "github_callback": "GitHub OAuth callback URL should be `https://<Worker address>/api/user/github/callback`. Please check if the GitHub OAuth callback URL is correct.",
@@ -190,6 +191,7 @@
     "rss": "RSS Subscription Link"
   },
   "friends": {
+    "load_failed": "Could not load friends. Please try again.",
     "empty": "No friends added yet.",
     "apply": "Apply for Friend Link",
     "create": "Create Friend Link",
@@ -237,6 +239,7 @@
   "logout": "Logout",
   "main_content": "Main content",
   "moments": {
+    "load_failed": "Could not load moments. Please try again.",
     "empty": "No moments yet.",
     "edit": "Edit Moment",
     "publish": "Publish Moment",

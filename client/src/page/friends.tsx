@@ -4,6 +4,7 @@ import { Helmet } from 'react-helmet';
 import { useTranslation } from "react-i18next";
 import Modal from 'react-modal';
 import { FlatActionButton, FlatPanel, SearchableSelect } from "@rin/ui";
+import { Button } from "../components/button";
 import { ContentAvatar } from "../components/content-avatar";
 import { ShowAlertType, useAlert, useConfirm } from "../components/dialog";
 import { Input } from "../components/input";
@@ -61,14 +62,14 @@ export function FriendsPage() {
     const [waitList, setWaitList] = useState<FriendItem[]>([])
     const [refusedList, setRefusedList] = useState<FriendItem[]>([])
     const [friendsUnavailable, setFriendsUnavailable] = useState<FriendItem[]>([])
-    const [status, setStatus] = useState<'idle' | 'loading'>('loading')
+    const [status, setStatus] = useState<'loading' | 'success' | 'error'>('loading')
     const ref = useRef(false)
     const { showAlert, AlertUI } = useAlert()
-    useEffect(() => {
-        if (ref.current) return
-        client.friend.list().then(({ data }) => {
-            if (data) {
-                const friend_list = data.friend_list || []
+    function fetchFriends() {
+        setStatus('loading')
+        return client.friend.list().then(({ data, error }) => {
+            if (!error && data && Array.isArray(data.friend_list)) {
+                const friend_list = data.friend_list
                 const friends_available = friend_list.filter(({ health, accepted }: any) => health.length === 0 && accepted === 1) || []
                 setFriendsAvailable(friends_available as any)
                 const friends_unavailable = friend_list.filter(({ health, accepted }: any) => health.length > 0 && accepted === 1) || []
@@ -77,9 +78,15 @@ export function FriendsPage() {
                 setWaitList(waitList as any)
                 const refuesdList = friend_list.filter(({ accepted }: any) => accepted === -1) || []
                 setRefusedList(refuesdList as any)
+                setStatus('success')
+            } else {
+                setStatus('error')
             }
-            setStatus('idle')
-        })
+        }).catch(() => setStatus('error'))
+    }
+    useEffect(() => {
+        if (ref.current) return
+        void fetchFriends()
         ref.current = true
     }, [])
     function publishButton() {
@@ -94,9 +101,15 @@ export function FriendsPage() {
             <meta property="og:type" content="article" />
             <meta property="og:url" content={document.URL} />
         </Helmet>
-        <Waiting for={friendsAvailable.length !== 0 || friendsUnavailable.length !== 0 || status === "idle"}>
+        <Waiting for={status !== "loading"}>
             <main className="w-full flex flex-col justify-center items-center mb-8 t-primary ani-show">
-                {status === "idle" && !friendsAvailable.length && !friendsUnavailable.length && !waitList.length && !refusedList.length && !apply && (
+                {status === "error" && (
+                    <div role="alert" className="wauto flex flex-col items-center gap-3 py-12 text-center text-sm t-secondary">
+                        <p>{t('friends.load_failed')}</p>
+                        <Button title={t('error.retry')} onClick={() => { void fetchFriends() }} />
+                    </div>
+                )}
+                {status === "success" && !friendsAvailable.length && !friendsUnavailable.length && !waitList.length && !refusedList.length && !apply && (
                     <p className="wauto py-12 text-center text-sm t-secondary">{t('friends.empty')}</p>
                 )}
                 <FriendList title={t('friends.title')} show={friendsAvailable.length > 0} friends={friendsAvailable} />

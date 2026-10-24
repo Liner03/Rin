@@ -11,6 +11,7 @@ import { useSearch } from "wouter"
 import { useAlert, useConfirm } from "../components/dialog"
 import Modal from "react-modal"
 import { MarkdownEditor } from "../components/markdown_editor"
+import { Button } from "../components/button"
 import { Waiting } from "../components/loading"
 import { MomentItem } from "../components/moment_item"
 
@@ -30,7 +31,8 @@ export function MomentsPage() {
     const [moments, setMoments] = useState<Moment[]>([])
     const [length, setLength] = useState(0)
     const [content, setContent] = useState("")
-    const [loading, setLoading] = useState(false)
+    const [saving, setSaving] = useState(false)
+    const [loadStatus, setLoadStatus] = useState<'loading' | 'success' | 'error'>('loading')
     const [isModalOpen, setIsModalOpen] = useState(false)
     const [editingMoment, setEditingMoment] = useState<Moment | null>(null)
     const query = new URLSearchParams(useSearch());
@@ -44,6 +46,7 @@ export function MomentsPage() {
     const [currentPage, setCurrentPage] = useState(1)
     const [hasNextPage, setHasNextPage] = useState(false)
     const [loadingMore, setLoadingMore] = useState(false)
+    const [loadMoreError, setLoadMoreError] = useState(false)
     
     const limit = tryInt(siteConfig.pageSize, query.get("limit"))
     
@@ -52,17 +55,25 @@ export function MomentsPage() {
         
         const isInitialLoad = page === 1 && !append
         if (isInitialLoad) {
-            setLoading(true)
+            setLoadStatus('loading')
         } else {
             setLoadingMore(true)
         }
+        setLoadMoreError(false)
+        const handleFailure = () => {
+            if (isInitialLoad) {
+                setLoadStatus('error')
+            } else {
+                setLoadMoreError(true)
+            }
+        }
         
-        client.moments.list({
+        return client.moments.list({
             page: page,
             limit: limit
-        }).then(({ data }) => {
-            if (data) {
-                const momentData = Array.isArray(data.data) ? data.data : [];
+        }).then(({ data, error }) => {
+            if (!error && data && Array.isArray(data.data)) {
+                const momentData = data.data;
                 setLength(momentData.length)
                 setHasNextPage(data.hasNext)
                 
@@ -73,11 +84,12 @@ export function MomentsPage() {
                 }
                 
                 setCurrentPage(page)
-            }
-        }).finally(() => {
-            if (isInitialLoad) {
-                setLoading(false)
+                setLoadStatus('success')
             } else {
+                handleFailure()
+            }
+        }).catch(handleFailure).finally(() => {
+            if (!isInitialLoad) {
                 setLoadingMore(false)
             }
         })
@@ -92,7 +104,7 @@ export function MomentsPage() {
     function handleSubmit() {
         if (!content.trim()) return
         
-        setLoading(true)
+        setSaving(true)
         
         if (editingMoment) {
             client.moments.update(editingMoment.id, { content })
@@ -107,7 +119,7 @@ export function MomentsPage() {
                     showAlert(t('update.success'))
                 }
             }).finally(() => {
-                setLoading(false)
+                setSaving(false)
             })
         } else {
             client.moments.create({ content })
@@ -121,7 +133,7 @@ export function MomentsPage() {
                     showAlert(t('publish.success'))
                 }
             }).finally(() => {
-                setLoading(false)
+                setSaving(false)
             })
         }
     }
@@ -172,7 +184,7 @@ export function MomentsPage() {
                 <meta property="og:type" content="article" />
                 <meta property="og:url" content={document.URL} />
             </Helmet>
-            <Waiting for={!loading}>
+            <Waiting for={!saving && loadStatus !== 'loading'}>
                 <main className="w-full flex flex-col justify-center items-center mb-8 ani-show">
                     <div className="wauto text-start text-black dark:text-white py-4 text-4xl font-bold">
                         <p>
@@ -206,9 +218,18 @@ export function MomentsPage() {
                                     />
                                 ))}
                             </div>
-                        ) : <p className="py-12 text-center text-sm t-secondary">{t('moments.empty')}</p>}
+                        ) : loadStatus === 'success' ? <p className="py-12 text-center text-sm t-secondary">{t('moments.empty')}</p> : null}
+                        {(loadStatus === 'error' || loadMoreError) && (
+                            <div role="alert" className="flex flex-col items-center gap-3 py-12 text-center text-sm t-secondary">
+                                <p>{t('moments.load_failed')}</p>
+                                <Button title={t('error.retry')} onClick={() => {
+                                    if (loadMoreError) loadMore()
+                                    else void fetchMoments()
+                                }} />
+                            </div>
+                        )}
                         
-                        <Waiting for={!loadingMore}>
+                        {loadStatus === 'success' && !loadMoreError && <Waiting for={!loadingMore}>
                             <div className="py-4 text-center">
                                 {!hasNextPage && moments && moments.length > 0 ? (
                                     <div className="text-gray-500 pt-6">{t('no_more')}</div>
@@ -221,7 +242,7 @@ export function MomentsPage() {
                                     </button>
                                 ) : null}
                             </div>
-                        </Waiting>
+                        </Waiting>}
                     </div>
                 </main>
             </Waiting>
@@ -276,10 +297,10 @@ export function MomentsPage() {
                         </button>
                         <button
                             onClick={handleSubmit}
-                            disabled={loading || !content.trim()}
+                            disabled={saving || !content.trim()}
                             className="px-4 py-2 bg-theme text-white rounded-lg disabled:opacity-50"
                         >
-                            {loading ? t('saving') : editingMoment ? t('update.title') : t('publish.title')}
+                            {saving ? t('saving') : editingMoment ? t('update.title') : t('publish.title')}
                         </button>
                     </div>
                 </div>

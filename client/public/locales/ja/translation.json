@@ -175,6 +175,7 @@
     }
   },
   "error": {
+    "retry": "再試行",
     "api_url": "Pages 環境変数のAPI_URLはWorkerアドレスである必要があります。Pages環境変数のAPI_URLが正しいか確認してください。",
     "api_url_slash": "Pages 環境変数のAPI_URLはWorkerアドレスである必要があります。Pages環境変数のAPI_URLが正しいか、またAPI_URLの末尾にスラッシュ（/）がないか確認してください。",
     "github_callback": "GitHub OAuthコールバックURLは`https://<Workerアドレス>/api/user/github/callback`である必要があります。GitHub OAuthコールバックURLが正しいか確認してください。",
@@ -190,6 +191,7 @@
     "rss": "RSS 購読リンク"
   },
   "friends": {
+    "load_failed": "リンクの読み込みに失敗しました。もう一度お試しください。",
     "empty": "リンクはまだありません",
     "apply": "友人リンクを申請",
     "create": "友人リンクを作成",
@@ -228,6 +230,7 @@
   "logout": "ログアウト",
   "main_content": "本文",
   "moments": {
+    "load_failed": "つぶやきの読み込みに失敗しました。もう一度お試しください。",
     "empty": "つぶやきはまだありません",
     "edit": "編集",
     "publish": "公開",
