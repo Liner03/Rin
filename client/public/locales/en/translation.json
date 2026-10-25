@@ -1,4 +1,8 @@
 {
+  "bootstrap": {
+    "loading": "Loading…",
+    "failed": "The site could not load. Please retry."
+  },
   "about": {
     "notfound": "Set the article alias to `about` to create an about page",
     "title": "About"

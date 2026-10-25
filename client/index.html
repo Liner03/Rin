@@ -3,10 +3,10 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <script data-cfasync="false" src="/api/config/client/bootstrap.js"></script>
+    <script id="rin-client-config" async data-cfasync="false" src="/api/config/client/bootstrap.js"></script>
   </head>
   <body>
-    <div id="root"></div>
+    <div id="root"><p role="status" style="padding: 3rem; text-align: center; font-family: system-ui, sans-serif">Loading…</p></div>
     <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>

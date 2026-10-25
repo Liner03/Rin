@@ -1,4 +1,8 @@
 {
+  "bootstrap": {
+    "loading": "正在加载…",
+    "failed": "网站加载失败，请重试。"
+  },
   "about": {
     "notfound": "将文章别名设置为 about 可以创建关于页面",
     "title": "关于"

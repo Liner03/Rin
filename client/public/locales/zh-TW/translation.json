@@ -1,4 +1,8 @@
 {
+  "bootstrap": {
+    "loading": "正在載入…",
+    "failed": "網站載入失敗，請重試。"
+  },
   "about": {
     "notfound": "將文章別名設定為 about 可以創建關於頁面",
     "title": "關於"
