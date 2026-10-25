@@ -5,20 +5,25 @@ import {timeago} from "../utils/timeago.ts";
 import {Link} from "wouter";
 import {useTranslation} from "react-i18next";
 
-export function AdjacentSection({id, setError}: { id: string, setError: (error: string) => void }) {
+export function AdjacentSection({id}: { id: string }) {
     const [adjacentFeeds, setAdjacentFeeds] = useState<AdjacentFeedResponse>();
 
     useEffect(() => {
+        let cancelled = false;
+        setAdjacentFeeds(undefined);
         client.feed
             .adjacent(id)
             .then(({data, error}) => {
-                if (error) {
-                    setError(error.value as string);
-                } else if (data && typeof data !== "string") {
+                if (!cancelled && !error && data && typeof data !== "string") {
                     setAdjacentFeeds(data);
                 }
+            })
+            .catch(() => {
+                // Optional navigation must not replace an already loaded article with an error.
             });
-    }, [id, setError]);
+        return () => { cancelled = true; };
+    }, [id]);
+    if (!adjacentFeeds) return null;
     return (
         <div className="adjacent-feeds rounded-2xl bg-w m-2 grid grid-cols-1 sm:grid-cols-2">
             <AdjacentCard data={adjacentFeeds?.previousFeed} type="previous"/>

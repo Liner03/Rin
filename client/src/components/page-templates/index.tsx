@@ -1,6 +1,7 @@
 import type { ReactNode } from "react";
 import type { Page } from "@rin/api";
 import { Markdown } from "../markdown";
+import { TimelinePage } from "../../page/timeline";
 
 export interface PageTemplateProps {
   page: Page;
@@ -13,14 +14,21 @@ export interface PageTemplateDefinition {
   render: (props: PageTemplateProps) => ReactNode;
 }
 
+// Imported Mirages fields describe theme behavior, rather than page content.
+const THEME_SETTING_FIELDS = new Set([
+  "banner", "contentLang", "disableDarkMask", "enableFlowChat", "enableMathJax",
+  "enableMermaid", "TOC", "useSerifFont", "summaryContent",
+]);
+
 // 自定义字段展示块
 function PageFields({ fields }: { fields: Page["fields"] }) {
-  if (!fields || fields.length === 0) {
+  const visibleFields = fields?.filter((field) => !THEME_SETTING_FIELDS.has(field.name));
+  if (!visibleFields || visibleFields.length === 0) {
     return null;
   }
   return (
     <dl className="mb-6 grid gap-2 text-sm t-secondary sm:grid-cols-2">
-      {fields.map((field) => (
+      {visibleFields.map((field) => (
         <div key={field.name} className="flex gap-2 border-b border-dashed border-black/10 pb-2 dark:border-white/10">
           <dt className="shrink-0 font-medium t-primary">{field.name}</dt>
           <dd className="min-w-0 break-words">{typeof field.value === "object" ? JSON.stringify(field.value) : String(field.value ?? "")}</dd>
@@ -484,6 +492,11 @@ export const PAGE_TEMPLATES: Record<string, PageTemplateDefinition> = {
     id: "default",
     title: "page_templates.default",
     render: DefaultTemplate,
+  },
+  archives: {
+    id: "archives",
+    title: "timeline",
+    render: () => <TimelinePage />,
   },
   wide: {
     id: "wide",

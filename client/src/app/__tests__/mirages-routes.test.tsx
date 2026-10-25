@@ -12,7 +12,7 @@ const mockedRuntime = {
   endpoint: "http://localhost",
   oauth_url: "/oauth",
   client: {
-    feed: { get: jest.fn(), list: jest.fn(), unlock: jest.fn() },
+    feed: { get: jest.fn(), list: jest.fn(), unlock: jest.fn(), adjacent: jest.fn() },
     page: { get: jest.fn(), list: jest.fn(), unlock: jest.fn() },
     category: { get: jest.fn() },
     search: { search: jest.fn() },
@@ -38,7 +38,6 @@ mock.module("../../components/dialog", () => ({
   useConfirm: () => ({ showConfirm: jest.fn(), ConfirmUI: () => null }),
 }));
 mock.module("../../components/markdown", () => ({ Markdown: ({ content }: { content: string }) => <div>{content}</div> }));
-mock.module("../../components/adjacent_feed.tsx", () => ({ AdjacentSection: () => null }));
 mock.module("../../components/feed_card", () => ({ FeedCard: ({ title }: { title: string }) => <div>{title}</div> }));
 mock.module("../../components/page-templates", () => ({
   getPageTemplate: () => ({ render: ({ page }: { page: Page }) => <article>{page.content}</article> }),
@@ -75,6 +74,7 @@ describe("Mirages content routes", () => {
       for (const method of Object.values(service)) method.mockReset();
     }
     client.feed.get.mockResolvedValue({ data: feed });
+    client.feed.adjacent.mockResolvedValue({ data: { previousFeed: null, nextFeed: null } });
     client.feed.list.mockResolvedValue({ data: { data: [], size: 0, hasNext: false } });
     client.feed.unlock.mockResolvedValue({});
     client.page.get.mockResolvedValue({ data: page });
@@ -157,6 +157,24 @@ describe("Mirages content routes", () => {
     expect(client[service].get).toHaveBeenCalledTimes(1);
   });
 
+  it("retries a timed-out article without leaving the page", async () => {
+    client.feed.get.mockResolvedValueOnce({ error: { status: 408, value: "Request timed out" } });
+    openRoute("/feed/101", true);
+    await screen.findByRole("heading", { name: "error.request_timeout" });
+    fireEvent.click(screen.getByRole("button", { name: "error.retry" }));
+    expect(await screen.findByText("Article body")).not.toBeNull();
+    expect(client.feed.get).toHaveBeenCalledTimes(2);
+    expect(screen.queryByText("error.request_timeout")).toBeNull();
+  });
+
+  it.each([0, 404, 500])("keeps the article visible when adjacent navigation fails with status %s", async (status) => {
+    client.feed.adjacent.mockResolvedValue({ error: { status, value: "Navigation unavailable" } });
+    openRoute("/feed/101");
+    await waitFor(() => expect(client.feed.adjacent).toHaveBeenCalledWith("101"));
+    expect(screen.getByText("Article body")).not.toBeNull();
+    expect(screen.queryByRole("heading", { name: "error.title" })).toBeNull();
+  });
+
   it.each([
     ["/feed/101", "feed", feed],
     ["/page/about", "page", page],
@@ -206,5 +224,18 @@ describe("Mirages content routes", () => {
     expect(await screen.findByRole("heading", { name: "Test blog", level: 1 })).not.toBeNull();
     expect(screen.queryByText("Article title")).toBeNull();
     expect(client.feed.get).toHaveBeenCalledTimes(1);
+  });
+
+  it.each(["API error", "rejection", "missing data"])("leaves loading and retries the home article list after %s", async (failure) => {
+    if (failure === "API error") client.feed.list.mockResolvedValueOnce({ error: { status: 408, value: "Request timed out" } });
+    else if (failure === "rejection") client.feed.list.mockRejectedValueOnce(new Error("Connection lost"));
+    else client.feed.list.mockResolvedValueOnce({});
+    client.feed.list.mockResolvedValue({ data: { data: [{ ...feed, avatar: null, summary: "Summary" }], size: 1, hasNext: false } });
+    openRoute("/", true);
+    expect((await screen.findByRole("alert")).textContent).toContain("article.load_failed");
+    fireEvent.click(screen.getByRole("button", { name: "error.retry" }));
+    expect(await screen.findByText("Article title")).not.toBeNull();
+    expect(client.feed.list).toHaveBeenCalledTimes(2);
+    expect(screen.queryByRole("alert")).toBeNull();
   });
 });

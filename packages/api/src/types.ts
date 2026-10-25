@@ -13,6 +13,8 @@ export interface ApiResponse<T> {
 
 export interface RequestOptions {
   headers?: Record<string, string>;
+  /** Deadline for both receiving headers and reading the response body. */
+  timeoutMs?: number;
 }
 
 // ============================================================================

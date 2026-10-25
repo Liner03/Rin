@@ -63,6 +63,7 @@
   "alert": "提示",
   "alias": "別名",
   "article": {
+    "load_failed": "文章列表載入失敗，請重試",
     "delete": {
       "confirm": "確定刪除這篇文章嗎？",
       "title": "刪除文章"
@@ -175,6 +176,7 @@
     }
   },
   "error": {
+    "request_timeout": "文章載入逾時，請重試",
     "retry": "重試",
     "api_url": "Pages 環境變數中 API_URL 應為 Worker 地址，請檢查 Pages 環境變數中 API_URL 是否正確",
     "api_url_slash": "Pages 環境變數中 API_URL 應為 Worker 地址，請檢查 Pages 環境變數中 API_URL 是否正確，且 API_URL 末尾不能有 /",
