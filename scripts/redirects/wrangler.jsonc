@@ -1,0 +1,17 @@
+{
+  "$schema": "../../node_modules/wrangler/config-schema.json",
+  "name": "rin-blog-redirects",
+  "account_id": "823977149c884d6c4234970330bbcf10",
+  "main": "worker.ts",
+  "compatibility_date": "2026-10-25",
+  "workers_dev": false,
+  "preview_urls": false,
+  "routes": [
+    { "pattern": "lin03.cn", "zone_name": "lin03.cn", "custom_domain": true },
+    { "pattern": "www.lin03.cn/*", "zone_name": "lin03.cn" }
+  ],
+  "observability": {
+    "enabled": true,
+    "traces": { "enabled": true }
+  }
+}
