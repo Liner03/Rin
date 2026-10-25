@@ -107,11 +107,20 @@ export function FeedPage({ id, TOC }: { id: string, TOC: ReactNode }) {
     if (!request.current || request.current.id !== id || request.current.version !== reloadVersion) {
       request.current = { id, version: reloadVersion, promise: client.feed.get(id) };
     }
+    function restoreCachedFeed() {
+      // Another tab may have populated the cache after this page began loading.
+      const fallback = client.feed.getCached(id);
+      if (!fallback) return false;
+      setFeed(fallback);
+      setTop(fallback.top || 0);
+      setError(undefined);
+      return true;
+    }
     request.current.promise
       .then(({ data, error }) => {
         if (cancelled) return;
         if (error) {
-          if (isTransientContentError(error.status) && client.feed.getCached(id)) return;
+          if (isTransientContentError(error.status) && restoreCachedFeed()) return;
           setFeed(undefined);
           setError({
             message: error.value,
@@ -126,7 +135,7 @@ export function FeedPage({ id, TOC }: { id: string, TOC: ReactNode }) {
         }
       })
       .catch((error: unknown) => {
-        if (!cancelled && !client.feed.getCached(id)) {
+        if (!cancelled && !restoreCachedFeed()) {
           setFeed(undefined);
           setError({ message: error instanceof Error ? error.message : String(error), retryable: true });
         }

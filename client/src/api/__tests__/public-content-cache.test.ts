@@ -162,8 +162,12 @@ describe("public page-data cache", () => {
     expect(api.feed.getCachedList()).toBeUndefined();
   });
 
-  it("falls back to memory when storage is denied", async () => {
-    const storage = spyOn(Object.getPrototypeOf(localStorage), "setItem").mockImplementation(() => { throw new Error("Storage denied"); });
+  it("falls back to memory when payload storage fails but the shared marker is writable", async () => {
+    const setItem = localStorage.setItem.bind(localStorage);
+    const storage = spyOn(Object.getPrototypeOf(localStorage), "setItem").mockImplementation((key: string, value: string) => {
+      if (!key.endsWith(":generation")) throw new Error("QuotaExceededError");
+      setItem(key, value);
+    });
     try {
       respond(() => publicResponse(feed));
       await api.feed.get(101);
@@ -177,11 +181,21 @@ describe("public page-data cache", () => {
   it("ignores malformed or incompatible stored data", async () => {
     respond(() => publicResponse(feed));
     await api.feed.get(101);
-    const key = Object.keys(localStorage).find((key) => key.startsWith("rin:public-content:"))!;
-    for (const value of ["{broken", '{"entries":null}', JSON.stringify({ generation: "invalid", entries: [{ key: "article:101", expiresAt: Date.now() + 1000, data: { ...feed, content: null } }] })]) {
+    const key = Object.keys(localStorage).find((key) => key.startsWith("rin:public-content:") && !key.endsWith(":generation"))!;
+    const stored = JSON.parse(localStorage.getItem(key)!);
+    for (const value of ["{broken", '{"entries":null}', JSON.stringify({ ...stored, entries: [{ key: "article:101", expiresAt: Date.now() + 1000, data: { ...feed, content: null } }] })]) {
       localStorage.setItem(key, value);
       expect(api.feed.getCached(101)).toBeUndefined();
     }
+  });
+
+  it("returns live articles normally when storage cannot coordinate cache invalidation", async () => {
+    const storage = spyOn(Object.getPrototypeOf(localStorage), "setItem").mockImplementation(() => { throw new Error("QuotaExceededError"); });
+    try {
+      respond(() => publicResponse(feed));
+      expect((await api.feed.get(101)).data?.content).toBe(feed.content);
+      expect(api.feed.getCached(101)).toBeUndefined();
+    } finally { storage.mockRestore(); }
   });
 
   it("bounds the cache and skips oversized articles", async () => {

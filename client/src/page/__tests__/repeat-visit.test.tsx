@@ -1,7 +1,7 @@
 import "../../test/setup";
 import type { Feed, FeedListResponse } from "@rin/api";
 import { StrictMode, type ReactNode } from "react";
-import { afterEach, beforeEach, describe, expect, it, mock } from "bun:test";
+import { afterEach, beforeEach, describe, expect, it, mock, spyOn } from "bun:test";
 import { Route, Router, Switch } from "wouter";
 import { memoryLocation } from "wouter/memory-location";
 import { createClient } from "../../api/client";
@@ -78,6 +78,29 @@ afterEach(async () => {
 });
 
 describe("repeat visits with a slow API", () => {
+  it.each(["HTTP failure", "rejected request"])("uses another tab's cache when an initially uncached article ends in %s", async (failure) => {
+    delayPath = "/api/feed/101";
+    let rejectRequest!: (error: Error) => void;
+    const get = failure === "rejected request"
+      ? spyOn(api.feed, "get").mockImplementationOnce(() => new Promise((_resolve, reject) => { rejectRequest = reject; }))
+      : undefined;
+    try {
+      openRoute("/feed/101");
+      expect(screen.queryByText("Read article body")).toBeNull();
+      const firstTabFetch = globalThis.fetch;
+      globalThis.fetch = mock(async () => publicResponse(feed)) as typeof fetch;
+      await createClient("https://blog.example").feed.get(101);
+      globalThis.fetch = firstTabFetch;
+      expect(api.feed.getCached(101)?.content).toBe("Read article body");
+      await act(async () => {
+        if (failure === "HTTP failure") pending!(new Response("Unavailable", { status: 503 }));
+        else rejectRequest(new Error("Connection lost"));
+      });
+      expect(screen.queryByText("Read article body")).not.toBeNull();
+      expect(screen.queryByRole("button", { name: "error.retry" })).toBeNull();
+    } finally { get?.mockRestore(); }
+  });
+
   it.each([
     ["/", "/api/feed", "Home article", { ...list, data: [{ ...list.data[0], title: "Fresh home article" }] }, "Fresh home article"],
     ["/feed/101", "/api/feed/101", "Read article body", { ...feed, content: "Fresh article body" }, "Fresh article body"],
