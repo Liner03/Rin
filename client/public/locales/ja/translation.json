@@ -1,4 +1,8 @@
 {
+  "bootstrap": {
+    "loading": "読み込み中…",
+    "failed": "サイトを読み込めませんでした。再試行してください。"
+  },
   "about": {
     "notfound": "About ページを作成するには、記事のエイリアスを about に設定します",
     "title": "概要"

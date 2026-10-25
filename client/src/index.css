@@ -6,7 +6,7 @@
 @font-face {
   font-family: "Cantarell";
   font-style: normal;
-  font-display: auto;
+  font-display: swap;
   font-weight: 400;
   src: url(/cantarell_5.0.12_latin-400-normal.woff2) format("woff2"),
     url(/cantarell_5.0.13_latin-400-normal.woff) format("woff");

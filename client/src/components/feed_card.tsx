@@ -8,6 +8,7 @@ import { timeago } from "../utils/timeago";
 import { useImageLoadState } from "../utils/use-image-load-state";
 import { type FeedCardVariant, normalizeFeedCardVariant } from "./feed-card-options";
 import { HashTag } from "./hashtag";
+import { preloadMarkdown } from "./markdown";
 
 const MIRAGES_GRADIENTS = [
     ["#EB3349", "#F45C43"],
@@ -44,7 +45,7 @@ function gradientForFeed(id: string | number): string {
     return `linear-gradient(90deg, ${colors[0]} 0%, ${colors[1]} 50%, ${colors[2]} 100%)`;
 }
 
-function SmartImage({ src, imgClassName, frameClassName }: { src: string; imgClassName: string; frameClassName?: string }) {
+function SmartImage({ src, imgClassName, frameClassName, priority = false }: { src: string; imgClassName: string; frameClassName?: string; priority?: boolean }) {
     const canvasRef = useRef<HTMLCanvasElement>(null);
     const { src: cleanSrc, blurhash, width, height } = parseImageUrlMetadata(src);
     const { failed, imageRef, loaded, onError, onLoad } = useImageLoadState(cleanSrc);
@@ -82,7 +83,8 @@ function SmartImage({ src, imgClassName, frameClassName }: { src: string; imgCla
                 alt=""
                 width={width}
                 height={height}
-                loading="lazy"
+                loading={priority ? "eager" : "lazy"}
+                fetchPriority={priority ? "high" : "auto"}
                 onLoad={onLoad}
                 onError={onError}
                 className={`${imgClassName} ${blurPending || failed ? "opacity-0" : "opacity-100"}`}
@@ -100,7 +102,7 @@ function SmartImage({ src, imgClassName, frameClassName }: { src: string; imgCla
     );
 }
 
-function FeedCardImage({ src, variant }: { src: string; variant: FeedCardVariant }) {
+function FeedCardImage({ src, variant, priority }: { src: string; variant: FeedCardVariant; priority?: boolean }) {
     const imageFrameClass =
         variant === "editorial"
             ? "relative flex max-h-80 w-full flex-row items-center overflow-hidden rounded-[20px]"
@@ -109,6 +111,7 @@ function FeedCardImage({ src, variant }: { src: string; variant: FeedCardVariant
     return (
         <SmartImage
             src={src}
+            priority={priority}
             frameClassName={imageFrameClass}
             imgClassName="absolute inset-0 h-full w-full object-cover object-center hover:scale-105 duration-300"
         />
@@ -181,13 +184,14 @@ export type FeedCardProps = {
     updatedAt: string | Date;
     preview?: boolean;
     variant?: FeedCardVariant;
+    imagePriority?: boolean;
 };
 
 type MiragesCardBodyProps = Omit<FeedCardProps, "preview" | "variant" | "summary" | "hashtags"> & {
     hashtags: { name: string }[];
 };
 
-function MiragesCardBody({ id, title, avatar, draft, listed, top, hashtags, createdAt, updatedAt }: MiragesCardBodyProps) {
+function MiragesCardBody({ id, title, avatar, draft, listed, top, hashtags, createdAt, updatedAt, imagePriority }: MiragesCardBodyProps) {
     const siteConfig = useSiteConfig();
     // 无封面图时：优先使用站点首页 banner 图，其次确定性渐变
     const background = avatar ? undefined : (siteConfig.heroImage
@@ -202,6 +206,7 @@ function MiragesCardBody({ id, title, avatar, draft, listed, top, hashtags, crea
             {avatar ? (
                 <SmartImage
                     src={avatar}
+                    priority={imagePriority}
                     imgClassName="absolute inset-0 h-full w-full object-cover object-center transition-opacity duration-300"
                 />
             ) : null}
@@ -224,13 +229,13 @@ function MiragesCardBody({ id, title, avatar, draft, listed, top, hashtags, crea
     );
 }
 
-function DefaultFeedCardBody({ title, avatar, draft, listed, top, summary, hashtags, createdAt, updatedAt, variant }: FeedCardProps & { hashtags: { id: number, name: string }[]; variant: Exclude<FeedCardVariant, "mirages"> }) {
+function DefaultFeedCardBody({ title, avatar, draft, listed, top, summary, hashtags, createdAt, updatedAt, variant, imagePriority }: FeedCardProps & { hashtags: { id: number, name: string }[]; variant: Exclude<FeedCardVariant, "mirages"> }) {
     const styles = FEED_CARD_STYLES[variant];
     return (
         <div className={styles.card}>
             {avatar ? (
                 <div className={styles.imageWrap}>
-                    <FeedCardImage src={avatar} variant={variant} />
+                    <FeedCardImage src={avatar} variant={variant} priority={imagePriority} />
                 </div>
             ) : null}
             <div className={variant === "editorial" ? "px-2 pb-2" : ""}>
@@ -266,5 +271,17 @@ export function FeedCard(props: FeedCardProps) {
         <DefaultFeedCardBody {...props} hashtags={safeHashtags} variant={activeVariant} />
     );
 
-    return preview ? body : <Link href={`/feed/${props.id}`} target="_blank" rel="noopener noreferrer" className="block min-w-0 w-full">{body}</Link>;
+    const prepareArticle = () => { void preloadMarkdown().catch(() => {}); };
+    return preview ? body : (
+        <Link
+            href={`/feed/${props.id}`}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="block min-w-0 w-full"
+            onPointerEnter={prepareArticle}
+            onFocus={prepareArticle}
+        >
+            {body}
+        </Link>
+    );
 }
