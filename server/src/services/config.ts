@@ -15,6 +15,7 @@ import {
     splitConfigPayload,
 } from "./config-helpers";
 import { buildHealthCheckResponse } from "./config-health";
+import { clientBootstrapResponse, invalidateClientBootstrap } from "./client-bootstrap";
 import { buildQueueStatusResponse, deleteQueueStatusTask, retryQueueStatusTask } from "./config-queue-status";
 import { profileAsync } from "../core/server-timing";
 import {
@@ -26,17 +27,6 @@ import {
 
 export function ConfigService(): Hono {
     const app = new Hono();
-
-    function serializeBootstrapScript(config: Record<string, unknown>) {
-        const serialized = JSON.stringify(config)
-            .replace(/</g, "\\u003C")
-            .replace(/>/g, "\\u003E")
-            .replace(/&/g, "\\u0026")
-            .replace(/\u2028/g, "\\u2028")
-            .replace(/\u2029/g, "\\u2029");
-
-        return `globalThis.__RIN_CLIENT_CONFIG__=${serialized};`;
-    }
 
     // POST /config/test-ai - Test AI model configuration
     // NOTE: Must be defined BEFORE /:type route to avoid being captured as a type parameter
@@ -227,22 +217,7 @@ export function ConfigService(): Hono {
         }
     }));
 
-    app.get('/client/bootstrap.js', async (c: AppContext) => {
-        const clientConfig = c.get('clientConfig');
-        const serverConfig = c.get('serverConfig');
-        const env = c.get('env');
-        const profile = <T>(name: string, task: () => Promise<T>) => profileAsync(c, name, task);
-        const config = await profileAsync(c, 'bootstrap_client_config', () => buildClientConfigResponse(clientConfig, serverConfig, env, profile));
-        const script = await profileAsync(c, 'bootstrap_script', () => Promise.resolve(serializeBootstrapScript(config)));
-
-        return new Response(script, {
-            status: 200,
-            headers: {
-                'content-type': 'application/javascript; charset=utf-8',
-                'cache-control': 'public, max-age=0, must-revalidate',
-            },
-        });
-    });
+    app.get('/client/bootstrap.js', clientBootstrapResponse);
 
     // GET /config/:type
     app.get('/:type', async (c: AppContext) => {
@@ -293,6 +268,7 @@ export function ConfigService(): Hono {
             await setAIConfig(serverConfig, aiConfigUpdates);
         }
 
+        await invalidateClientBootstrap(c);
         return c.json(await buildCombinedConfigResponse(clientConfig, serverConfig, env));
     }));
 
@@ -315,7 +291,8 @@ export function ConfigService(): Hono {
         if (Object.keys(aiConfigUpdates).length > 0) {
             await setAIConfig(serverConfig, aiConfigUpdates);
         }
-        
+
+        await invalidateClientBootstrap(c);
         return c.text('OK');
     }));
 
@@ -323,6 +300,7 @@ export function ConfigService(): Hono {
     app.delete('/cache', adminOnly(async (c: AppContext) => {
         const cache = c.get('cache');
         await cache.clear();
+        await invalidateClientBootstrap(c);
         return c.text('OK');
     }));
 

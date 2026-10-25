@@ -18,6 +18,7 @@ export const CLIENT_CONFIG_DEFAULTS = new Map(
     "site.description": "A lightweight personal blogging system",
     "site.avatar": "",
     "site.hero_image": "",
+    "site.hero_position": "center",
     "site.keywords": "",
     "site.copyright": "",
     "site.rss_title": "",

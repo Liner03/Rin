@@ -10,6 +10,7 @@ import {
     createContentUnlockHandler,
     generateSlug,
     getContentFields,
+    getFieldsForContents,
     getUniqueSlug,
     hashContentPassword,
     isContentUnlocked,
@@ -44,11 +45,8 @@ export function PageService(): Hono {
             orderBy: [asc(contents.order), asc(contents.id)],
         }));
 
-        const rows = [];
-        for (const page of page_list) {
-            const fieldsList = await getContentFields(db, page.id);
-            rows.push(serializeContentDetail(page, { fields: fieldsList }));
-        }
+        const fieldsByPage = await profileAsync(c, 'page_list_fields', () => getFieldsForContents(db, page_list.map((page) => page.id)));
+        const rows = page_list.map((page) => serializeContentDetail(page, { fields: fieldsByPage.get(page.id) || [] }));
         return c.json(rows);
     });
 

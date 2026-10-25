@@ -7,6 +7,7 @@ import { deleteFeedById, findDuplicateFeed, findFeedById, insertFeed, searchFeed
 import { profileAsync } from "../core/server-timing";
 import { contents, visits, visitStats } from "../db/schema";
 import { HyperLogLog } from "../utils/hyperloglog";
+import { completeAfterResponse } from "../utils/background";
 import { extractImageWithMetadata } from "../utils/image";
 import { stripMarkdown } from "../utils/markdown";
 import { syncFeedAISummaryQueueState } from "./feed-ai-summary";
@@ -19,8 +20,7 @@ import {
     createContentUnlockHandler,
     excludeHiddenCategoryWhere,
     generateSlug,
-    getCategoriesForContents,
-    getTagsForContents,
+    getTaxonomiesForContents,
     getUniqueSlug,
     hashContentPassword,
     isContentUnlocked,
@@ -145,28 +145,22 @@ export function FeedService(): Hono<{
             ? and(eq(contents.type, CONTENT_TYPE.POST), typeWhere)
             : and(eq(contents.type, CONTENT_TYPE.POST), typeWhere, excludeHiddenCategoryWhere());
 
-        const size = await profileAsync(c, 'feed_list_count', () => db.select({ count: count() }).from(contents).where(where));
-
-        if (size[0].count === 0) {
-            return c.json({ size: 0, data: [], hasNext: false });
-        }
-
-        const rows = await profileAsync(c, 'feed_list_db', () => db.query.contents.findMany({
-            where: where,
-            columns: admin ? undefined : { status: false, password: false, parent: false, template: false, order: false, type: false, allowComment: false, allowPing: false, allowFeed: false, uid: false },
-            with: {
-                user: { columns: { id: true, username: true, avatar: true } }
-            },
-            orderBy: [desc(contents.top), desc(contents.createdAt), desc(contents.updatedAt)],
-            offset: page_num * limit_num,
-            limit: limit_num + 1,
-        }));
+        const [size, rows] = await Promise.all([
+            profileAsync(c, 'feed_list_count', () => db.select({ count: count() }).from(contents).where(where)),
+            profileAsync(c, 'feed_list_db', () => db.query.contents.findMany({
+                where,
+                columns: admin ? undefined : { status: false, password: false, parent: false, template: false, order: false, type: false, allowComment: false, allowPing: false, allowFeed: false, uid: false },
+                with: {
+                    user: { columns: { id: true, username: true, avatar: true } }
+                },
+                orderBy: [desc(contents.top), desc(contents.createdAt), desc(contents.updatedAt)],
+                offset: page_num * limit_num,
+                limit: limit_num + 1,
+            })),
+        ]);
 
         const rowIds = rows.map((feed: any) => feed.id);
-        const [tagsMap, categoriesMap] = await Promise.all([
-            getTagsForContents(db, rowIds),
-            getCategoriesForContents(db, rowIds),
-        ]);
+        const { tags: tagsMap, categories: categoriesMap } = await getTaxonomiesForContents(db, rowIds);
 
         const feed_list = rows.map((feed: any) => contentToFeedList({
             ...feed,
@@ -286,19 +280,26 @@ export function FeedService(): Hono<{
         const id_num = parseFeedId(id);
         const cacheKey = id_num === null ? `feed_detail_v2_alias_${id}` : `feed_detail_v2_id_${id_num}`;
 
-        const feed = await profileAsync(c, 'feed_detail_cache_db', () => cache.getOrSet(cacheKey, async () => {
-            const row = await findPostByIdentifier(db, id);
-            if (!row) return null;
-            const [hashtags, categories] = await Promise.all([
-                getTagsForContents(db, [row.id]),
-                getCategoriesForContents(db, [row.id]),
-            ]);
-            return {
-                ...row,
-                hashtags: hashtags.get(row.id) || [],
-                categories: categories.get(row.id) || [],
-            };
+        const counterEnabled = profileAsync(c, 'feed_detail_counter_flag', () => clientConfig.getOrDefault('counter.enabled', true));
+        const readStats = (contentId: number) => profileAsync(c, 'feed_detail_stats_lookup', () => db.query.visitStats.findFirst({
+            where: eq(visitStats.contentId, contentId),
         }));
+        const [feed, enableVisit, statsById] = await Promise.all([
+            profileAsync(c, 'feed_detail_cache_db', () => cache.getOrSet(cacheKey, async () => {
+                const row = await findPostByIdentifier(db, id);
+                if (!row) return null;
+                const { tags, categories } = await getTaxonomiesForContents(db, [row.id]);
+                return {
+                    ...row,
+                    hashtags: tags.get(row.id) || [],
+                    categories: categories.get(row.id) || [],
+                };
+            })),
+            counterEnabled,
+            // Numeric article URLs can read the counter alongside the body.
+            // Permissions below still gate all returned content and visit writes.
+            counterEnabled.then((enabled) => enabled && id_num !== null ? readStats(id_num) : undefined),
+        ]);
 
         if (!feed) {
             return c.text('Not found', 404);
@@ -327,45 +328,31 @@ export function FeedService(): Hono<{
         }
 
         // update visits using HyperLogLog for efficient UV estimation
-        const enableVisit = await profileAsync(c, 'feed_detail_counter_flag', () => clientConfig.getOrDefault('counter.enabled', true));
         let pv = 0;
         let uv = 0;
 
         if (enableVisit) {
             const ip = c.req.header('cf-connecting-ip') || c.req.header('x-real-ip') || "UNK";
-            const visitorKey = `${ip}`;
-
-            let stats = await profileAsync(c, 'feed_detail_stats_lookup', () => db.query.visitStats.findFirst({
-                where: eq(visitStats.contentId, feed.id)
+            const stats = id_num === null ? await readStats(feed.id) : statsById;
+            const hll = new HyperLogLog(stats?.hllData);
+            hll.add(ip);
+            const hllData = hll.serialize();
+            // A slow analytics write must not delay the article. waitUntil keeps
+            // both writes alive; SQL increments preserve PV under concurrency.
+            const recording = Promise.all([
+                db.insert(visitStats).values({
+                    contentId: feed.id, pv: 1, hllData,
+                }).onConflictDoUpdate({
+                    target: visitStats.contentId,
+                    set: { pv: sql`${visitStats.pv} + 1`, hllData, updatedAt: new Date() },
+                }),
+                db.insert(visits).values({ contentId: feed.id, ip }),
+            ]);
+            await completeAfterResponse(c, recording.catch((error) => {
+                console.error("Failed to record article visit", feed.id, error);
             }));
-
-            if (!stats) {
-                await profileAsync(c, 'feed_detail_stats_insert', () => db.insert(visitStats).values({
-                    contentId: feed.id,
-                    pv: 1,
-                    hllData: new HyperLogLog().serialize()
-                }));
-                pv = 1;
-                uv = 1;
-            } else {
-                const hll = new HyperLogLog(stats.hllData);
-                hll.add(visitorKey);
-                const newHllData = hll.serialize();
-                const newPv = stats.pv + 1;
-
-                await profileAsync(c, 'feed_detail_stats_update', () => db.update(visitStats)
-                    .set({
-                        pv: newPv,
-                        hllData: newHllData,
-                        updatedAt: new Date()
-                    })
-                    .where(eq(visitStats.contentId, feed.id)));
-
-                pv = newPv;
-                uv = Math.round(hll.count());
-            }
-
-            await profileAsync(c, 'feed_detail_visit_insert', () => db.insert(visits).values({ contentId: feed.id, ip: ip }));
+            pv = (stats?.pv ?? 0) + 1;
+            uv = Math.round(hll.count());
         }
 
         return c.json(serializeContentDetail(feed, { pv, uv }));
@@ -441,16 +428,13 @@ export function FeedService(): Hono<{
                 },
             }));
             if (!row) return null;
-            const [hashtags, categories] = await Promise.all([
-                getTagsForContents(db, [row.id]),
-                getCategoriesForContents(db, [row.id]),
-            ]);
+            const { tags, categories } = await getTaxonomiesForContents(db, [row.id]);
             const summary = row.summary.length > 0
                 ? row.summary
                 : stripMarkdown(row.text).slice(0, 50);
             return formatAndCacheData({
                 ...row,
-                hashtags: hashtags.get(row.id) || [],
+                hashtags: tags.get(row.id) || [],
                 categories: categories.get(row.id) || [],
                 summary,
             }, direction);
@@ -628,9 +612,7 @@ export function SearchService(): Hono<{
             keyword, admin: Boolean(admin), pageIndex: page_num, limit: limit_num,
         }));
         const ids = result.rows.map((feed) => feed.id);
-        const [tagsMap, categoriesMap] = await Promise.all([
-            getTagsForContents(db, ids), getCategoriesForContents(db, ids),
-        ]);
+        const { tags: tagsMap, categories: categoriesMap } = await getTaxonomiesForContents(db, ids);
         const data = {
             size: result.size,
             hasNext: result.hasNext,

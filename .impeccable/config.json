@@ -1,0 +1,17 @@
+{
+  "detector": {
+    "ignoreRules": [],
+    "ignoreFiles": [],
+    "ignoreValues": [
+      {
+        "rule": "ai-color-palette",
+        "value": "*",
+        "files": [
+          "client/src/page/feed.tsx"
+        ],
+        "createdAt": "2026-10-25T05:48:08.261Z",
+        "reason": "Agent scope decision: the AI summary accent is unchanged from upstream commit 77ae9dc3 (2026-01-15). Preserve the incumbent presentation during Typecho restoration and article-loading fixes; no palette redesign was requested."
+      }
+    ]
+  }
+}

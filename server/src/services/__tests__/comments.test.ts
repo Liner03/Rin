@@ -54,6 +54,28 @@ describe('CommentService', () => {
     }
 
     describe('GET /:feed - List comments', () => {
+        it('keeps imported spam private and never returns guest email addresses', async () => {
+            sqlite.exec(`
+                INSERT INTO comments (id, content_id, content, guest_name, guest_email, approved) VALUES
+                    (4, 1, 'Approved guest comment', 'Reader', 'private@example.com', 1),
+                    (5, 1, 'Imported spam', 'Spam', 'spam@example.com', 0)
+            `);
+
+            const res = await app.request('/1', { method: 'GET' }, env);
+            const data = await res.json() as Array<Record<string, unknown>>;
+
+            expect(res.status).toBe(200);
+            expect(data.map((comment) => comment.id)).toContain(4);
+            expect(data.map((comment) => comment.id)).not.toContain(5);
+            for (const comment of data) {
+                expect(comment).not.toHaveProperty('guestEmail');
+            }
+            expect(sqlite.query('SELECT guest_email FROM comments WHERE id = 4').get())
+                .toEqual({ guest_email: 'private@example.com' });
+            expect(sqlite.query('SELECT approved FROM comments WHERE id = 5').get())
+                .toEqual({ approved: 0 });
+        });
+
         it('should return comments for a feed', async () => {
             const res = await app.request('/1', { method: 'GET' }, env);
             

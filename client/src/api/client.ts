@@ -200,12 +200,18 @@ class HttpClient {
       headers["Content-Type"] = "application/json";
     }
 
+    const timeoutMs = options?.timeoutMs;
+    const controller = timeoutMs !== undefined ? new AbortController() : undefined;
+    const timeout = controller
+      ? setTimeout(() => controller.abort(), timeoutMs)
+      : undefined;
     try {
       const response = await fetch(url, {
         method,
         headers,
         body: body instanceof FormData ? body : body ? JSON.stringify(body) : undefined,
         credentials: "include",
+        signal: controller?.signal,
       });
 
       // Handle 204 No Content
@@ -258,10 +264,15 @@ class HttpClient {
     } catch (error) {
       return {
         error: {
-          status: 0,
-          value: error instanceof Error ? error.message : "Network error",
+          status: controller?.signal.aborted ? 408 : 0,
+          value: controller?.signal.aborted
+            ? "Request timed out"
+            : error instanceof Error ? error.message : "Network error",
         },
       };
+    } finally {
+      // Keep the deadline active through response.json()/text(), not just fetch().
+      clearTimeout(timeout);
     }
   }
 
@@ -293,14 +304,14 @@ class FeedAPI {
   constructor(private http: HttpClient) {}
 
   // GET /api/feed
-  async list(params?: { page?: number; limit?: number; type?: 'draft' | 'unlisted' | 'normal' }): Promise<ApiResponse<FeedListResponse>> {
+  async list(params?: { page?: number; limit?: number; type?: 'draft' | 'unlisted' | 'normal' }, options?: RequestOptions): Promise<ApiResponse<FeedListResponse>> {
     const searchParams = new URLSearchParams();
     if (params?.page) searchParams.set("page", params.page.toString());
     if (params?.limit) searchParams.set("limit", params.limit.toString());
     if (params?.type) searchParams.set("type", params.type);
     
     const query = searchParams.toString();
-    return this.http.get<FeedListResponse>(`/api/feed${query ? `?${query}` : ""}`);
+    return this.http.get<FeedListResponse>(`/api/feed${query ? `?${query}` : ""}`, { timeoutMs: 20_000, ...options });
   }
 
   // GET /api/feed/timeline
@@ -309,8 +320,8 @@ class FeedAPI {
   }
 
   // GET /api/feed/:id
-  async get(id: number | string): Promise<ApiResponse<Feed>> {
-    return this.http.get<Feed>(`/api/feed/${id}`);
+  async get(id: number | string, options?: RequestOptions): Promise<ApiResponse<Feed>> {
+    return this.http.get<Feed>(`/api/feed/${id}`, { timeoutMs: 20_000, ...options });
   }
 
   // POST /api/feed
@@ -330,7 +341,7 @@ class FeedAPI {
 
   // GET /api/feed/adjacent/:id
   async adjacent(id: number | string): Promise<ApiResponse<AdjacentFeedResponse>> {
-    return this.http.get<AdjacentFeedResponse>(`/api/feed/adjacent/${id}`);
+    return this.http.get<AdjacentFeedResponse>(`/api/feed/adjacent/${id}`, { timeoutMs: 20_000 });
   }
 
   // POST /api/feed/top/:id

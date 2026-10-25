@@ -1,7 +1,26 @@
 import { describe, expect, it, beforeEach, afterEach } from "bun:test";
 import type { Database } from "bun:sqlite";
-import { buildServerConfigResponse, resolveWebhookConfig } from "../config-helpers";
-import { cleanupTestDB, createMockDB } from "../../../tests/fixtures";
+import { buildClientConfigResponse, buildServerConfigResponse, resolveWebhookConfig } from "../config-helpers";
+import { cleanupTestDB, createMockDB, createMockEnv } from "../../../tests/fixtures";
+
+it("loads independent bootstrap settings without serial database waits", async () => {
+    let release!: (value: Map<string, unknown>) => void;
+    const pending = new Promise<Map<string, unknown>>((resolve) => { release = resolve; });
+    let aiRequested = false;
+    const response = buildClientConfigResponse({
+        all: () => pending,
+        async set() {},
+        async save() {},
+    }, {
+        async get() { aiRequested = true; return true; },
+    }, createMockEnv());
+    try {
+        expect(aiRequested).toBe(true);
+    } finally {
+        release(new Map([["site.name", "Test blog"]]));
+    }
+    expect(await response).toMatchObject({ "site.name": "Test blog", "ai_summary.enabled": true });
+});
 
 describe("buildServerConfigResponse", () => {
     let sqlite: Database;

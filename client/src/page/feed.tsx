@@ -10,7 +10,7 @@ import { ContentAvatar } from "../components/content-avatar";
 import { useAlert, useConfirm } from "../components/dialog";
 import { HashTag } from "../components/hashtag";
 import { Waiting } from "../components/loading";
-import { Markdown } from "../components/markdown";
+import { Markdown, preloadMarkdown } from "../components/markdown";
 import { client } from "../app/runtime";
 import { usePublishRouteMetadata } from "../app/route-metadata";
 import { ClientConfigContext } from "../state/config";
@@ -29,7 +29,7 @@ export function FeedPage({ id, TOC }: { id: string, TOC: ReactNode }) {
   const siteConfig = useSiteConfig();
   const profile = useContext(ProfileContext);
   const [feed, setFeed] = useState<Feed>();
-  const [error, setError] = useState<string>();
+  const [error, setError] = useState<{ message: string; retryable: boolean }>();
   const [password, setPassword] = useState("");
   const [unlockError, setUnlockError] = useState("");
   const [reloadVersion, setReloadVersion] = useState(0);
@@ -99,6 +99,7 @@ export function FeedPage({ id, TOC }: { id: string, TOC: ReactNode }) {
     setError(undefined);
     setPassword("");
     setUnlockError("");
+    preloadMarkdown().catch((error) => console.error("Failed to preload Markdown", error));
     // Reuse this load during StrictMode's effect replay; an unlock starts a new version.
     if (!request.current || request.current.id !== id || request.current.version !== reloadVersion) {
       request.current = { id, version: reloadVersion, promise: client.feed.get(id) };
@@ -107,16 +108,19 @@ export function FeedPage({ id, TOC }: { id: string, TOC: ReactNode }) {
       .then(({ data, error }) => {
         if (cancelled) return;
         if (error) {
-          setError(error.value as string);
+          setError({
+            message: error.value,
+            retryable: error.status === 0 || error.status === 408 || error.status === 429 || error.status >= 500,
+          });
         } else if (data && typeof data !== "string") {
           setFeed(data);
           setTop(data.top || 0);
         } else {
-          setError("Not found");
+          setError({ message: "Not found", retryable: false });
         }
       })
       .catch((error: unknown) => {
-        if (!cancelled) setError(error instanceof Error ? error.message : String(error));
+        if (!cancelled) setError({ message: error instanceof Error ? error.message : String(error), retryable: true });
       });
     return () => { cancelled = true; };
   }, [id, reloadVersion]);
@@ -130,36 +134,6 @@ export function FeedPage({ id, TOC }: { id: string, TOC: ReactNode }) {
       setReloadVersion((version) => version + 1);
     }
   }
-  useEffect(() => {
-    // 无 mermaid 代码块时不加载 mermaid（约 73KB gzip）
-    if (!feed?.content || !feed.content.includes("```mermaid")) return;
-    let cancelled = false;
-    import("mermaid").then(({ default: mermaid }) => {
-      if (cancelled) return;
-      mermaid.initialize({
-        startOnLoad: false,
-        theme: "default",
-      });
-      mermaid.run({
-        suppressErrors: true,
-        nodes: document.querySelectorAll("pre.mermaid_default")
-      }).then(() => {
-        if (cancelled) return;
-        mermaid.initialize({
-          startOnLoad: false,
-          theme: "dark",
-        });
-        mermaid.run({
-          suppressErrors: true,
-          nodes: document.querySelectorAll("pre.mermaid_dark")
-        });
-      })
-    });
-    return () => {
-      cancelled = true;
-    };
-  }, [feed?.content]);
-
   return (
     <Waiting for={feed || error}>
       {feed && (
@@ -197,9 +171,12 @@ export function FeedPage({ id, TOC }: { id: string, TOC: ReactNode }) {
         {error && (
           <>
             <div className="flex flex-col wauto rounded-2xl bg-w m-2 p-6 items-center justify-center space-y-2">
-              <h1 className="text-xl font-bold t-primary">{error}</h1>
-              {error === "Not found" && id === "about" && (
+              <h1 className="text-xl font-bold t-primary">{error.message === "Request timed out" ? t("error.request_timeout") : error.message}</h1>
+              {error.message === "Not found" && id === "about" && (
                 <Tips value={t("about.notfound")} />
+              )}
+              {error.retryable && (
+                <Button title={t("error.retry")} onClick={() => setReloadVersion((version) => version + 1)} />
               )}
               <Button
                 title={t("index.back")}
@@ -354,7 +331,7 @@ export function FeedPage({ id, TOC }: { id: string, TOC: ReactNode }) {
                   </div>
                 </div>
               </article>
-              {id !== "about" && <AdjacentSection id={id} setError={setError} />}
+              {id !== "about" && <AdjacentSection id={id} />}
               {feed && <Comments id={`${feed.id}`} />}
               <div className="h-16" />
             </main>

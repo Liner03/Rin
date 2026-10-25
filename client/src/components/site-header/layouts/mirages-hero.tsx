@@ -54,6 +54,7 @@ export function MiragesHero() {
           backgroundImage: backgroundImage
             ? `linear-gradient(rgba(0,0,0,0.25), rgba(0,0,0,0.25)), url(${backgroundImage})`
             : undefined,
+          backgroundPosition: isHome ? siteConfig.heroPosition : undefined,
         }}
       />
       <div className="relative z-10 px-6 text-center">

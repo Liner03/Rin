@@ -2,6 +2,7 @@ import { Hono } from "hono";
 import type { AppContext } from "../core/hono-types";
 import { profileAsync } from "../core/server-timing";
 import { getStorageObject, putStorageObject } from "../utils/storage";
+import { completeAfterResponse } from "../utils/background";
 
 function buf2hex(buffer: ArrayBuffer) {
     return [...new Uint8Array(buffer)]
@@ -58,6 +59,20 @@ export function BlobService(): Hono {
             return c.text("Blob key is required", 400);
         }
 
+        // R2 bindings do not use the CDN automatically. Blob URLs are public;
+        // cache successful responses using the object's existing HTTP policy.
+        let edgeCache: Cache | undefined;
+        const cacheKey = new Request(c.req.url, { method: "GET" });
+        if (env.R2_BUCKET && typeof caches !== "undefined") {
+            try {
+                edgeCache = await caches.open("rin-blobs-v1");
+                const cached = await edgeCache.match(cacheKey);
+                if (cached) return new Response(cached.body, cached);
+            } catch (error) {
+                console.error("Blob cache lookup failed:", error);
+            }
+        }
+
         try {
             const response = await profileAsync(c, "blob_fetch", () => getStorageObject(env, decodeURIComponent(key)));
 
@@ -65,10 +80,16 @@ export function BlobService(): Hono {
                 return c.text("Not found", 404);
             }
 
-            return new Response(response.body, {
+            const result = new Response(response.body, {
                 status: response.status,
                 headers: response.headers,
             });
+            if (edgeCache && result.status === 200 && !/private|no-store/i.test(result.headers.get("cache-control") || "")) {
+                await completeAfterResponse(c, edgeCache.put(cacheKey, result.clone()).catch((error) => {
+                    console.error("Blob cache write failed:", error);
+                }));
+            }
+            return result;
         } catch (error) {
             console.error("Blob fetch failed:", error);
             return c.text("Blob fetch failed", 500);

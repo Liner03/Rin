@@ -13,6 +13,34 @@ describe("handleFetch", () => {
     getAppFetch.mockReset();
   });
 
+  it.each([
+    ["/archives/86/?from=old#comments", "/feed/86?from=old#comments"],
+    ["/about.html", "/page/about"],
+    ["/archives.html", "/page/archives"],
+    ["/tag/Java/", "/hashtag/Java"],
+    ["/category/study/", "/category/study"],
+    ["/usr/uploads/2025/06/image.png", "/api/blob/typecho/usr/uploads/2025/06/image.png"],
+  ])("redirects old Typecho URL %s before serving the SPA", async (source, destination) => {
+    const { handleFetch } = await import("../fetch-handler");
+    const assetFetch = mock(async () => new Response("spa"));
+    const response = await handleFetch(new Request(`https://blog.example${source}`), {
+      ASSETS: { fetch: assetFetch },
+    } as unknown as Env);
+    expect(response.status).toBe(301);
+    expect(response.headers.get("Location")).toBe(`https://blog.example${destination}`);
+    expect(assetFetch).not.toHaveBeenCalled();
+    expect(getAppFetch).not.toHaveBeenCalled();
+  });
+
+  it("continues serving index.html as an asset", async () => {
+    const { handleFetch } = await import("../fetch-handler");
+    const response = await handleFetch(new Request("https://blog.example/index.html"), {
+      ASSETS: { fetch: async () => new Response("index") },
+    } as unknown as Env);
+    expect(response.status).toBe(200);
+    expect(await response.text()).toBe("index");
+  });
+
   it("serves static assets directly when the asset exists", async () => {
     getAppFetch.mockResolvedValue(new Response("app-body", { status: 200 }));
 

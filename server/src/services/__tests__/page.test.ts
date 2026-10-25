@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach, afterEach } from 'bun:test';
+import { describe, it, expect, beforeEach, afterEach, spyOn } from 'bun:test';
 import { PageService } from '../page';
 import { Hono } from "hono";
 import type { Variables } from "../../core/hono-types";
@@ -107,5 +107,23 @@ describe('PageService — custom fields', () => {
         await createPage({ title: 'A', content: 'c', slug: 'a', fields: [{ name: 'keep', type: 'str', value: 'me' }] });
         const pages = await (await app.request('/', { method: 'GET' }, env)).json() as any[];
         expect(pages[0].fields).toEqual([{ name: 'keep', type: 'str', value: 'me' }]);
+    });
+
+    it('batches fields across many pages without mixing values or exceeding D1 parameter limits', async () => {
+        for (let id = 1; id <= 105; id++) {
+            sqlite.query("INSERT INTO contents (id, type, title, text, uid) VALUES (?, 'page', ?, 'Body', 1)").run(id, `Page ${id}`);
+            sqlite.query("INSERT INTO fields (content_id, name, type, int_value) VALUES (?, 'position', 'int', ?)").run(id, id);
+        }
+        const select = spyOn(db, 'select');
+        try {
+            const response = await app.request('/', {}, env);
+            expect(response.status).toBe(200);
+            const pages = await response.json() as Array<{ id: number; fields: unknown[] }>;
+            expect(pages).toHaveLength(105);
+            for (const page of pages) expect(page.fields).toEqual([{ name: 'position', type: 'int', value: page.id }]);
+            expect(select).toHaveBeenCalledTimes(2);
+        } finally {
+            select.mockRestore();
+        }
     });
 });

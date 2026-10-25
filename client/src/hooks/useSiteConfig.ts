@@ -1,6 +1,6 @@
 import { useContext, useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { ClientConfigContext } from "../state/config";
+import { ClientConfigContext, type ConfigWrapper } from "../state/config";
 import { client } from "../app/runtime";
 import { normalizeFeedCardVariant } from "../components/feed-card-options";
 import { normalizeFeedLayout } from "../components/feed-layout-options";
@@ -12,6 +12,7 @@ export const SITE_CONFIG_KEYS = {
     description: "site.description",
     avatar: "site.avatar",
     heroImage: "site.hero_image",
+    heroPosition: "site.hero_position",
     keywords: "site.keywords",
     copyright: "site.copyright",
     nav: "site.nav",
@@ -75,6 +76,7 @@ export function useSiteConfig() {
         description: config.get<string>(SITE_CONFIG_KEYS.description) || "",
         avatar: config.get<string>(SITE_CONFIG_KEYS.avatar) || "",
         heroImage: config.get<string>(SITE_CONFIG_KEYS.heroImage) || "",
+        heroPosition: config.get<string>(SITE_CONFIG_KEYS.heroPosition) || "center",
         keywords: config.get<string>(SITE_CONFIG_KEYS.keywords) || "",
         copyright: config.get<string>(SITE_CONFIG_KEYS.copyright) || "",
         nav: parseSiteNav(config.get<string>(SITE_CONFIG_KEYS.nav)),
@@ -89,15 +91,30 @@ export function useSiteConfig() {
 }
 
 
+// Share only in-flight requests within the current config, not a persistent page cache.
+const navigationRequests = new WeakMap<ConfigWrapper, ReturnType<typeof client.page.list>>();
+
+function loadNavigationPages(config: ConfigWrapper) {
+    let request = navigationRequests.get(config);
+    if (!request) {
+        request = client.page.list().finally(() => navigationRequests.delete(config));
+        navigationRequests.set(config, request);
+    }
+    return request;
+}
+
 // 导航项：自定义 site.nav 优先；否则默认导航 + 自动追加已发布页面（Typecho 惯例）
 export function useSiteNavItems() {
     const { t } = useTranslation();
+    const config = useContext(ClientConfigContext);
     const siteConfig = useSiteConfig();
+    const hasCustomNav = siteConfig.nav.length > 0;
     const [pages, setPages] = useState<Array<{ title: string; slug: string | null }>>([]);
 
     useEffect(() => {
+        if (hasCustomNav) return;
         let cancelled = false;
-        client.page.list().then(({ data }) => {
+        loadNavigationPages(config).then(({ data }) => {
             if (!cancelled && data) {
                 setPages(
                     data
@@ -109,7 +126,7 @@ export function useSiteNavItems() {
         return () => {
             cancelled = true;
         };
-    }, []);
+    }, [config, hasCustomNav]);
 
     if (siteConfig.nav.length > 0) {
         return siteConfig.nav.map((item) => ({

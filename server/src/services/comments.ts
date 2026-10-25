@@ -1,6 +1,6 @@
 import { Hono } from "hono";
 import type { AppContext } from "../core/hono-types";
-import { asc, eq } from "drizzle-orm";
+import { and, asc, eq } from "drizzle-orm";
 import { comments, contents, users } from "../db/schema";
 import { profileAsync } from "../core/server-timing";
 import { notify } from "../utils/webhook";
@@ -14,8 +14,8 @@ export function CommentService(): Hono {
         const feedId = parseInt(c.req.param('feed'));
         
         const comment_list = await profileAsync(c, 'comment_list_db', () => db.query.comments.findMany({
-            where: eq(comments.contentId, feedId),
-            columns: { contentId: false, userId: false },
+            where: and(eq(comments.contentId, feedId), eq(comments.approved, 1)),
+            columns: { contentId: false, userId: false, guestEmail: false },
             with: {
                 user: {
                     columns: { id: true, username: true, avatar: true, permission: true }
@@ -36,7 +36,6 @@ export function CommentService(): Hono {
                 ...rest,
                 user: null,
                 guestName: rest.guestName || "",
-                guestEmail: rest.guestEmail || "",
                 guestWebsite: rest.guestWebsite || "",
             };
         });

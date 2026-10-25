@@ -3,6 +3,7 @@ import { useContext, useEffect, useRef, useState } from "react"
 import { Helmet } from 'react-helmet'
 import { Link, useSearch } from "wouter"
 import { FeedCard } from "../components/feed_card"
+import { Button } from "../components/button"
 import { Waiting } from "../components/loading"
 import { client } from "../app/runtime"
 import { ProfileContext } from "../state/profile"
@@ -26,6 +27,8 @@ export function FeedsPage() {
     const profile = useContext(ProfileContext);
     const [listState, _setListState] = useState<FeedType>(query.get("type") as FeedType || 'normal')
     const [status, setStatus] = useState<'loading' | 'idle'>('idle')
+    const [loadFailed, setLoadFailed] = useState(false)
+    const [reloadVersion, setReloadVersion] = useState(0)
     const [feeds, setFeeds] = useState<FeedsMap>({
         draft: { size: 0, data: [], hasNext: false },
         unlisted: { size: 0, data: [], hasNext: false },
@@ -36,7 +39,7 @@ export function FeedsPage() {
     const feedListClass = siteConfig.feedLayout === "masonry" ? "wauto columns-1 gap-5 ani-show md:columns-2" : "wauto flex flex-col ani-show";
     const currentFeeds = feeds[listState] ?? { size: 0, data: [], hasNext: false };
     const currentFeedData = Array.isArray(currentFeeds.data) ? currentFeeds.data : [];
-    const ref = useRef("")
+    const request = useRef<{ key: string; promise: ReturnType<typeof client.feed.list> }>()
     const [frontPage, setFrontPage] = useState<Page>();
     useEffect(() => {
         let cancelled = false;
@@ -51,32 +54,31 @@ export function FeedsPage() {
             cancelled = true;
         };
     }, [siteConfig.frontPage, listState]);
-    function fetchFeeds(type: FeedType) {
-        client.feed.list({
-            page: page,
-            limit: limit,
-            type: type
-        }).then(({ data }) => {
-            if (data) {
-                setFeeds({
-                    ...feeds,
-                    [type]: data
-                })
-                setStatus('idle')
-            }
-        })
-    }
     useEffect(() => {
-        const key = `${query.get("page")} ${query.get("type")} ${limit}`
-        if (ref.current == key) return
+        let cancelled = false
         const type = query.get("type") as FeedType || 'normal'
-        if (type !== listState) {
-            _setListState(type)
-        }
+        const key = `${page} ${type} ${limit} ${reloadVersion}`
+        _setListState(type)
         setStatus('loading')
-        fetchFeeds(type)
-        ref.current = key
-    }, [limit, query.get("page"), query.get("type")])
+        setLoadFailed(false)
+        // Reuse the request during StrictMode replay; retries get a fresh version.
+        if (!request.current || request.current.key !== key) {
+            request.current = { key, promise: client.feed.list({ page, limit, type }) }
+        }
+        request.current.promise.then(({ data, error }) => {
+            if (cancelled) return
+            if (error || !data) {
+                setLoadFailed(true)
+            } else {
+                setFeeds((previous) => ({ ...previous, [type]: data }))
+            }
+        }).catch(() => {
+            if (!cancelled) setLoadFailed(true)
+        }).finally(() => {
+            if (!cancelled) setStatus('idle')
+        })
+        return () => { cancelled = true }
+    }, [limit, page, query.get("type"), reloadVersion])
     return (
         <>
             <Helmet>
@@ -96,6 +98,12 @@ export function FeedsPage() {
             ) : (
             <Waiting for={feeds.draft.size + feeds.normal.size + feeds.unlisted.size > 0 || status === 'idle'}>
                 <main className="w-full flex flex-col justify-center items-center mb-8">
+                    {loadFailed ? (
+                        <div role="alert" className="wauto flex flex-col items-center gap-4 rounded-2xl bg-w p-6">
+                            <p>{t('article.load_failed')}</p>
+                            <Button title={t('error.retry')} onClick={() => setReloadVersion((version) => version + 1)} />
+                        </div>
+                    ) : <>
                     <div className="wauto text-start text-black dark:text-white py-4 text-4xl font-bold">
                         <p>
                             {listState === 'draft' ? t('draft_bin') : listState === 'normal' ? t('article.title') : t('unlisted')}
@@ -138,6 +146,7 @@ export function FeedsPage() {
                             }
                         </div>
                     </Waiting>
+                    </>}
                 </main>
             </Waiting>
             )}

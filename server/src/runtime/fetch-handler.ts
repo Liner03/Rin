@@ -1,4 +1,5 @@
 import { getApp } from "./app-instance";
+import { typechoRedirectPath } from "./typecho-redirects";
 
 const ROOT_FEED_PATTERN = /^\/(rss\.xml|atom\.xml|rss\.json|feed\.json|feed\.xml)$/;
 const APP_PUBLIC_ROUTE_PATTERN = /^\/(favicon|favicon\.ico)(?:\/|$)/;
@@ -70,6 +71,14 @@ export async function handleFetch(
 ): Promise<Response> {
   const url = new URL(request.url);
   const pathname = url.pathname;
+
+  if (request.method === "GET" || request.method === "HEAD") {
+    const legacyPath = typechoRedirectPath(pathname);
+    if (legacyPath) {
+      url.pathname = legacyPath;
+      return Response.redirect(url.toString(), 301);
+    }
+  }
 
   if (isRootFeedRequest(pathname)) {
     return getApp().fetch(request, env, executionContext);

@@ -63,6 +63,7 @@
   "alert": "Alert",
   "alias": "Alias",
   "article": {
+    "load_failed": "Unable to load articles. Please try again.",
     "delete": {
       "confirm": "Are you sure you want to delete this article?",
       "title": "Delete Article"
@@ -175,6 +176,7 @@
     }
   },
   "error": {
+    "request_timeout": "The article took too long to load. Please try again.",
     "retry": "Retry",
     "api_url": "API_URL in Pages environment variables should be the Worker address. Please check if API_URL in Pages environment variables is correct.",
     "api_url_slash": "API_URL in Pages environment variables should be the Worker address. Please check if API_URL in Pages environment variables is correct and ensure API_URL does not end with a slash (/).",
