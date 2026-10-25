@@ -137,6 +137,60 @@ describe('FeedService', () => {
         });
     });
 
+    describe('browser page-data caching policy', () => {
+        const adminHeaders = { Authorization: 'Bearer mock_token_1', 'Content-Type': 'application/json' };
+
+        it('marks only public lists, including server-cache hits', async () => {
+            await clientConfig.set('cache.enabled', true);
+            for (let visit = 0; visit < 2; visit++) {
+                const response = await app.request('/?type=normal', {}, env);
+                expect(response.headers.get('X-Rin-Content-Cache')).toBe('public');
+                expect(response.headers.get('Cache-Control')).toBe('private, no-store');
+            }
+            for (const type of ['normal', 'draft', 'unlisted']) {
+                const response = await app.request(`/?type=${type}`, { headers: adminHeaders }, env);
+                expect(response.headers.get('X-Rin-Content-Cache')).toBeNull();
+            }
+            const denied = await app.request('/?type=draft', {}, env);
+            expect(denied.status).toBe(403);
+            expect(denied.headers.get('X-Rin-Content-Cache')).toBeNull();
+        });
+
+        it.each(['publish', 'draft', 'private', 'hidden', 'scheduled', 'password'])(
+            'gates browser persistence for %s content, including admin and unlocked responses', async (kind) => {
+                const created = await app.request('/', {
+                    method: 'POST', headers: adminHeaders,
+                    body: JSON.stringify({
+                        title: 'Cache eligibility', content: 'Article body', draft: kind === 'draft',
+                        listed: true, tags: [],
+                        status: ['draft', 'private', 'hidden'].includes(kind) ? kind : 'publish',
+                        password: kind === 'password' ? 'test-password' : undefined,
+                        createdAt: kind === 'scheduled' ? '2999-01-01T00:00:00Z' : '2020-01-01T00:00:00Z',
+                    }),
+                }, env);
+                expect(created.status).toBe(200);
+                const { insertedId } = await created.json() as { insertedId: number };
+                for (const headers of [{}, adminHeaders]) {
+                    const response = await app.request(`/${insertedId}`, { headers }, env);
+                    expect(response.headers.get('X-Rin-Content-Cache')).toBe(kind === 'publish' ? 'public' : null);
+                    expect(response.headers.get('Cache-Control')).toBe('private, no-store');
+                }
+                if (kind === 'password') {
+                    const unlocked = await app.request(`/${insertedId}/unlock`, {
+                        method: 'POST', headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ password: 'test-password' }),
+                    }, env);
+                    const response = await app.request(`/${insertedId}`, {
+                        headers: { Cookie: unlocked.headers.get('Set-Cookie')!.split(';')[0] },
+                    }, env);
+                    expect(response.status).toBe(200);
+                    expect((await response.json() as { content: string }).content).toBe('Article body');
+                    expect(response.headers.get('X-Rin-Content-Cache')).toBeNull();
+                }
+            },
+        );
+    });
+
     describe('visit persistence', () => {
         beforeEach(() => {
             sqlite.exec("INSERT INTO contents (id, title, text, uid) VALUES (999, 'Visits', 'Body', 1)");
@@ -146,6 +200,7 @@ describe('FeedService', () => {
             for (const [index, ip] of ['192.0.2.1', '192.0.2.2', '192.0.2.1'].entries()) {
                 const response = await app.request('/999', { headers: { 'cf-connecting-ip': ip } }, env);
                 expect(response.status).toBe(200);
+                expect(response.headers.get('Cache-Control')).toBe('private, no-store');
                 const data = await response.json() as { pv: number; uv: number };
                 expect(data.pv).toBe(index + 1);
                 expect(data.uv).toBe(Math.min(index + 1, 2));

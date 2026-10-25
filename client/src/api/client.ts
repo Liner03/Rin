@@ -3,6 +3,7 @@
 
 import { getAuthToken } from "../utils/auth";
 import { endpoint } from "../config";
+import { isRecord, PublicContentCache } from "./public-content-cache";
 
 // Import shared types
 import type {
@@ -175,14 +176,18 @@ export type {
 /**
  * HTTP client for making API requests
  */
+interface HttpRequestOptions extends RequestOptions {
+  onResponse?: (response: Response) => void;
+}
+
 class HttpClient {
-  constructor(private baseUrl: string) {}
+  constructor(private baseUrl: string, private onMutation: () => void) {}
 
   private async request<T>(
     method: string,
     path: string,
     body?: unknown,
-    options?: RequestOptions
+    options?: HttpRequestOptions
   ): Promise<ApiResponse<T>> {
     const url = `${this.baseUrl}${path}`;
     const headers: Record<string, string> = {
@@ -213,6 +218,8 @@ class HttpClient {
         credentials: "include",
         signal: controller?.signal,
       });
+      options?.onResponse?.(response);
+      if (method !== "GET" && response.ok) this.onMutation();
 
       // Handle 204 No Content
       if (response.status === 204) {
@@ -276,7 +283,7 @@ class HttpClient {
     }
   }
 
-  async get<T>(path: string, options?: RequestOptions): Promise<ApiResponse<T>> {
+  async get<T>(path: string, options?: HttpRequestOptions): Promise<ApiResponse<T>> {
     return this.request<T>("GET", path, undefined, options);
   }
 
@@ -300,18 +307,66 @@ class HttpClient {
 /**
  * Feed API methods
  */
+type FeedListParams = { page?: number; limit?: number; type?: 'draft' | 'unlisted' | 'normal' };
+
+function hasContentShape(data: unknown): data is Record<string, unknown> {
+  return isRecord(data) && typeof data.id === "number"
+    && (data.title === null || typeof data.title === "string")
+    && typeof data.createdAt === "string" && typeof data.updatedAt === "string"
+    && Array.isArray(data.hashtags) && data.hashtags.every((tag) => isRecord(tag) && typeof tag.name === "string")
+    && Array.isArray(data.categories) && data.categories.every((category) => isRecord(category) && typeof category.name === "string");
+}
+
+function isPublicFeed(data: unknown): data is Feed {
+  return hasContentShape(data) && typeof data.content === "string" && typeof data.ai_summary === "string"
+    && isRecord(data.user) && typeof data.user.username === "string"
+    && data.status === "publish" && !data.locked && !data.hasPassword
+    && new Date(data.createdAt as string).getTime() <= Date.now();
+}
+
+function isFeedList(data: unknown): data is FeedListResponse {
+  return isRecord(data) && typeof data.size === "number" && typeof data.hasNext === "boolean"
+    && Array.isArray(data.data) && data.data.every((item) => hasContentShape(item)
+      && (item.status === undefined || item.status === "publish") && typeof item.summary === "string");
+}
+
 class FeedAPI {
-  constructor(private http: HttpClient) {}
+  constructor(private http: HttpClient, private cache: PublicContentCache) {}
+
+  private listKey(params?: FeedListParams) {
+    return `list:${params?.type || "normal"}:${params?.page || 1}:${params?.limit || 20}`;
+  }
+
+  getCachedList(params?: FeedListParams): FeedListResponse | undefined {
+    if (params?.type && params.type !== "normal") return;
+    return this.cache.get(this.listKey(params), isFeedList);
+  }
+
+  getCached(id: number | string): Feed | undefined {
+    return this.cache.get(`article:${id}`, isPublicFeed);
+  }
+
+  private async load<T>(key: string, path: string, validate: (data: unknown) => data is T, options?: RequestOptions): Promise<ApiResponse<T>> {
+    const ticket = this.cache.begin(key);
+    let publicContent = false;
+    const result = await this.http.get<T>(path, {
+      timeoutMs: 20_000,
+      ...options,
+      onResponse: (response) => { publicContent = response.headers.get("X-Rin-Content-Cache") === "public"; },
+    });
+    this.cache.finish(ticket, result.data, publicContent && !result.error && validate(result.data), result.error?.status);
+    return result;
+  }
 
   // GET /api/feed
-  async list(params?: { page?: number; limit?: number; type?: 'draft' | 'unlisted' | 'normal' }, options?: RequestOptions): Promise<ApiResponse<FeedListResponse>> {
+  async list(params?: FeedListParams, options?: RequestOptions): Promise<ApiResponse<FeedListResponse>> {
     const searchParams = new URLSearchParams();
     if (params?.page) searchParams.set("page", params.page.toString());
     if (params?.limit) searchParams.set("limit", params.limit.toString());
     if (params?.type) searchParams.set("type", params.type);
     
     const query = searchParams.toString();
-    return this.http.get<FeedListResponse>(`/api/feed${query ? `?${query}` : ""}`, { timeoutMs: 20_000, ...options });
+    return this.load(this.listKey(params), `/api/feed${query ? `?${query}` : ""}`, isFeedList, options);
   }
 
   // GET /api/feed/timeline
@@ -321,7 +376,7 @@ class FeedAPI {
 
   // GET /api/feed/:id
   async get(id: number | string, options?: RequestOptions): Promise<ApiResponse<Feed>> {
-    return this.http.get<Feed>(`/api/feed/${id}`, { timeoutMs: 20_000, ...options });
+    return this.load(`article:${id}`, `/api/feed/${encodeURIComponent(id)}`, isPublicFeed, options);
   }
 
   // POST /api/feed
@@ -767,8 +822,9 @@ export class ApiClient {
   rss: RSSAPI;
 
   constructor(baseUrl: string) {
-    this.http = new HttpClient(baseUrl);
-    this.feed = new FeedAPI(this.http);
+    const contentCache = new PublicContentCache(baseUrl);
+    this.http = new HttpClient(baseUrl, () => contentCache.clear());
+    this.feed = new FeedAPI(this.http, contentCache);
     this.page = new PageAPI(this.http);
     this.category = new CategoryAPI(this.http);
     this.tag = new TagAPI(this.http);

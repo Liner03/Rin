@@ -23,12 +23,13 @@ import { Input } from "../components/input";
 import { Tips } from "../components/tips";
 import { AdjacentSection } from "../components/adjacent_feed.tsx";
 import { extractFirstMarkdownImageUrl } from "../utils/image-upload";
+import { isTransientContentError } from "../api/public-content-cache";
 
 export function FeedPage({ id, TOC }: { id: string, TOC: ReactNode }) {
   const { t } = useTranslation();
   const siteConfig = useSiteConfig();
   const profile = useContext(ProfileContext);
-  const [feed, setFeed] = useState<Feed>();
+  const [feed, setFeed] = useState<Feed | undefined>(() => client.feed.getCached(id));
   const [error, setError] = useState<{ message: string; retryable: boolean }>();
   const [password, setPassword] = useState("");
   const [unlockError, setUnlockError] = useState("");
@@ -95,7 +96,9 @@ export function FeedPage({ id, TOC }: { id: string, TOC: ReactNode }) {
   }
   useEffect(() => {
     let cancelled = false;
-    setFeed(undefined);
+    const cached = client.feed.getCached(id);
+    setFeed(cached);
+    setTop(cached?.top || 0);
     setError(undefined);
     setPassword("");
     setUnlockError("");
@@ -108,19 +111,25 @@ export function FeedPage({ id, TOC }: { id: string, TOC: ReactNode }) {
       .then(({ data, error }) => {
         if (cancelled) return;
         if (error) {
+          if (isTransientContentError(error.status) && client.feed.getCached(id)) return;
+          setFeed(undefined);
           setError({
             message: error.value,
-            retryable: error.status === 0 || error.status === 408 || error.status === 429 || error.status >= 500,
+            retryable: isTransientContentError(error.status),
           });
         } else if (data && typeof data !== "string") {
           setFeed(data);
           setTop(data.top || 0);
         } else {
+          setFeed(undefined);
           setError({ message: "Not found", retryable: false });
         }
       })
       .catch((error: unknown) => {
-        if (!cancelled) setError({ message: error instanceof Error ? error.message : String(error), retryable: true });
+        if (!cancelled && !client.feed.getCached(id)) {
+          setFeed(undefined);
+          setError({ message: error instanceof Error ? error.message : String(error), retryable: true });
+        }
       });
     return () => { cancelled = true; };
   }, [id, reloadVersion]);

@@ -12,7 +12,7 @@ const mockedRuntime = {
   endpoint: "http://localhost",
   oauth_url: "/oauth",
   client: {
-    feed: { get: jest.fn(), list: jest.fn(), unlock: jest.fn(), adjacent: jest.fn() },
+    feed: { get: jest.fn(), list: jest.fn(), getCached: jest.fn(), getCachedList: jest.fn(), unlock: jest.fn(), adjacent: jest.fn() },
     page: { get: jest.fn(), list: jest.fn(), unlock: jest.fn() },
     category: { get: jest.fn() },
     search: { search: jest.fn() },

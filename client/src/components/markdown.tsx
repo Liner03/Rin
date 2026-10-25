@@ -1,4 +1,4 @@
-import { lazy, Suspense } from "react";
+import { lazy, memo, Suspense } from "react";
 
 let renderer: Promise<typeof import("./markdown-renderer")> | undefined;
 
@@ -12,10 +12,10 @@ export function preloadMarkdown() {
 
 const Renderer = lazy(() => preloadMarkdown().then((module) => ({ default: module.MarkdownRenderer })));
 
-export function Markdown({ content }: { content: string }) {
+export const Markdown = memo(function Markdown({ content }: { content: string }) {
   return (
     <Suspense fallback={<div className="min-h-24" aria-busy="true" />}>
       <Renderer content={content} />
     </Suspense>
   );
-}
+});
