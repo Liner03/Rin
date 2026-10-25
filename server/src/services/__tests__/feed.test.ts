@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach, afterEach } from 'bun:test';
+import { describe, it, expect, beforeEach, afterEach, spyOn } from 'bun:test';
 import { FeedService } from '../feed';
 import { Hono } from "hono";
 import type { Variables } from "../../core/hono-types";
@@ -169,6 +169,40 @@ describe('FeedService', () => {
             const response = await app.request('/999', {}, env);
             expect((await response.json() as { locked: boolean }).locked).toBe(true);
             expect(sqlite.query('SELECT count(*) AS total FROM visits').get()).toEqual({ total: 0 });
+        });
+
+        it('returns the article while slow writes remain attached to the request lifetime', async () => {
+            let release!: () => void;
+            const gate = new Promise<void>((resolve) => { release = resolve; });
+            const insert = db.insert.bind(db);
+            const delayedInsert = spyOn(db, 'insert').mockImplementation((table: unknown) => {
+                const builder = insert(table);
+                const values = builder.values.bind(builder);
+                builder.values = (...args: unknown[]) => {
+                    const query = values(...args);
+                    const execute = query.execute.bind(query);
+                    query.execute = async () => { await gate; return execute(); };
+                    return query;
+                };
+                return builder;
+            });
+            const pending: Promise<unknown>[] = [];
+            const context = { waitUntil: (task: Promise<unknown>) => { pending.push(task); }, passThroughOnException() {}, props: {} };
+            const response = Promise.resolve(app.request('/999', {}, env, context));
+            try {
+                const completed = await Promise.race([response.then(() => true), Bun.sleep(100).then(() => false)]);
+                expect(completed).toBe(true);
+                expect((await response).status).toBe(200);
+                expect(pending).toHaveLength(1);
+                expect(sqlite.query('SELECT count(*) AS total FROM visits').get()).toEqual({ total: 0 });
+            } finally {
+                release();
+                await response;
+                await Promise.all(pending);
+                delayedInsert.mockRestore();
+            }
+            expect(sqlite.query('SELECT pv FROM visit_stats WHERE content_id = 999').get()).toEqual({ pv: 1 });
+            expect(sqlite.query('SELECT count(*) AS total FROM visits').get()).toEqual({ total: 1 });
         });
     });
 

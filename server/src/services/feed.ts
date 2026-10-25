@@ -7,6 +7,7 @@ import { deleteFeedById, findDuplicateFeed, findFeedById, insertFeed, searchFeed
 import { profileAsync } from "../core/server-timing";
 import { contents, visits, visitStats } from "../db/schema";
 import { HyperLogLog } from "../utils/hyperloglog";
+import { completeAfterResponse } from "../utils/background";
 import { extractImageWithMetadata } from "../utils/image";
 import { stripMarkdown } from "../utils/markdown";
 import { syncFeedAISummaryQueueState } from "./feed-ai-summary";
@@ -279,7 +280,11 @@ export function FeedService(): Hono<{
         const id_num = parseFeedId(id);
         const cacheKey = id_num === null ? `feed_detail_v2_alias_${id}` : `feed_detail_v2_id_${id_num}`;
 
-        const [feed, enableVisit] = await Promise.all([
+        const counterEnabled = profileAsync(c, 'feed_detail_counter_flag', () => clientConfig.getOrDefault('counter.enabled', true));
+        const readStats = (contentId: number) => profileAsync(c, 'feed_detail_stats_lookup', () => db.query.visitStats.findFirst({
+            where: eq(visitStats.contentId, contentId),
+        }));
+        const [feed, enableVisit, statsById] = await Promise.all([
             profileAsync(c, 'feed_detail_cache_db', () => cache.getOrSet(cacheKey, async () => {
                 const row = await findPostByIdentifier(db, id);
                 if (!row) return null;
@@ -290,7 +295,10 @@ export function FeedService(): Hono<{
                     categories: categories.get(row.id) || [],
                 };
             })),
-            profileAsync(c, 'feed_detail_counter_flag', () => clientConfig.getOrDefault('counter.enabled', true)),
+            counterEnabled,
+            // Numeric article URLs can read the counter alongside the body.
+            // Permissions below still gate all returned content and visit writes.
+            counterEnabled.then((enabled) => enabled && id_num !== null ? readStats(id_num) : undefined),
         ]);
 
         if (!feed) {
@@ -325,24 +333,25 @@ export function FeedService(): Hono<{
 
         if (enableVisit) {
             const ip = c.req.header('cf-connecting-ip') || c.req.header('x-real-ip') || "UNK";
-            const stats = await profileAsync(c, 'feed_detail_stats_lookup', () => db.query.visitStats.findFirst({
-                where: eq(visitStats.contentId, feed.id)
-            }));
+            const stats = id_num === null ? await readStats(feed.id) : statsById;
             const hll = new HyperLogLog(stats?.hllData);
             hll.add(ip);
             const hllData = hll.serialize();
-            // Await both writes, but avoid two serial D1 round trips. Increment PV
-            // in SQL so concurrent readers cannot overwrite each other's visits.
-            const [updated] = await Promise.all([
-                profileAsync(c, 'feed_detail_stats_update', () => db.insert(visitStats).values({
+            // A slow analytics write must not delay the article. waitUntil keeps
+            // both writes alive; SQL increments preserve PV under concurrency.
+            const recording = Promise.all([
+                db.insert(visitStats).values({
                     contentId: feed.id, pv: 1, hllData,
                 }).onConflictDoUpdate({
                     target: visitStats.contentId,
                     set: { pv: sql`${visitStats.pv} + 1`, hllData, updatedAt: new Date() },
-                }).returning({ pv: visitStats.pv })),
-                profileAsync(c, 'feed_detail_visit_insert', () => db.insert(visits).values({ contentId: feed.id, ip })),
+                }),
+                db.insert(visits).values({ contentId: feed.id, ip }),
             ]);
-            pv = updated[0].pv;
+            await completeAfterResponse(c, recording.catch((error) => {
+                console.error("Failed to record article visit", feed.id, error);
+            }));
+            pv = (stats?.pv ?? 0) + 1;
             uv = Math.round(hll.count());
         }
 

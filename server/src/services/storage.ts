@@ -2,6 +2,7 @@ import { Hono } from "hono";
 import type { AppContext } from "../core/hono-types";
 import { profileAsync } from "../core/server-timing";
 import { getStorageObject, putStorageObject } from "../utils/storage";
+import { completeAfterResponse } from "../utils/background";
 
 function buf2hex(buffer: ArrayBuffer) {
     return [...new Uint8Array(buffer)]
@@ -66,7 +67,7 @@ export function BlobService(): Hono {
             try {
                 edgeCache = await caches.open("rin-blobs-v1");
                 const cached = await edgeCache.match(cacheKey);
-                if (cached) return cached;
+                if (cached) return new Response(cached.body, cached);
             } catch (error) {
                 console.error("Blob cache lookup failed:", error);
             }
@@ -84,7 +85,7 @@ export function BlobService(): Hono {
                 headers: response.headers,
             });
             if (edgeCache && result.status === 200 && !/private|no-store/i.test(result.headers.get("cache-control") || "")) {
-                c.executionCtx.waitUntil(edgeCache.put(cacheKey, result.clone()).catch((error) => {
+                await completeAfterResponse(c, edgeCache.put(cacheKey, result.clone()).catch((error) => {
                     console.error("Blob cache write failed:", error);
                 }));
             }
