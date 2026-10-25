@@ -10,6 +10,7 @@ export function registerMiddlewares(app: RinApp) {
       origin: (origin) => origin,
       allowMethods: ["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"],
       allowHeaders: ["content-type", "authorization", "x-csrf-token"],
+      exposeHeaders: ["X-Rin-Content-Cache"],
       maxAge: 600,
       credentials: true,
     }),

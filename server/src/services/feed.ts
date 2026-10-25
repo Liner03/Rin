@@ -112,6 +112,13 @@ export function FeedService(): Hono<{
         Variables: Variables;
     }>();
 
+    // Browser page-data reuse is explicit and bounded. HTTP caches must not skip
+    // permission checks or the detail endpoint's per-visit analytics writes.
+    app.use('*', async (c, next) => {
+        c.header('Cache-Control', 'private, no-store');
+        await next();
+    });
+
     // GET /feed - List feeds
     app.get('/', async (c) => {
         const db = c.get('db');
@@ -123,6 +130,10 @@ export function FeedService(): Hono<{
 
         if ((type === 'draft' || type === 'unlisted') && !admin) {
             return c.text('Permission denied', 403);
+        }
+
+        if (!admin && (!type || type === 'normal')) {
+            c.header('X-Rin-Content-Cache', 'public');
         }
 
         const page_num = parsePositiveInteger(page, 1) - 1;
@@ -355,6 +366,9 @@ export function FeedService(): Hono<{
             uv = Math.round(hll.count());
         }
 
+        if (feed.status === CONTENT_STATUS.PUBLISH && !isScheduled(feed) && !feed.password) {
+            c.header('X-Rin-Content-Cache', 'public');
+        }
         return c.json(serializeContentDetail(feed, { pv, uv }));
     });
 
