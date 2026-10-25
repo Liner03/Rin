@@ -10,7 +10,7 @@ import { ContentAvatar } from "../components/content-avatar";
 import { useAlert, useConfirm } from "../components/dialog";
 import { HashTag } from "../components/hashtag";
 import { Waiting } from "../components/loading";
-import { Markdown } from "../components/markdown";
+import { Markdown, preloadMarkdown } from "../components/markdown";
 import { client } from "../app/runtime";
 import { usePublishRouteMetadata } from "../app/route-metadata";
 import { ClientConfigContext } from "../state/config";
@@ -99,6 +99,7 @@ export function FeedPage({ id, TOC }: { id: string, TOC: ReactNode }) {
     setError(undefined);
     setPassword("");
     setUnlockError("");
+    preloadMarkdown().catch((error) => console.error("Failed to preload Markdown", error));
     // Reuse this load during StrictMode's effect replay; an unlock starts a new version.
     if (!request.current || request.current.id !== id || request.current.version !== reloadVersion) {
       request.current = { id, version: reloadVersion, promise: client.feed.get(id) };
@@ -133,36 +134,6 @@ export function FeedPage({ id, TOC }: { id: string, TOC: ReactNode }) {
       setReloadVersion((version) => version + 1);
     }
   }
-  useEffect(() => {
-    // 无 mermaid 代码块时不加载 mermaid（约 73KB gzip）
-    if (!feed?.content || !feed.content.includes("```mermaid")) return;
-    let cancelled = false;
-    import("mermaid").then(({ default: mermaid }) => {
-      if (cancelled) return;
-      mermaid.initialize({
-        startOnLoad: false,
-        theme: "default",
-      });
-      mermaid.run({
-        suppressErrors: true,
-        nodes: document.querySelectorAll("pre.mermaid_default")
-      }).then(() => {
-        if (cancelled) return;
-        mermaid.initialize({
-          startOnLoad: false,
-          theme: "dark",
-        });
-        mermaid.run({
-          suppressErrors: true,
-          nodes: document.querySelectorAll("pre.mermaid_dark")
-        });
-      })
-    });
-    return () => {
-      cancelled = true;
-    };
-  }, [feed?.content]);
-
   return (
     <Waiting for={feed || error}>
       {feed && (

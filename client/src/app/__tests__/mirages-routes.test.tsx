@@ -37,7 +37,10 @@ mock.module("../../components/dialog", () => ({
   useAlert: () => ({ showAlert: jest.fn(), AlertUI: () => null }),
   useConfirm: () => ({ showConfirm: jest.fn(), ConfirmUI: () => null }),
 }));
-mock.module("../../components/markdown", () => ({ Markdown: ({ content }: { content: string }) => <div>{content}</div> }));
+mock.module("../../components/markdown", () => ({
+  Markdown: ({ content }: { content: string }) => <div>{content}</div>,
+  preloadMarkdown: () => Promise.resolve(),
+}));
 mock.module("../../components/feed_card", () => ({ FeedCard: ({ title }: { title: string }) => <div>{title}</div> }));
 mock.module("../../components/page-templates", () => ({
   getPageTemplate: () => ({ render: ({ page }: { page: Page }) => <article>{page.content}</article> }),

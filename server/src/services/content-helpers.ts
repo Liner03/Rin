@@ -154,32 +154,30 @@ export async function getCategoriesForContent(db: DB, contentId: number) {
     return map.get(contentId) || [];
 }
 
-export async function getTagsForContents(db: DB, contentIds: number[]) {
+export async function getTaxonomiesForContents(db: DB, contentIds: number[]) {
     const rows = await getMetasForContents(db, contentIds);
-    const map = new Map<number, Array<{ id: number; name: string }>>();
+    const tags = new Map<number, Array<{ id: number; name: string }>>();
+    const categories = new Map<number, Array<{ id: number; name: string; slug: string | null }>>();
     for (const [contentId, metaList] of rows) {
-        const tags = metaList
-            .filter((meta) => meta.type === 'tag')
-            .map((meta) => ({ id: meta.id, name: meta.name }));
-        if (tags.length > 0) {
-            map.set(contentId, tags);
+        for (const meta of metaList) {
+            if (meta.type === 'tag') {
+                if (!tags.has(contentId)) tags.set(contentId, []);
+                tags.get(contentId)!.push({ id: meta.id, name: meta.name });
+            } else if (meta.type === 'category') {
+                if (!categories.has(contentId)) categories.set(contentId, []);
+                categories.get(contentId)!.push({ id: meta.id, name: meta.name, slug: meta.slug });
+            }
         }
     }
-    return map;
+    return { tags, categories };
+}
+
+export async function getTagsForContents(db: DB, contentIds: number[]) {
+    return (await getTaxonomiesForContents(db, contentIds)).tags;
 }
 
 export async function getCategoriesForContents(db: DB, contentIds: number[]) {
-    const rows = await getMetasForContents(db, contentIds);
-    const map = new Map<number, Array<{ id: number; name: string; slug: string | null }>>();
-    for (const [contentId, metaList] of rows) {
-        const categories = metaList
-            .filter((meta) => meta.type === 'category')
-            .map((meta) => ({ id: meta.id, name: meta.name, slug: meta.slug }));
-        if (categories.length > 0) {
-            map.set(contentId, categories);
-        }
-    }
-    return map;
+    return (await getTaxonomiesForContents(db, contentIds)).categories;
 }
 
 async function getMetasForContents(db: DB, contentIds: number[]) {
@@ -211,12 +209,26 @@ async function getMetasForContents(db: DB, contentIds: number[]) {
 // ============================================================================
 
 export async function getContentFields(db: DB, contentId: number): Promise<ContentField[]> {
-    const rows = await db.select().from(fields).where(eq(fields.contentId, contentId)).orderBy(fields.id);
-    return rows.map((row) => ({
-        name: row.name,
-        type: row.type as ContentField["type"],
-        value: decodeFieldValue(row),
-    }));
+    return (await getFieldsForContents(db, [contentId])).get(contentId) || [];
+}
+
+export async function getFieldsForContents(db: DB, contentIds: number[]) {
+    const result = new Map<number, ContentField[]>();
+    // D1 allows at most 100 bound parameters per statement.
+    for (let offset = 0; offset < contentIds.length; offset += 100) {
+        const rows = await db.select().from(fields)
+            .where(inArray(fields.contentId, contentIds.slice(offset, offset + 100)))
+            .orderBy(fields.id);
+        for (const row of rows) {
+            if (!result.has(row.contentId)) result.set(row.contentId, []);
+            result.get(row.contentId)!.push({
+                name: row.name,
+                type: row.type as ContentField["type"],
+                value: decodeFieldValue(row),
+            });
+        }
+    }
+    return result;
 }
 
 export async function setContentFields(db: DB, contentId: number, fieldList: ContentField[] | undefined) {

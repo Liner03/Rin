@@ -6,6 +6,7 @@ import { client } from "../app/runtime";
 import { usePublishRouteMetadata } from "../app/route-metadata";
 import { Input } from "../components/input";
 import { Waiting } from "../components/loading";
+import { preloadMarkdown } from "../components/markdown";
 import { useSiteConfig } from "../hooks/useSiteConfig";
 import { getPageTemplate } from "../components/page-templates";
 import { siteName } from "../utils/constants";
@@ -32,6 +33,7 @@ export function PageDetail({ slug }: { slug: string }) {
     setPassword("");
     setError("");
     setLoadError("");
+    preloadMarkdown().catch((error) => console.error("Failed to preload Markdown", error));
     if (!request.current || request.current.slug !== slug || request.current.version !== reloadVersion) {
       request.current = { slug, version: reloadVersion, promise: client.page.get(decodeURI(slug)) };
     }
