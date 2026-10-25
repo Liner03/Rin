@@ -2,8 +2,7 @@ import i18next from "i18next";
 import { useCallback, useContext, useEffect, useRef, useState } from "react";
 import { Helmet } from 'react-helmet';
 import { useTranslation } from "react-i18next";
-import Modal from 'react-modal';
-import { FlatActionButton, FlatPanel, SearchableSelect } from "@rin/ui";
+import { FlatActionButton, FlatPanel, Modal, SearchableSelect } from "@rin/ui";
 import { Button } from "../components/button";
 import { ContentAvatar } from "../components/content-avatar";
 import { ShowAlertType, useAlert, useConfirm } from "../components/dialog";
@@ -223,7 +222,7 @@ function Friend({ friend }: { friend: FriendItem }) {
                 <p className="text-base text-center">{friend.name}</p>
                 {friend.health.length == 0 && <p className="text-sm text-neutral-500 text-center">{friend.desc}</p>}
                 {friend.accepted !== 1 && <p className={`${friend.accepted === 0 ? "t-primary" : "text-theme"}`}>{statusOption[friend.accepted + 1].label}</p>}
-                {friend.health.length > 0 && <p className="text-sm text-gray-500 text-center">{errorHumanize(friend.health)}</p>}
+                {friend.health.length > 0 && <p className="max-w-full text-center text-sm text-gray-500 [overflow-wrap:anywhere]">{errorHumanize(friend.health)}</p>}
                 {(profile?.permission || profile?.id === friend.uid) && <>
                     <button onClick={(e) => { e.preventDefault(); setIsOpen(true) }} className="absolute top-0 right-0 m-2 px-2 py-1 bg-secondary t-primary rounded-full bg-button">
                         <i className="ri-settings-line"></i>
@@ -232,33 +231,11 @@ function Friend({ friend }: { friend: FriendItem }) {
 
             <Modal
                 isOpen={modalIsOpen}
-                style={{
-                    content: {
-                        top: '50%',
-                        left: '50%',
-                        right: 'auto',
-                        bottom: 'auto',
-                        marginRight: '-50%',
-                        transform: 'translate(-50%, -50%)',
-                        padding: '0',
-                        border: 'none',
-                        borderRadius: '16px',
-                        display: 'flex',
-                        flexDirection: 'column',
-                        justifyContent: 'center',
-                        alignItems: 'center',
-                        background: 'white',
-                    },
-                    overlay: {
-                        backgroundColor: 'rgba(0, 0, 0, 0.5)',
-                        zIndex: 1000
-                    }
-                }
-                }
                 onRequestClose={() => setIsOpen(false)}
                 contentLabel={t('update$sth', { sth: friend.name })}
+                panelClassName="overflow-visible p-6"
             >
-                <FlatPanel className="relative flex w-[80vw] flex-col items-center justify-start p-6 sm:w-[60vw] md:w-[50vw] lg:w-[40vw] xl:w-[30vw]">
+                <div className="relative flex flex-col items-center justify-start">
                     <div className="w-16 h-16">
                         <ContentAvatar src={friend.avatar} name={friend.name} className={`h-16 w-16 text-xl ${friend.health.length > 0 ? "grayscale" : ""}`} />
                     </div>
@@ -313,7 +290,7 @@ function Friend({ friend }: { friend: FriendItem }) {
                         <FlatActionButton onClick={deleteFriend} className="mt-2 text-theme">{t('delete.title')}</FlatActionButton>
                         <FlatActionButton onClick={updateFriend} className="mt-2 t-primary">{t('save')}</FlatActionButton>
                     </div>
-                </FlatPanel>
+                </div>
             </Modal>
             <ConfirmUI />
             <AlertUI />

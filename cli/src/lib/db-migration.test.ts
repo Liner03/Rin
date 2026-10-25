@@ -40,8 +40,7 @@ describe("legacy top field repair", () => {
   it("skips feeds repair after a fresh database has migrated to contents", async () => {
     db.exec("CREATE TABLE contents (id INTEGER PRIMARY KEY, top INTEGER DEFAULT 0)");
 
-    // The CLI captured infoExists=false before initializing the new database.
-    await fixTopField("local", "test", false);
+    await fixTopField("local", "test");
 
     expect(db.query("SELECT name FROM sqlite_master WHERE type = 'table'").all()).toEqual([{ name: "contents" }]);
   });
@@ -50,7 +49,7 @@ describe("legacy top field repair", () => {
     db.exec("CREATE TABLE feeds (id INTEGER PRIMARY KEY)");
     db.exec("INSERT INTO feeds (id) VALUES (42)");
 
-    await fixTopField("local", "test", false);
+    await fixTopField("local", "test");
 
     expect(db.query("SELECT id, top FROM feeds").all()).toEqual([{ id: 42, top: 0 }]);
   });
@@ -59,7 +58,7 @@ describe("legacy top field repair", () => {
     db.exec("CREATE TABLE feeds (id INTEGER PRIMARY KEY, top INTEGER)");
     db.exec("INSERT INTO feeds (id, top) VALUES (42, 9)");
 
-    await fixTopField("local", "test", false);
+    await fixTopField("local", "test");
 
     expect(db.query("SELECT id, top FROM feeds").all()).toEqual([{ id: 42, top: 9 }]);
   });

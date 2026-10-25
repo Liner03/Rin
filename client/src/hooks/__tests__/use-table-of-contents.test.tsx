@@ -1,17 +1,18 @@
 import "../../test/setup";
-import { act, render, waitFor, within } from "@testing-library/react";
 import type { ReactNode } from "react";
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, jest } from "bun:test";
 import useTableOfContents from "../useTableOfContents";
+
+const { act, cleanup, render, waitFor, within } = await import("@testing-library/react");
 
 class FakeIntersectionObserver {
   static last: FakeIntersectionObserver | null = null;
   observed: Element[] = [];
-  observe = vi.fn((element: Element) => {
+  observe = jest.fn((element: Element) => {
     this.observed.push(element);
   });
-  unobserve = vi.fn();
-  disconnect = vi.fn();
+  unobserve = jest.fn();
+  disconnect = jest.fn();
 
   constructor(private callback: IntersectionObserverCallback) {
     FakeIntersectionObserver.last = this;
@@ -24,8 +25,8 @@ class FakeIntersectionObserver {
 
 class FakeMutationObserver {
   static last: FakeMutationObserver | null = null;
-  observe = vi.fn();
-  disconnect = vi.fn();
+  observe = jest.fn();
+  disconnect = jest.fn();
 
   constructor(private callback: MutationCallback) {
     FakeMutationObserver.last = this;
@@ -73,22 +74,25 @@ describe("useTableOfContents", () => {
     FakeMutationObserver.last = null;
     window.IntersectionObserver = FakeIntersectionObserver as unknown as typeof IntersectionObserver;
     window.MutationObserver = FakeMutationObserver as unknown as typeof MutationObserver;
+    Object.assign(globalThis, { IntersectionObserver: window.IntersectionObserver, MutationObserver: window.MutationObserver });
   });
 
   afterEach(() => {
+    cleanup();
     window.IntersectionObserver = originalIO;
     window.MutationObserver = originalMO;
+    Object.assign(globalThis, { IntersectionObserver: originalIO, MutationObserver: originalMO });
   });
 
   it("builds the table of contents from headers with level-based indentation", () => {
     const { container } = render(<TocHarness content={headers} />);
 
-    expect(tocNav(container).getByText("First")).toBeInTheDocument();
-    expect(tocNav(container).getByText("Second")).toBeInTheDocument();
+    expect(tocNav(container).getByText("First")).not.toBeNull();
+    expect(tocNav(container).getByText("Second")).not.toBeNull();
     const items = container.querySelectorAll<HTMLElement>(".toc-nav li");
     expect(items).toHaveLength(2);
-    expect(items[0]).toHaveStyle({ paddingLeft: "calc(1rem + 0px)" });
-    expect(items[1]).toHaveStyle({ paddingLeft: "calc(1rem + 10px)" });
+    expect(items[0].style.paddingLeft).toBe("calc(0px + 1rem)");
+    expect(items[1].style.paddingLeft).toBe("calc(10px + 1rem)");
   });
 
   it("hides the toc entirely when no headers exist", () => {
@@ -108,14 +112,14 @@ describe("useTableOfContents", () => {
     });
 
     await waitFor(() => {
-      expect(tocNav(container).getByText("First")).toBeInTheDocument();
+      expect(tocNav(container).getByText("First")).not.toBeNull();
     });
     expect(container.querySelectorAll(".toc-nav li")).toHaveLength(2);
   });
 
   it("clears stale entries when headers disappear", async () => {
     const { container, rerender } = render(<TocHarness content={headers} />);
-    expect(tocNav(container).getByText("First")).toBeInTheDocument();
+    expect(tocNav(container).getByText("First")).not.toBeNull();
 
     rerender(<TocHarness />);
 
@@ -155,8 +159,8 @@ describe("useTableOfContents", () => {
     });
 
     const items = container.querySelectorAll<HTMLElement>(".toc-nav li");
-    expect(items[0]).toHaveClass("text-theme");
-    expect(items[1]).not.toHaveClass("text-theme");
+    expect(items[0].classList.contains("text-theme")).toBe(true);
+    expect(items[1].classList.contains("text-theme")).toBe(false);
   });
 
   it("defers rebuilds until mutations settle", async () => {
@@ -174,5 +178,17 @@ describe("useTableOfContents", () => {
     await waitFor(() => {
       expect(container.querySelectorAll(".toc-nav li")).toHaveLength(1);
     });
+  });
+
+  it("preserves the navigation element and its scroll position when the active heading changes", () => {
+    const { container } = render(<TocHarness content={threeHeaders} />);
+    const nav = container.querySelector<HTMLElement>(".toc-nav")!;
+    nav.scrollTop = 80;
+    act(() => {
+      FakeIntersectionObserver.last?.trigger(container.querySelector("h3")!, true);
+    });
+    expect(container.querySelector(".toc-nav")).toBe(nav);
+    expect(nav.scrollTop).toBe(80);
+    expect(container.querySelectorAll(".toc-nav li")[1].classList.contains("text-theme")).toBe(true);
   });
 });

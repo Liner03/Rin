@@ -312,6 +312,36 @@ describe('CacheImpl - 数据库持久化测试', () => {
         expect(rows[0].value).toBe('value2');
     });
 
+    it('局部读取和延迟保存不应该删除未加载的键', async () => {
+        await db.insert(cache).values([
+            { key: 'key1', value: 'value1', type: 'cache' },
+            { key: 'key2', value: 'value2', type: 'cache' },
+        ]);
+
+        const partialCache = new CacheImpl(db as any, mockEnv, 'cache', 'database');
+        expect(await partialCache.get('key1')).toBe('value1');
+
+        await partialCache.set('key3', 'value3', false);
+        await partialCache.save();
+
+        const rows = await db.select().from(cache).where(eq(cache.type, 'cache'));
+        expect(rows.map((row) => row.key).sort()).toEqual(['key1', 'key2', 'key3']);
+    });
+
+    it('应该在未全量加载时按前缀删除数据库记录', async () => {
+        await db.insert(cache).values([
+            { key: 'temp:1', value: 'one', type: 'cache' },
+            { key: 'temp:2', value: 'two', type: 'cache' },
+            { key: 'keep:1', value: 'keep', type: 'cache' },
+        ]);
+
+        const partialCache = new CacheImpl(db as any, mockEnv, 'cache', 'database');
+        await partialCache.deletePrefix('temp:');
+
+        const rows = await db.select().from(cache).where(eq(cache.type, 'cache'));
+        expect(rows.map((row) => row.key)).toEqual(['keep:1']);
+    });
+
     it('删除时应该从数据库中移除', async () => {
         await cacheImpl.set('key1', 'value1');
         await cacheImpl.delete('key1');
@@ -780,5 +810,68 @@ describe('CacheImpl - 公共缓存开关', () => {
 
         const freshClientConfig = new CacheImpl(db as any, mockEnv, 'client.config', 'database');
         expect(await freshClientConfig.get('site.name')).toBe('Rin Test');
+    });
+});
+
+describe.each(['database', 's3'] as const)('CacheImpl - deferred invalidation (%s)', (mode) => {
+    let context: ReturnType<typeof createTestDB>;
+    let env: Env;
+
+    beforeEach(() => {
+        context = createTestDB();
+        const objects = new Map<string, string>();
+        env = createMockEnv(mode);
+        env.R2_BUCKET = {
+            get: async (key: string) => {
+                const value = objects.get(key);
+                return value === undefined ? null : {
+                    body: value,
+                    size: value.length,
+                    uploaded: new Date(),
+                    writeHttpMetadata: () => {},
+                };
+            },
+            put: async (key: string, value: string) => { objects.set(key, value); return null; },
+        } as unknown as R2Bucket;
+    });
+    afterEach(() => context.sqlite.close());
+    const freshCache = () => new CacheImpl(context.db as any, env, 'cache', mode);
+
+    it.each([false, true])('does not resurrect invalidated keys and preserves later writes (immediate write: %s)', async (immediate) => {
+        const seed = freshCache();
+        await seed.set('feeds_1', 'old one');
+        await seed.set('feeds_2', 'old two');
+        await seed.set('keep', 'unrelated');
+        const current = freshCache();
+        expect(await current.get('feeds_1')).toBe('old one');
+        await current.deletePrefix('feeds_', false);
+        expect(await current.get('feeds_1')).toBeUndefined();
+        expect(await current.get('feeds_2')).toBeUndefined();
+        expect(await freshCache().get('feeds_1')).toBe('old one');
+        await current.set('feeds_1', 'new one', immediate);
+        await current.save();
+        const reloaded = freshCache();
+        expect(await reloaded.get('feeds_1')).toBe('new one');
+        expect(await reloaded.get('feeds_2')).toBeUndefined();
+        expect(await reloaded.get('keep')).toBe('unrelated');
+    });
+
+    it.each(['_', '%', '\\'])('matches literal %s in prefix and suffix operations', async (character) => {
+        const seed = freshCache();
+        await seed.set(`feeds${character}one`, 'prefix');
+        await seed.set('feedsXone', 'prefix decoy');
+        await seed.set(`one${character}feed`, 'suffix');
+        await seed.set('oneXfeed', 'suffix decoy');
+        const current = freshCache();
+        expect(await current.getByPrefix(`feeds${character}`)).toEqual(['prefix']);
+        expect(await current.getBySuffix(`${character}feed`)).toEqual(['suffix']);
+        await current.deletePrefix(`feeds${character}`, false);
+        await current.save();
+        await current.deleteSuffix(`${character}feed`);
+        const reloaded = freshCache();
+        expect(await reloaded.get(`feeds${character}one`)).toBeUndefined();
+        expect(await reloaded.get(`one${character}feed`)).toBeUndefined();
+        expect(await reloaded.get('feedsXone')).toBe('prefix decoy');
+        expect(await reloaded.get('oneXfeed')).toBe('suffix decoy');
     });
 });

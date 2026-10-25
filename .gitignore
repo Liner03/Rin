@@ -11,6 +11,7 @@ test.ts
 .wrangler
 wrangler.toml
 .vite
+coverage/
 # Logs
 logs
 npm-debug.log*
@@ -37,4 +38,4 @@ dist-ssr
 /.dev.vars
 
 # Bun
-.bun/*.impeccable/
+.bun/*

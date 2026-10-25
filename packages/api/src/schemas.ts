@@ -12,8 +12,8 @@ export const feedListSchema = t.Object({
 });
 
 export const feedCreateSchema = t.Object({
-  title: t.String(),
-  content: t.String(),
+  title: t.String({ minLength: 1 }),
+  content: t.String({ minLength: 1 }),
   summary: t.String({ optional: true }),
   slug: t.String({ optional: true }),
   alias: t.String({ optional: true }),
@@ -21,6 +21,7 @@ export const feedCreateSchema = t.Object({
   draft: t.Boolean(),
   listed: t.Boolean(),
   password: t.String({ optional: true }),
+  cover: t.String({ optional: true }),
   createdAt: t.Date({ optional: true }),
   tags: t.Array(t.String()),
   categories: t.Array(t.Number(), { optional: true }),
@@ -37,6 +38,7 @@ export const feedUpdateSchema = t.Object({
   draft: t.Boolean({ optional: true }),
   status: t.String({ optional: true }),
   password: t.String({ optional: true }),
+  cover: t.String({ optional: true }),
   createdAt: t.Date({ optional: true }),
   tags: t.Array(t.String(), { optional: true }),
   categories: t.Array(t.Number(), { optional: true }),

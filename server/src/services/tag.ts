@@ -96,24 +96,27 @@ export async function bindTagsToContent(db: DB, contentId: number, tags: string[
         await db.delete(relationships).where(
             and(
                 eq(relationships.contentId, contentId),
-                inArray(relationships.metaId, existingTags.map((meta) => meta.id)),
+                inArray(relationships.metaId, db.select({ id: metas.id }).from(metas).where(eq(metas.type, 'tag'))),
             ),
         );
     }
 
     // 批量预取已有标签，避免逐条 findFirst
-    const normalizedTags = tags
+    const normalizedTags = [...new Set(tags
         .map((tag) => tag.trim())
-        .filter((tag) => tag !== "");
+        .filter((tag) => tag !== ""))];
     const existingByName = new Map<string, { id: number }>();
-    if (normalizedTags.length > 0) {
+    // Keep each statement below D1's bound-parameter limit.
+    const batchSize = 40;
+    for (let offset = 0; offset < normalizedTags.length; offset += batchSize) {
         const existing = await db.select({ id: metas.id, name: metas.name }).from(metas)
-            .where(and(eq(metas.type, 'tag'), inArray(metas.name, normalizedTags)));
+            .where(and(eq(metas.type, 'tag'), inArray(metas.name, normalizedTags.slice(offset, offset + batchSize))));
         for (const meta of existing) {
             existingByName.set(meta.name, { id: meta.id });
         }
     }
 
+    const newRelations: Array<typeof relationships.$inferInsert> = [];
     for (const normalized of normalizedTags) {
         let meta = existingByName.get(normalized);
 
@@ -131,7 +134,10 @@ export async function bindTagsToContent(db: DB, contentId: number, tags: string[
         }
 
         metaIds.add(meta.id);
-        await db.insert(relationships).values({ contentId, metaId: meta.id });
+        newRelations.push({ contentId, metaId: meta.id });
+    }
+    for (let offset = 0; offset < newRelations.length; offset += batchSize) {
+        await db.insert(relationships).values(newRelations.slice(offset, offset + batchSize));
     }
 
     await refreshMetaCounts(db, Array.from(metaIds));
