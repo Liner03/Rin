@@ -89,7 +89,8 @@ describe("Mirages content routes", () => {
   it.each(["/feed/101", "/article-slug"])("shares one article request between the body and hero at %s", async (path) => {
     openRoute(path);
     expect(await screen.findByText("Article body")).not.toBeNull();
-    expect(await screen.findAllByRole("heading", { name: "Article title", level: 1 })).toHaveLength(2);
+    // The body renders before its effect publishes the hero metadata.
+    await waitFor(() => expect(screen.getAllByRole("heading", { name: "Article title", level: 1 })).toHaveLength(2));
     expect(client.feed.get).toHaveBeenCalledTimes(1);
   });
 
