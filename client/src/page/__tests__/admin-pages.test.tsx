@@ -1,22 +1,26 @@
-import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import "../../test/setup";
 import type { Page } from "@rin/api";
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { client } from "../../app/runtime";
-import { AdminPagesPage } from "../admin-pages";
+import { afterEach, beforeEach, describe, expect, it, jest, mock } from "bun:test";
 
-const { showAlert } = vi.hoisted(() => ({ showAlert: vi.fn() }));
+const { cleanup, fireEvent, render, screen, waitFor } = await import("@testing-library/react");
 
-vi.mock("../../app/runtime", () => ({
-  client: { page: { list: vi.fn(), create: vi.fn(), update: vi.fn(), delete: vi.fn() } },
-}));
-vi.mock("react-i18next", () => ({ useTranslation: () => ({ t: (key: string) => key }) }));
-vi.mock("../../components/dialog", () => ({ useAlert: () => ({ showAlert, AlertUI: () => null }) }));
-vi.mock("../../components/markdown_editor", () => ({
+const showAlert = mock();
+
+const mockedRuntime = {
+  client: { page: { list: jest.fn(), create: jest.fn(), update: jest.fn(), delete: jest.fn() } },
+};
+mock.module("../../app/runtime", () => mockedRuntime);
+const { client } = mockedRuntime;
+mock.module("react-i18next", () => ({ useTranslation: () => ({ t: (key: string) => key }) }));
+mock.module("../../components/dialog", () => ({ useAlert: () => ({ showAlert, AlertUI: () => null }) }));
+mock.module("../../components/markdown_editor", () => ({
   MarkdownEditor: ({ content, setContent }: { content: string; setContent: (value: string) => void }) => (
     <textarea aria-label="content" value={content} onChange={(event) => setContent(event.target.value)} />
   ),
 }));
-vi.mock("../../components/page-templates", () => ({ PAGE_TEMPLATES: { default: { id: "default", title: "Default" } } }));
+mock.module("../../components/page-templates", () => ({ PAGE_TEMPLATES: { default: { id: "default", title: "Default" } } }));
+
+const { AdminPagesPage } = await import("../admin-pages");
 
 const page: Page = {
   id: 7, title: "Portfolio", content: "Body", slug: "portfolio", status: "publish",
@@ -32,19 +36,19 @@ async function editPage() {
 
 describe("page editor", () => {
   beforeEach(() => {
-    vi.clearAllMocks();
-    vi.mocked(client.page.list).mockResolvedValue({ data: [page] });
-    vi.mocked(client.page.update).mockResolvedValue({});
+    jest.clearAllMocks();
+    client.page.list.mockResolvedValue({ data: [page] });
+    client.page.update.mockResolvedValue({});
   });
   afterEach(cleanup);
 
   it("round-trips JSON fields as editable JSON rather than object labels", async () => {
     await editPage();
     const field = screen.getByRole("textbox", { name: "pages.field_value: gallery" });
-    expect(field).toHaveValue(JSON.stringify(page.fields![0].value, null, 2));
+    expect((field as HTMLInputElement).value).toBe(JSON.stringify(page.fields![0].value, null, 2));
     const incomplete = '[{"title":';
     fireEvent.change(field, { target: { value: incomplete } });
-    expect(field).toHaveValue(incomplete);
+    expect((field as HTMLInputElement).value).toBe(incomplete);
     fireEvent.click(screen.getByRole("button", { name: "save" }));
     expect(client.page.update).not.toHaveBeenCalled();
     expect(showAlert).toHaveBeenCalledWith("pages.invalid_field_value");
@@ -66,12 +70,12 @@ describe("page editor", () => {
     ["int", "42", 42],
     ["float", "-1.25", -1.25],
   ] as const)("keeps incomplete %s input editable and validates it before saving", async (type, text, value) => {
-    vi.mocked(client.page.list).mockResolvedValue({ data: [{ ...page, fields: [{ name: "score", type, value: 1 }] }] });
+    client.page.list.mockResolvedValue({ data: [{ ...page, fields: [{ name: "score", type, value: 1 }] }] });
     await editPage();
     const field = screen.getByRole("textbox", { name: "pages.field_value: score" });
     for (const incomplete of ["-", ""]) {
       fireEvent.change(field, { target: { value: incomplete } });
-      expect(field).toHaveValue(incomplete);
+      expect((field as HTMLInputElement).value).toBe(incomplete);
       fireEvent.click(screen.getByRole("button", { name: "save" }));
       expect(client.page.update).not.toHaveBeenCalled();
     }
@@ -97,7 +101,7 @@ describe("page editor", () => {
   });
 
   it("excludes the edited page and all descendants from parent choices", async () => {
-    vi.mocked(client.page.list).mockResolvedValue({ data: [
+    client.page.list.mockResolvedValue({ data: [
       page,
       { ...page, id: 8, title: "Child", parent: 7 },
       { ...page, id: 9, title: "Grandchild", parent: 8 },
@@ -105,22 +109,22 @@ describe("page editor", () => {
     ] });
     render(<AdminPagesPage />);
     fireEvent.click((await screen.findAllByRole("button", { name: "update.title" }))[0]);
-    expect(screen.queryByRole("option", { name: "Portfolio" })).not.toBeInTheDocument();
-    expect(screen.queryByRole("option", { name: "Child" })).not.toBeInTheDocument();
-    expect(screen.queryByRole("option", { name: "Grandchild" })).not.toBeInTheDocument();
-    expect(screen.getByRole("option", { name: "Other" })).toBeInTheDocument();
+    expect(screen.queryByRole("option", { name: "Portfolio" })).toBeNull();
+    expect(screen.queryByRole("option", { name: "Child" })).toBeNull();
+    expect(screen.queryByRole("option", { name: "Grandchild" })).toBeNull();
+    expect(screen.getByRole("option", { name: "Other" })).not.toBeNull();
   });
 
   it("keeps legacy cycles and orphans visible and lets an edit repair the parent", async () => {
-    vi.mocked(client.page.list).mockResolvedValue({ data: [
+    client.page.list.mockResolvedValue({ data: [
       { ...page, parent: 8 },
       { ...page, id: 8, title: "Cycle", parent: 7 },
       { ...page, id: 9, title: "Orphan", parent: 999 },
     ] });
     render(<AdminPagesPage />);
-    expect(await screen.findByText("Portfolio")).toBeInTheDocument();
-    expect(screen.getByText("Cycle")).toBeInTheDocument();
-    expect(screen.getByText("Orphan")).toBeInTheDocument();
+    expect(await screen.findByText("Portfolio")).not.toBeNull();
+    expect(screen.getByText("Cycle")).not.toBeNull();
+    expect(screen.getByText("Orphan")).not.toBeNull();
     fireEvent.click(screen.getAllByRole("button", { name: "update.title" })[0]);
     fireEvent.click(screen.getByRole("button", { name: "save" }));
     await waitFor(() => expect(client.page.update).toHaveBeenCalledWith(7, expect.objectContaining({ parent: 0 })));

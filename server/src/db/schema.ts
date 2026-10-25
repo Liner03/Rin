@@ -30,6 +30,8 @@ export const contents = sqliteTable("contents", {
 }, (table) => ({
     slugUnique: unique().on(table.slug),
     typeStatusCreatedIdx: index("idx_contents_type_status_created").on(table.type, table.status, table.createdAt),
+    visibilityOrderIdx: index("idx_contents_visibility_order").on(table.type, table.status, table.top, table.createdAt, table.updatedAt),
+    uidIdx: index("idx_contents_uid").on(table.uid),
 }));
 
 export const metas = sqliteTable("metas", {
@@ -47,6 +49,8 @@ export const metas = sqliteTable("metas", {
 }, (table) => ({
     slugTypeUnique: unique().on(table.slug, table.type),
     parentIdx: index("idx_metas_parent").on(table.parent),
+    typeIdx: index("idx_metas_type").on(table.type),
+    typeNameIdx: index("idx_metas_type_name").on(table.type, table.name),
 }));
 
 export const relationships = sqliteTable("relationships", {
@@ -57,6 +61,7 @@ export const relationships = sqliteTable("relationships", {
 }, (table) => ({
     contentMetaUnique: unique().on(table.contentId, table.metaId),
     metaIdIdx: index("idx_relationships_meta_id").on(table.metaId),
+    metaContentIdx: index("idx_relationships_meta_content").on(table.metaId, table.contentId),
 }));
 
 export const fields = sqliteTable("fields", {
@@ -88,6 +93,7 @@ export const visits = sqliteTable("visits", {
     createdAt: created_at,
 }, (table) => ({
     contentIdIdx: index("idx_visits_content_id").on(table.contentId),
+    contentCreatedIdx: index("idx_visits_content_created").on(table.contentId, table.createdAt),
 }));
 
 export const visitStats = sqliteTable("visit_stats", {
@@ -114,7 +120,9 @@ export const friends = sqliteTable("friends", {
     sort_order: integer("sort_order").default(0).notNull(),
     createdAt: created_at,
     updatedAt: updated_at,
-});
+}, (table) => ({
+    acceptedOrderIdx: index("idx_friends_accepted_order").on(table.accepted, table.sort_order, table.createdAt),
+}));
 
 export const users = sqliteTable("users", {
     id: integer("id").primaryKey(),
@@ -127,6 +135,7 @@ export const users = sqliteTable("users", {
     updatedAt: updated_at,
 }, (table) => ({
     usernameUnique: unique("idx_users_username").on(table.username),
+    openidIdx: index("idx_users_openid").on(table.openid),
 }));
 
 export const comments = sqliteTable("comments", {
@@ -153,6 +162,7 @@ export const cache = sqliteTable("cache", {
     updatedAt: updated_at,
 }, (table) => ({
     keyTypeUnique: unique().on(table.key, table.type),
+    typeKeyIdx: index("idx_cache_type_key").on(table.type, table.key),
 }));
 
 export const contentsRelations = relations(contents, ({ many, one }) => ({

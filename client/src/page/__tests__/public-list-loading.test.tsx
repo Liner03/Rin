@@ -1,24 +1,28 @@
+import "../../test/setup";
 import type { Friend, Moment } from "@rin/api";
-import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { StrictMode } from "react";
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { client } from "../../app/runtime";
-import { FriendsPage } from "../friends";
-import { MomentsPage } from "../moments";
+import { afterEach, beforeEach, describe, expect, it, jest, mock } from "bun:test";
 
-vi.mock("../../app/runtime", () => ({
+const { cleanup, fireEvent, render, screen, waitFor } = await import("@testing-library/react");
+
+const mockedRuntime = {
   client: {
-    friend: { list: vi.fn() },
-    moments: { list: vi.fn() },
+    friend: { list: jest.fn() },
+    moments: { list: jest.fn() },
   },
+};
+mock.module("../../app/runtime", () => mockedRuntime);
+const { client } = mockedRuntime;
+mock.module("react-i18next", () => ({ useTranslation: () => ({ t: (key: string) => key }) }));
+mock.module("../../components/dialog", () => ({
+  useAlert: () => ({ showAlert: jest.fn(), AlertUI: () => null }),
+  useConfirm: () => ({ showConfirm: jest.fn(), ConfirmUI: () => null }),
 }));
-vi.mock("react-i18next", () => ({ useTranslation: () => ({ t: (key: string) => key }) }));
-vi.mock("../../components/dialog", () => ({
-  useAlert: () => ({ showAlert: vi.fn(), AlertUI: () => null }),
-  useConfirm: () => ({ showConfirm: vi.fn(), ConfirmUI: () => null }),
-}));
-vi.mock("../../components/markdown_editor", () => ({ MarkdownEditor: () => null }));
-vi.mock("../../components/markdown", () => ({ Markdown: ({ content }: { content: string }) => <div>{content}</div> }));
+mock.module("../../components/markdown_editor", () => ({ MarkdownEditor: () => null }));
+mock.module("../../components/markdown", () => ({ Markdown: ({ content }: { content: string }) => <div>{content}</div> }));
+
+const { FriendsPage } = await import("../friends");
+const { MomentsPage } = await import("../moments");
 
 const date = "2026-01-01T00:00:00Z";
 const friend: Friend = {
@@ -34,22 +38,25 @@ const cases = [
   {
     name: "friends",
     Page: FriendsPage,
-    list: vi.mocked(client.friend.list),
+    list: client.friend.list,
     content: friend.name,
-    queueEmpty: () => vi.mocked(client.friend.list).mockResolvedValueOnce({ data: { friend_list: [], apply_list: null } }),
-    queueContent: () => vi.mocked(client.friend.list).mockResolvedValueOnce({ data: { friend_list: [friend], apply_list: null } }),
+    queueEmpty: () => client.friend.list.mockResolvedValueOnce({ data: { friend_list: [], apply_list: null } }),
+    queueContent: () => client.friend.list.mockResolvedValueOnce({ data: { friend_list: [friend], apply_list: null } }),
   },
   {
     name: "moments",
     Page: MomentsPage,
-    list: vi.mocked(client.moments.list),
+    list: client.moments.list,
     content: moment.content,
-    queueEmpty: () => vi.mocked(client.moments.list).mockResolvedValueOnce({ data: { data: [], hasNext: false } }),
-    queueContent: () => vi.mocked(client.moments.list).mockResolvedValueOnce({ data: { data: [moment], hasNext: false } }),
+    queueEmpty: () => client.moments.list.mockResolvedValueOnce({ data: { data: [], hasNext: false } }),
+    queueContent: () => client.moments.list.mockResolvedValueOnce({ data: { data: [moment], hasNext: false } }),
   },
 ];
 
-beforeEach(() => { vi.resetAllMocks(); });
+beforeEach(() => {
+  client.friend.list.mockReset();
+  client.moments.list.mockReset();
+});
 afterEach(cleanup);
 
 describe.each(cases)("$name loading states", ({ name, Page, list, content, queueEmpty, queueContent }) => {
@@ -58,14 +65,14 @@ describe.each(cases)("$name loading states", ({ name, Page, list, content, queue
     queueEmpty();
     render(<StrictMode><Page /></StrictMode>);
 
-    expect(await screen.findByRole("alert")).toHaveTextContent(`${name}.load_failed`);
-    expect(screen.queryByText(`${name}.empty`)).not.toBeInTheDocument();
+    expect((await screen.findByRole("alert")).textContent).toContain(`${name}.load_failed`);
+    expect(screen.queryByText(`${name}.empty`)).toBeNull();
     expect(list).toHaveBeenCalledTimes(1);
 
     fireEvent.click(screen.getByRole("button", { name: "error.retry" }));
-    expect(await screen.findByText(`${name}.empty`)).toBeInTheDocument();
-    expect(screen.queryByRole("alert")).not.toBeInTheDocument();
-    expect(screen.queryByRole("button", { name: "error.retry" })).not.toBeInTheDocument();
+    expect(await screen.findByText(`${name}.empty`)).not.toBeNull();
+    expect(screen.queryByRole("alert")).toBeNull();
+    expect(screen.queryByRole("button", { name: "error.retry" })).toBeNull();
     expect(list).toHaveBeenCalledTimes(2);
   });
 
@@ -74,34 +81,34 @@ describe.each(cases)("$name loading states", ({ name, Page, list, content, queue
     queueContent();
     render(<Page />);
 
-    expect(await screen.findByRole("alert")).toHaveTextContent(`${name}.load_failed`);
-    expect(screen.queryByText(`${name}.empty`)).not.toBeInTheDocument();
+    expect((await screen.findByRole("alert")).textContent).toContain(`${name}.load_failed`);
+    expect(screen.queryByText(`${name}.empty`)).toBeNull();
     fireEvent.click(screen.getByRole("button", { name: "error.retry" }));
 
-    expect(await screen.findByText(content)).toBeInTheDocument();
-    expect(screen.queryByRole("alert")).not.toBeInTheDocument();
-    expect(screen.queryByText(`${name}.empty`)).not.toBeInTheDocument();
+    expect(await screen.findByText(content)).not.toBeNull();
+    expect(screen.queryByRole("alert")).toBeNull();
+    expect(screen.queryByText(`${name}.empty`)).toBeNull();
   });
 
   it("does not treat a response without list data as an empty list", async () => {
     list.mockResolvedValueOnce({});
     render(<Page />);
-    expect(await screen.findByRole("alert")).toHaveTextContent(`${name}.load_failed`);
-    expect(screen.queryByText(`${name}.empty`)).not.toBeInTheDocument();
+    expect((await screen.findByRole("alert")).textContent).toContain(`${name}.load_failed`);
+    expect(screen.queryByText(`${name}.empty`)).toBeNull();
   });
 
   it("does not show an empty state while the initial request is pending", () => {
     list.mockImplementationOnce(() => new Promise<never>(() => {}));
     render(<StrictMode><Page /></StrictMode>);
     expect(list).toHaveBeenCalledTimes(1);
-    expect(screen.queryByText(`${name}.empty`)).not.toBeInTheDocument();
-    expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+    expect(screen.queryByText(`${name}.empty`)).toBeNull();
+    expect(screen.queryByRole("alert")).toBeNull();
   });
 });
 
 describe("moments pagination", () => {
   it.each(["API error", "rejected request"])("retains loaded moments and retries the same page after an %s", async (failure) => {
-    const list = vi.mocked(client.moments.list);
+    const list = client.moments.list;
     list.mockResolvedValueOnce({ data: { data: [moment], hasNext: true } });
     if (failure === "API error") {
       list.mockResolvedValueOnce({ error: { status: 500, value: "Request failed" } });
@@ -111,18 +118,18 @@ describe("moments pagination", () => {
     list.mockResolvedValueOnce({ data: { data: [{ ...moment, id: 2, content: "Second moment" }], hasNext: false } });
     render(<MomentsPage />);
 
-    expect(await screen.findByText(moment.content)).toBeInTheDocument();
+    expect(await screen.findByText(moment.content)).not.toBeNull();
     fireEvent.click(screen.getByRole("button", { name: "load_more" }));
-    expect(await screen.findByRole("alert")).toHaveTextContent("moments.load_failed");
-    expect(screen.getByText(moment.content)).toBeInTheDocument();
-    expect(screen.queryByText("moments.empty")).not.toBeInTheDocument();
-    expect(screen.queryByRole("button", { name: "load_more" })).not.toBeInTheDocument();
+    expect((await screen.findByRole("alert")).textContent).toContain("moments.load_failed");
+    expect(screen.getByText(moment.content)).not.toBeNull();
+    expect(screen.queryByText("moments.empty")).toBeNull();
+    expect(screen.queryByRole("button", { name: "load_more" })).toBeNull();
 
     fireEvent.click(screen.getByRole("button", { name: "error.retry" }));
-    expect(await screen.findByText("Second moment")).toBeInTheDocument();
+    expect(await screen.findByText("Second moment")).not.toBeNull();
     expect(screen.getAllByText(moment.content)).toHaveLength(1);
-    expect(screen.queryByRole("alert")).not.toBeInTheDocument();
-    await waitFor(() => expect(screen.getByText("no_more")).toBeInTheDocument());
+    expect(screen.queryByRole("alert")).toBeNull();
+    await waitFor(() => expect(screen.getByText("no_more")).not.toBeNull());
     expect(list.mock.calls.map(([query]) => query?.page)).toEqual([1, 2, 2]);
   });
 });

@@ -1,6 +1,9 @@
-import { and, asc, count, desc, eq, gt, like, lt, or, sql, type AnyColumn, type SQL } from "drizzle-orm";
+import { feedCreateSchema, feedUpdateSchema, feedSetTopSchema, type CreateFeedRequest, type UpdateFeedRequest } from "@rin/api";
+import { and, asc, count, desc, eq, gt, lt, or, sql, type AnyColumn, type SQL } from "drizzle-orm";
 import { Hono } from "hono";
 import type { DB, Variables } from "../core/hono-types";
+import { adminOnly, userOnly, withJsonBody } from "../core/route-boundaries";
+import { deleteFeedById, findDuplicateFeed, findFeedById, insertFeed, searchFeedPage, updateFeedById } from "../features/feed/repository";
 import { profileAsync } from "../core/server-timing";
 import { contents, visits, visitStats } from "../db/schema";
 import { HyperLogLog } from "../utils/hyperloglog";
@@ -8,7 +11,7 @@ import { extractImageWithMetadata } from "../utils/image";
 import { stripMarkdown } from "../utils/markdown";
 import { syncFeedAISummaryQueueState } from "./feed-ai-summary";
 import { bindTagsToContent } from "./tag";
-import { clearFeedCache } from "./clear-feed-cache";
+import { clearFeedCache, clearFeedCollectionCaches } from "./clear-feed-cache";
 import {
     CONTENT_STATUS,
     CONTENT_TYPE,
@@ -40,6 +43,12 @@ function parseFeedId(value: string): number | null {
 
     const id = Number(value);
     return Number.isSafeInteger(id) ? id : null;
+}
+
+function parsePositiveInteger(value: string | undefined, fallback: number, maximum?: number) {
+    const parsed = Number.parseInt(value || "", 10);
+    if (!Number.isFinite(parsed) || parsed < 1) return fallback;
+    return maximum ? Math.min(parsed, maximum) : parsed;
 }
 
 async function initWPModules() {
@@ -116,8 +125,8 @@ export function FeedService(): Hono<{
             return c.text('Permission denied', 403);
         }
 
-        const page_num = (page ? parseInt(page) > 0 ? parseInt(page) : 1 : 1) - 1;
-        const limit_num = limit ? parseInt(limit) > 50 ? 50 : parseInt(limit) : 20;
+        const page_num = parsePositiveInteger(page, 1) - 1;
+        const limit_num = parsePositiveInteger(limit, 20, 50);
         // 缓存按角色区分：admin 与非 admin 的查询条件不同
         const cacheKey = `feeds_${admin ? "admin_" : ""}${type}_${page_num}_${limit_num}`;
         const cached = await profileAsync(c, 'feed_list_cache_get', () => cache.get(cacheKey));
@@ -193,14 +202,13 @@ export function FeedService(): Hono<{
     });
 
     // POST /feed - Create feed
-    app.post('/', async (c) => {
+    app.post('/', adminOnly(withJsonBody<CreateFeedRequest>(feedCreateSchema, async (c, body) => {
         const db = c.get('db');
         const cache = c.get('cache');
         const serverConfig = c.get('serverConfig');
         const env = c.get('env');
         const admin = c.get('admin');
         const uid = c.get('uid');
-        const body = await profileAsync(c, 'feed_create_parse', () => c.req.json());
         const { title, slug, listed, content, summary, draft, tags, categories, createdAt, status, password, top, cover } = body;
 
         if (!admin) {
@@ -214,9 +222,7 @@ export function FeedService(): Hono<{
             return c.text('Content is required', 400);
         }
 
-        const exist = await profileAsync(c, 'feed_create_existing', () => db.query.contents.findFirst({
-            where: and(eq(contents.type, CONTENT_TYPE.POST), or(eq(contents.title, title), eq(contents.text, content)))
-        }));
+        const exist = await profileAsync(c, 'feed_create_existing', () => findDuplicateFeed(db, title, content));
 
         if (exist) {
             return c.text('Content already exists', 400);
@@ -234,7 +240,7 @@ export function FeedService(): Hono<{
         const finalSlug = slug || await getUniqueSlug(db, generateSlug(title));
         const passwordHash = password ? await hashContentPassword(password) : "";
 
-        const result = await profileAsync(c, 'feed_create_insert', () => db.insert(contents).values({
+        const result = await profileAsync(c, 'feed_create_insert', () => insertFeed(db, {
             type: CONTENT_TYPE.POST,
             title,
             text: content,
@@ -250,23 +256,24 @@ export function FeedService(): Hono<{
             top: top || 0,
             createdAt: date,
             updatedAt: date
-        }).returning({ insertedId: contents.id }));
+        }));
+        if (!result) return c.text('Failed to insert', 500);
 
-        await profileAsync(c, 'feed_create_tags', () => bindTagsToContent(db, result[0].insertedId, tags || []));
-        await profileAsync(c, 'feed_create_categories', () => bindCategoriesToContent(db, result[0].insertedId, categories || []));
-        await profileAsync(c, 'feed_create_ai_queue', () => syncFeedAISummaryQueueState(db, serverConfig, env, result[0].insertedId, {
+        await profileAsync(c, 'feed_create_tags', () => bindTagsToContent(db, result.insertedId, tags || []));
+        await profileAsync(c, 'feed_create_categories', () => bindCategoriesToContent(db, result.insertedId, categories || []));
+        await profileAsync(c, 'feed_create_ai_queue', () => syncFeedAISummaryQueueState(db, serverConfig, env, result.insertedId, {
             draft: finalStatus === CONTENT_STATUS.DRAFT,
             updatedAt: date,
             resetSummary: true,
         }));
-        await profileAsync(c, 'feed_create_cache_invalidate', () => clearFeedCache(cache, result[0].insertedId, finalSlug, finalSlug));
+        await profileAsync(c, 'feed_create_cache_invalidate', () => clearFeedCache(cache, result.insertedId, finalSlug, finalSlug));
 
-        if (result.length === 0) {
-            return c.text('Failed to insert', 500);
-        } else {
-            return c.json(result[0]);
-        }
-    });
+        return c.json(result);
+    }, { errorMessage: (issues) => {
+        if (issues.some((issue) => issue.path === 'title' && /required|empty/.test(issue.message))) return 'Title is required';
+        if (issues.some((issue) => issue.path === 'content' && /required|empty/.test(issue.message))) return 'Content is required';
+        return issues[0]?.message ?? 'Invalid request body';
+    } }), { message: 'Permission denied', status: 403 }));
 
     // GET /feed/:id
     app.get('/:id', async (c) => {
@@ -397,7 +404,7 @@ export function FeedService(): Hono<{
 
         const created_at = feed.createdAt;
 
-        function formatAndCacheData(feed: any, feedDirection: "previous_feed" | "next_feed") {
+        async function formatAndCacheData(feed: any, feedDirection: "previous_feed" | "next_feed") {
             if (feed) {
                 const cacheKey = `${feed.id}_${feedDirection}_${id_num}`;
                 const cacheData = {
@@ -409,7 +416,7 @@ export function FeedService(): Hono<{
                     createdAt: feed.createdAt,
                     updatedAt: feed.updatedAt,
                 };
-                cache.set(cacheKey, cacheData);
+                await cache.set(cacheKey, cacheData);
                 return cacheData;
             }
             return null;
@@ -457,7 +464,7 @@ export function FeedService(): Hono<{
     });
 
     // POST /feed/:id - Update feed
-    app.post('/:id', async (c) => {
+    app.post('/:id', userOnly(withJsonBody<UpdateFeedRequest>(feedUpdateSchema, async (c, body) => {
         const db = c.get('db');
         const cache = c.get('cache');
         const serverConfig = c.get('serverConfig');
@@ -465,13 +472,11 @@ export function FeedService(): Hono<{
         const admin = c.get('admin');
         const uid = c.get('uid');
         const id = c.req.param('id');
-        const body = await profileAsync(c, 'feed_update_parse', () => c.req.json());
         const { title, listed, content, summary, slug, draft, top, tags, categories, createdAt, status, password, cover } = body;
 
-        const id_num = parseInt(id);
-        const feed = await profileAsync(c, 'feed_update_lookup', () => db.query.contents.findFirst({
-            where: and(eq(contents.id, id_num), eq(contents.type, CONTENT_TYPE.POST))
-        }));
+        const id_num = parseFeedId(id);
+        if (id_num === null) return c.text('Not found', 404);
+        const feed = await profileAsync(c, 'feed_update_lookup', () => findFeedById(db, id_num));
 
         if (!feed) {
             return c.text('Not found', 404);
@@ -501,7 +506,7 @@ export function FeedService(): Hono<{
             ? (password ? await hashContentPassword(password) : "")
             : feed.password;
 
-        await profileAsync(c, 'feed_update_db', () => db.update(contents).set({
+        await profileAsync(c, 'feed_update_db', () => updateFeedById(db, id_num, {
             title,
             text: content,
             cover,
@@ -515,7 +520,7 @@ export function FeedService(): Hono<{
             password: passwordHash,
             createdAt: createdAt ? new Date(createdAt) : undefined,
             updatedAt: updateTime
-        }).where(eq(contents.id, id_num)));
+        }));
 
         if (tags) {
             await profileAsync(c, 'feed_update_tags', () => bindTagsToContent(db, id_num, tags));
@@ -534,22 +539,20 @@ export function FeedService(): Hono<{
 
         await profileAsync(c, 'feed_update_cache_invalidate', () => clearFeedCache(cache, id_num, feed.slug, finalSlug));
         return c.text('Updated');
-    });
+    }), { message: 'Permission denied', status: 403 }));
 
     // POST /feed/top/:id
-    app.post('/top/:id', async (c) => {
+    app.post('/top/:id', userOnly(withJsonBody<{ top: number }>(feedSetTopSchema, async (c, body) => {
         const db = c.get('db');
         const cache = c.get('cache');
         const admin = c.get('admin');
         const uid = c.get('uid');
         const id = c.req.param('id');
-        const body = await profileAsync(c, 'feed_top_parse', () => c.req.json());
         const { top } = body;
 
-        const id_num = parseInt(id);
-        const feed = await profileAsync(c, 'feed_top_lookup', () => db.query.contents.findFirst({
-            where: and(eq(contents.id, id_num), eq(contents.type, CONTENT_TYPE.POST))
-        }));
+        const id_num = parseFeedId(id);
+        if (id_num === null) return c.text('Not found', 404);
+        const feed = await profileAsync(c, 'feed_top_lookup', () => findFeedById(db, id_num));
 
         if (!feed) {
             return c.text('Not found', 404);
@@ -559,23 +562,22 @@ export function FeedService(): Hono<{
             return c.text('Permission denied', 403);
         }
 
-        await profileAsync(c, 'feed_top_db', () => db.update(contents).set({ top }).where(eq(contents.id, feed.id)));
+        await profileAsync(c, 'feed_top_db', () => updateFeedById(db, feed.id, { top }));
         await profileAsync(c, 'feed_top_cache_invalidate', () => clearFeedCache(cache, feed.id, feed.slug, feed.slug));
         return c.text('Updated');
-    });
+    }), { message: 'Permission denied', status: 403 }));
 
     // DELETE /feed/:id
-    app.delete('/:id', async (c) => {
+    app.delete('/:id', userOnly(async (c) => {
         const db = c.get('db');
         const cache = c.get('cache');
         const admin = c.get('admin');
         const uid = c.get('uid');
         const id = c.req.param('id');
 
-        const id_num = parseInt(id);
-        const feed = await profileAsync(c, 'feed_delete_lookup', () => db.query.contents.findFirst({
-            where: and(eq(contents.id, id_num), eq(contents.type, CONTENT_TYPE.POST))
-        }));
+        const id_num = parseFeedId(id);
+        if (id_num === null) return c.text('Not found', 404);
+        const feed = await profileAsync(c, 'feed_delete_lookup', () => findFeedById(db, id_num));
 
         if (!feed) {
             return c.text('Not found', 404);
@@ -585,10 +587,10 @@ export function FeedService(): Hono<{
             return c.text('Permission denied', 403);
         }
 
-        await profileAsync(c, 'feed_delete_db', () => db.delete(contents).where(eq(contents.id, id_num)));
+        await profileAsync(c, 'feed_delete_db', () => deleteFeedById(db, id_num));
         await profileAsync(c, 'feed_delete_cache_invalidate', () => clearFeedCache(cache, id_num, feed.slug, null));
         return c.text('Deleted');
-    });
+    }, { message: 'Permission denied', status: 403 }));
     return app;
 }
 
@@ -608,69 +610,36 @@ export function SearchService(): Hono<{
         const admin = c.get('admin');
         const page = c.req.query('page');
         const limit = c.req.query('limit');
-        let keyword = c.req.param('keyword');
-
-        keyword = decodeURI(keyword);
-        const page_num = (page ? parseInt(page) > 0 ? parseInt(page) : 1 : 1) - 1;
-        const limit_num = limit ? parseInt(limit) > 50 ? 50 : parseInt(limit) : 20;
+        // Hono has already decoded the route parameter, including literal % signs.
+        const keyword = c.req.param('keyword');
+        const page_num = parsePositiveInteger(page, 1) - 1;
+        const limit_num = parsePositiveInteger(limit, 20, 50);
 
         if (keyword === undefined || keyword.trim().length === 0) {
             return c.json({ size: 0, data: [], hasNext: false });
         }
 
-        // 缓存按角色区分：admin 与非 admin 的查询条件不同（密码过滤/隐藏分类）
-        // 带时间戳 TTL：定时发布/新文章在到期后可见，避免永久缓存
-        const cacheKey = `search_v2_${admin ? "admin_" : ""}${keyword}`;
-        const searchKeyword = `%${keyword}%`;
-        const whereClause = or(
-            like(contents.title, searchKeyword),
-            like(contents.text, searchKeyword),
-            like(contents.summary, searchKeyword),
-            like(contents.slug, searchKeyword)
-        );
-
-        const searchWhere = admin
-            ? and(eq(contents.type, CONTENT_TYPE.POST), whereClause)
-            : and(eq(contents.type, CONTENT_TYPE.POST), publishedWhere(), whereClause, sql`${contents.password} = ''`);
-
+        const cacheKey = `search_v3_${admin ? "admin" : "public"}_${page_num}_${limit_num}_${encodeURIComponent(keyword)}`;
         const cached = await profileAsync(c, 'feed_search_cache_get', () => cache.get(cacheKey));
-        let feed_list: any[] = [];
         if (cached && cached.t !== undefined && Date.now() - cached.t < LIST_CACHE_TTL) {
-            feed_list = cached.data;
-        } else {
-            const rows = await profileAsync(c, 'feed_search_db', () => db.query.contents.findMany({
-                where: searchWhere,
-                columns: admin ? undefined : { status: false, password: false, parent: false, template: false, order: false, type: false, allowComment: false, allowPing: false, allowFeed: false, uid: false },
-                with: {
-                    user: { columns: { id: true, username: true, avatar: true } }
-                },
-                orderBy: [desc(contents.createdAt), desc(contents.updatedAt)],
-                limit: 200,
-            }));
-            const rowIds = rows.map((feed: any) => feed.id);
-            const [tagsMap, categoriesMap] = await Promise.all([
-                getTagsForContents(db, rowIds),
-                getCategoriesForContents(db, rowIds),
-            ]);
-            feed_list = rows.map((feed: any) => contentToFeedList({
-                ...feed,
-                hashtags: tagsMap.get(feed.id) || [],
-                categories: categoriesMap.get(feed.id) || [],
-            }));
-            await profileAsync(c, 'feed_search_cache_set', () => cache.set(cacheKey, { t: Date.now(), data: feed_list }));
+            return c.json(cached.data);
         }
-
-        if (feed_list.length <= page_num * limit_num) {
-            return c.json({ size: feed_list.length, data: [], hasNext: false });
-        } else if (feed_list.length <= page_num * limit_num + limit_num) {
-            return c.json({ size: feed_list.length, data: feed_list.slice(page_num * limit_num), hasNext: false });
-        } else {
-            return c.json({
-                size: feed_list.length,
-                data: feed_list.slice(page_num * limit_num, page_num * limit_num + limit_num),
-                hasNext: true
-            });
-        }
+        const result = await profileAsync(c, 'feed_search_db', () => searchFeedPage(db, {
+            keyword, admin: Boolean(admin), pageIndex: page_num, limit: limit_num,
+        }));
+        const ids = result.rows.map((feed) => feed.id);
+        const [tagsMap, categoriesMap] = await Promise.all([
+            getTagsForContents(db, ids), getCategoriesForContents(db, ids),
+        ]);
+        const data = {
+            size: result.size,
+            hasNext: result.hasNext,
+            data: result.rows.map((feed) => contentToFeedList({
+                ...feed, hashtags: tagsMap.get(feed.id) || [], categories: categoriesMap.get(feed.id) || [],
+            })),
+        };
+        await cache.set(cacheKey, { t: Date.now(), data });
+        return c.json(data);
     });
     return app;
 }
@@ -779,7 +748,7 @@ export function WordPressService(): Hono<{
             success++;
         }
 
-        await profileAsync(c, 'wp_import_cache_invalidate', () => cache.deletePrefix('feeds_'));
+        await profileAsync(c, 'wp_import_cache_invalidate', () => clearFeedCollectionCaches(cache));
         await profileAsync(c, 'wp_import_cache_invalidate_category', () => cache.deletePrefix('category_'));
         return c.json({ success, skipped, skippedList });
     });

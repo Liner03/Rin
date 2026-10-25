@@ -48,14 +48,15 @@ export default defineConfig(({ mode }) => {
           target: serverTarget,
           changeOrigin: false,
         },
+        "/sitemap.xml": {
+          target: serverTarget,
+          changeOrigin: false,
+        },
+        "/robots.txt": {
+          target: serverTarget,
+          changeOrigin: false,
+        },
       },
-    },
-    // Vitest configuration
-    test: {
-      globals: true,
-      environment: 'jsdom',
-      setupFiles: './src/test/setup.ts',
-      css: true,
     },
   }
 })

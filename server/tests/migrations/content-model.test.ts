@@ -25,6 +25,7 @@ describe("Typecho content model migration", () => {
     for (let version = 0; version <= 10; version++) {
       db.exec(migration(version));
     }
+    db.exec("ALTER TABLE feeds DROP COLUMN top");
     db.exec("INSERT INTO users (id, username, openid) VALUES (7, 'admin', 'admin')");
   });
 
@@ -107,7 +108,7 @@ describe("Typecho content model migration", () => {
     const visits = db.query("SELECT id, feed_id AS content_id, ip, created_at FROM visits ORDER BY id").all();
     const stats = db.query("SELECT feed_id AS content_id, pv, hll_data, updated_at FROM visit_stats").all();
 
-    migrate(db);
+    for (let version = 11; version <= 15; version++) migrate(db, version);
 
     expect(db.query("SELECT * FROM comments ORDER BY id").all()).toEqual(comments);
     expect(db.query("SELECT * FROM visits ORDER BY id").all()).toEqual(visits);
@@ -162,11 +163,11 @@ describe("Typecho content model migration", () => {
 
   it("initializes a new database through the latest migration", () => {
     db.exec("DELETE FROM users");
-    for (let version = 11; version <= 14; version++) {
+    for (let version = 11; version <= 15; version++) {
       migrate(db, version);
     }
 
-    expect(db.query("SELECT value FROM info WHERE key = 'migration_version'").get()).toEqual({ value: "14" });
+    expect(db.query("SELECT value FROM info WHERE key = 'migration_version'").get()).toEqual({ value: "15" });
     expect(db.query("PRAGMA foreign_key_check").all()).toEqual([]);
     expect(db.query("SELECT name FROM sqlite_master WHERE type = 'table' AND name IN ('feeds', 'hashtags', 'feed_hashtags')").all())
       .toEqual([]);
