@@ -126,8 +126,8 @@ export function FeedsPage() {
                     </div>
                     <Waiting for={status === 'idle'}>
                         <div className={feedListClass}>
-                            {currentFeedData.map(({ id, ...feed }) => (
-                                <FeedCard key={id} id={id} {...feed} />
+                            {currentFeedData.map(({ id, ...feed }, index) => (
+                                <FeedCard key={id} id={id} {...feed} imagePriority={index === 0} />
                             ))}
                         </div>
                         <div className="wauto flex flex-row items-center mt-4 ani-show">
