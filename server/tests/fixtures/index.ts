@@ -1,5 +1,6 @@
 import { drizzle } from 'drizzle-orm/bun-sqlite';
 import { Database } from 'bun:sqlite';
+import { readFileSync } from 'node:fs';
 import { Hono } from 'hono';
 import { createMiddleware } from 'hono/factory';
 import { timing } from 'hono/timing';
@@ -186,6 +187,10 @@ export function createMockDB() {
         CREATE INDEX IF NOT EXISTS idx_cache_type ON cache(type);
         CREATE INDEX IF NOT EXISTS idx_cache_key ON cache(key);
     `);
+
+    // Use the production triggers so cache invalidation and rollback have the
+    // same transaction boundary in service tests as in D1.
+    sqlite.exec(readFileSync(new URL('../../sql/0016.sql', import.meta.url), 'utf8'));
 
     return { db, sqlite };
 }

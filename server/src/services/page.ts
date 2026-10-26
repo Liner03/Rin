@@ -135,11 +135,10 @@ export function PageService(): Hono {
             template: template || "",
         }).returning({ insertedId: contents.id }));
 
-        await profileAsync(c, 'page_create_fields', () => setContentFields(db, result[0].insertedId, fields));
-
         if (result.length === 0) {
             return c.text('Failed to insert', 500);
         }
+        await profileAsync(c, 'page_create_fields', () => setContentFields(db, result[0].insertedId, fields));
         return c.json(result[0]);
     });
 
@@ -182,6 +181,7 @@ export function PageService(): Hono {
             parent,
             order,
             template,
+            updatedAt: new Date(),
         }).where(eq(contents.id, id_num)));
 
         await profileAsync(c, 'page_update_fields', () => setContentFields(db, id_num, fields));
