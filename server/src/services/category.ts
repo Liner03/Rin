@@ -3,6 +3,7 @@ import { Hono } from "hono";
 import type { AppContext, DB } from "../core/hono-types";
 import { profileAsync } from "../core/server-timing";
 import { metas, relationships } from "../db/schema";
+import { clearFeedCollectionCaches } from "./clear-feed-cache";
 import {
     CONTENT_TYPE,
     generateSlug,
@@ -152,7 +153,7 @@ export function CategoryService(): Hono {
         if (result.length === 0) {
             return c.text('Category slug is already in use', 409);
         }
-        await profileAsync(c, 'category_create_cache_invalidate', () => cache.deletePrefix('category_'));
+        await profileAsync(c, 'category_create_cache_invalidate', () => clearFeedCollectionCaches(cache));
         return c.json(result[0]);
     });
 
@@ -207,7 +208,7 @@ export function CategoryService(): Hono {
             throw error;
         }
 
-        await profileAsync(c, 'category_update_cache_invalidate', () => cache.deletePrefix('category_'));
+        await profileAsync(c, 'category_update_cache_invalidate', () => clearFeedCollectionCaches(cache));
         return c.text('Updated');
     });
 
@@ -239,7 +240,7 @@ export function CategoryService(): Hono {
 
         await profileAsync(c, 'category_delete_rels', () => db.delete(relationships).where(eq(relationships.metaId, id)));
         await profileAsync(c, 'category_delete_db', () => db.delete(metas).where(eq(metas.id, id)));
-        await profileAsync(c, 'category_delete_cache_invalidate', () => cache.deletePrefix('category_'));
+        await profileAsync(c, 'category_delete_cache_invalidate', () => clearFeedCollectionCaches(cache));
 
         return c.text('Deleted');
     });

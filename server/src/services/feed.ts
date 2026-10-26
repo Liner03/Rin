@@ -138,8 +138,9 @@ export function FeedService(): Hono<{
 
         const page_num = parsePositiveInteger(page, 1) - 1;
         const limit_num = parsePositiveInteger(limit, 20, 50);
-        // 缓存按角色区分：admin 与非 admin 的查询条件不同
-        const cacheKey = `feeds_${admin ? "admin_" : ""}${type}_${page_num}_${limit_num}`;
+        // 管理员响应包含管理字段，缓存仍需按角色隔离。
+        // 新版本不复用仍包含隐藏分类文章的管理员首页缓存。
+        const cacheKey = `feeds_v2_${admin ? "admin_" : ""}${type}_${page_num}_${limit_num}`;
         const cached = await profileAsync(c, 'feed_list_cache_get', () => cache.get(cacheKey));
 
         if (cached && cached.t !== undefined && Date.now() - cached.t < LIST_CACHE_TTL) {
@@ -151,10 +152,12 @@ export function FeedService(): Hono<{
             : type === 'unlisted'
                 ? eq(contents.status, CONTENT_STATUS.HIDDEN)
                 : publishedWhere();
-        // 非 admin 的首页列表排除"隐藏分类"下的文章
-        const where = admin
-            ? and(eq(contents.type, CONTENT_TYPE.POST), typeWhere)
-            : and(eq(contents.type, CONTENT_TYPE.POST), typeWhere, excludeHiddenCategoryWhere());
+        // 延续 Typecho 的首页隐藏语义：所有身份（含管理员）都过滤隐藏分类。
+        // 归档、文章直链及显式草稿/未列出管理列表仍保持各自的访问规则。
+        const where = and(
+            eq(contents.type, CONTENT_TYPE.POST), typeWhere,
+            type === 'draft' || type === 'unlisted' ? undefined : excludeHiddenCategoryWhere(),
+        );
 
         const [size, rows] = await Promise.all([
             profileAsync(c, 'feed_list_count', () => db.select({ count: count() }).from(contents).where(where)),
