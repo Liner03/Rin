@@ -30,6 +30,48 @@ describe('PageService — custom fields', () => {
         return app.request('/', { method: 'POST', headers: adminHeaders, body: JSON.stringify(body) }, env);
     }
 
+    it.each(['publish', 'draft', 'private', 'hidden', 'scheduled', 'password'])(
+        'permits browser persistence only for public pages: %s', async (kind) => {
+            const created = await createPage({
+                title: 'Cache eligibility', content: 'Page body', slug: 'cache-page',
+                status: ['draft', 'private', 'hidden'].includes(kind) ? kind : 'publish',
+                password: kind === 'password' ? 'page-password' : undefined,
+            });
+            expect(created.status).toBe(200);
+            const { insertedId } = await created.json() as { insertedId: number };
+            if (kind === 'scheduled') {
+                sqlite.run('UPDATE contents SET created_at = ? WHERE id = ?', [32_472_086_400, insertedId]);
+            }
+            for (const identifier of ['cache-page', String(insertedId)]) {
+                for (const headers of [{}, adminHeaders]) {
+                    const response = await app.request(`/${identifier}`, { headers }, env);
+                    expect(response.headers.get('X-Rin-Content-Cache')).toBe(kind === 'publish' ? 'public' : null);
+                    expect(response.headers.get('Cache-Control')).toBe('private, no-store');
+                }
+            }
+            if (kind === 'password') {
+                const unlocked = await app.request(`/${insertedId}/unlock`, {
+                    method: 'POST', headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ password: 'page-password' }),
+                }, env);
+                const response = await app.request(`/${insertedId}`, {
+                    headers: { Cookie: unlocked.headers.get('Set-Cookie')!.split(';')[0] },
+                }, env);
+                expect(response.status).toBe(200);
+                expect((await response.json() as { content: string }).content).toBe('Page body');
+                expect(response.headers.get('X-Rin-Content-Cache')).toBeNull();
+                expect(response.headers.get('Cache-Control')).toBe('private, no-store');
+            }
+        },
+    );
+
+    it('does not permit caching missing pages', async () => {
+        const response = await app.request('/missing', {}, env);
+        expect(response.status).toBe(404);
+        expect(response.headers.get('X-Rin-Content-Cache')).toBeNull();
+        expect(response.headers.get('Cache-Control')).toBe('private, no-store');
+    });
+
     it('persists str/int/float/json fields on create and returns them in detail', async () => {
         const res = await createPage({
             title: 'Portfolio', content: 'content', slug: 'portfolio', template: 'wide',

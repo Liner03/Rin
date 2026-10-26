@@ -14,6 +14,10 @@ import {
 
 export function CategoryService(): Hono {
     const app = new Hono();
+    app.use('*', async (c, next) => {
+        c.header('Cache-Control', 'private, no-store');
+        await next();
+    });
 
     // GET /category - 分类列表（树形）
     app.get('/', async (c: AppContext) => {
@@ -108,6 +112,7 @@ export function CategoryService(): Hono {
             return c.text('Not found', 404);
         }
 
+        if (!admin) c.header('X-Rin-Content-Cache', 'public');
         return c.json(result);
     });
 

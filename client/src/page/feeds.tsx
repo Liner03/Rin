@@ -1,4 +1,4 @@
-import type { FeedListResponse, Page } from "@rin/api";
+import type { FeedListResponse } from "@rin/api";
 import { useContext, useEffect, useRef, useState } from "react"
 import { Helmet } from 'react-helmet'
 import { Link, useSearch } from "wouter"
@@ -8,6 +8,7 @@ import { FeedListSkeleton } from "../app/blog-skeleton"
 import { client } from "../app/runtime"
 import { ProfileContext } from "../state/profile"
 
+import { usePageContent } from "../hooks/use-page-content";
 import { useSiteConfig } from "../hooks/useSiteConfig";
 import { siteName } from "../utils/constants"
 import { getPageTemplate } from "../components/page-templates"
@@ -36,20 +37,7 @@ export function FeedsPage() {
     const currentFeeds = data ?? { size: 0, data: [], hasNext: false };
     const currentFeedData = Array.isArray(currentFeeds.data) ? currentFeeds.data : [];
     const request = useRef<{ key: string; promise: ReturnType<typeof client.feed.list> }>()
-    const [frontPage, setFrontPage] = useState<Page>();
-    useEffect(() => {
-        let cancelled = false;
-        if (siteConfig.frontPage && listState === 'normal') {
-            client.page.get(siteConfig.frontPage).then(({ data }) => {
-                if (!cancelled && data && !data.locked) setFrontPage(data);
-            }).catch(() => {});
-        } else {
-            setFrontPage(undefined);
-        }
-        return () => {
-            cancelled = true;
-        };
-    }, [siteConfig.frontPage, listState]);
+    const { page: frontPage } = usePageContent(listState === 'normal' ? siteConfig.frontPage || undefined : undefined);
     useEffect(() => {
         let cancelled = false
         const params = { page, limit, type: listState }
@@ -87,7 +75,7 @@ export function FeedsPage() {
                 {siteConfig.keywords && <meta name="keywords" content={siteConfig.keywords} />}
                 {siteConfig.description && <meta name="description" content={siteConfig.description} />}
             </Helmet>
-            {siteConfig.frontPage && frontPage && listState === 'normal' ? (
+            {siteConfig.frontPage && frontPage && !frontPage.locked && listState === 'normal' ? (
                 <main className="w-full flex flex-col justify-center items-center mb-8">
                     {getPageTemplate(frontPage.template).render({ page: frontPage })}
                 </main>

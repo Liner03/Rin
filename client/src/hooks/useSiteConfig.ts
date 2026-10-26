@@ -1,9 +1,10 @@
-import { useContext, useEffect, useState } from "react";
+import { useContext, useEffect } from "react";
 import { useTranslation } from "react-i18next";
 import { ClientConfigContext, type ConfigWrapper } from "../state/config";
 import { client } from "../app/runtime";
 import { normalizeFeedCardVariant } from "../components/feed-card-options";
 import { normalizeFeedLayout } from "../components/feed-layout-options";
+import { useCachedContent } from "./use-cached-content";
 
 // Site configuration keys
 export const SITE_CONFIG_KEYS = {
@@ -92,12 +93,14 @@ export function useSiteConfig() {
 
 
 // Share only in-flight requests within the current config, not a persistent page cache.
-const navigationRequests = new WeakMap<ConfigWrapper, ReturnType<typeof client.page.list>>();
+const navigationRequests = new WeakMap<ConfigWrapper, ReturnType<typeof client.page.navigation>>();
 
 function loadNavigationPages(config: ConfigWrapper) {
     let request = navigationRequests.get(config);
     if (!request) {
-        request = client.page.list().finally(() => navigationRequests.delete(config));
+        request = client.page.navigation().finally(() => {
+            if (navigationRequests.get(config) === request) navigationRequests.delete(config);
+        });
         navigationRequests.set(config, request);
     }
     return request;
@@ -109,24 +112,19 @@ export function useSiteNavItems() {
     const config = useContext(ClientConfigContext);
     const siteConfig = useSiteConfig();
     const hasCustomNav = siteConfig.nav.length > 0;
-    const [pages, setPages] = useState<Array<{ title: string; slug: string | null }>>([]);
-
+    const { data: pages = [], reload } = useCachedContent({
+        key: "navigation:pages",
+        enabled: !hasCustomNav,
+        getCached: () => client.page.getCachedNavigation(),
+        load: () => loadNavigationPages(config),
+    });
     useEffect(() => {
         if (hasCustomNav) return;
-        let cancelled = false;
-        loadNavigationPages(config).then(({ data }) => {
-            if (!cancelled && data) {
-                setPages(
-                    data
-                        .filter((page) => page.status === "publish" && !page.hasPassword && page.slug)
-                        .map((page) => ({ title: page.title, slug: page.slug })),
-                );
-            }
-        }).catch(() => {});
-        return () => {
-            cancelled = true;
-        };
-    }, [config, hasCustomNav]);
+        return client.subscribeContentChanges(() => {
+            navigationRequests.delete(config);
+            reload();
+        });
+    }, [config, hasCustomNav, reload]);
 
     if (siteConfig.nav.length > 0) {
         return siteConfig.nav.map((item) => ({

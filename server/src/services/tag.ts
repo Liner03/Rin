@@ -13,6 +13,10 @@ import {
 
 export function TagService(): Hono {
     const app = new Hono();
+    app.use('*', async (c, next) => {
+        c.header('Cache-Control', 'private, no-store');
+        await next();
+    });
 
     // GET /tag
     app.get('/', async (c: AppContext) => {
@@ -31,6 +35,7 @@ export function TagService(): Hono {
             updatedAt: tag.updatedAt,
         }));
 
+        c.header('X-Rin-Content-Cache', 'public');
         return c.json(result);
     });
 
@@ -76,6 +81,7 @@ export function TagService(): Hono {
             hashtags: tagsMap.get(feed.id) || [],
         }));
 
+        if (!admin) c.header('X-Rin-Content-Cache', 'public');
         return c.json({ ...tag, feeds: tagFeeds });
     });
 

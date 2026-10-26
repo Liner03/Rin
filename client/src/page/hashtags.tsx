@@ -1,37 +1,24 @@
-import { useEffect, useRef, useState } from "react";
+import { useState } from "react";
 import { Helmet } from 'react-helmet';
 import { useTranslation } from "react-i18next";
 import { Link } from "wouter";
 import { HashTag } from "../components/hashtag";
 import { Waiting } from "../components/loading";
+import { CachedContentError } from "../components/cached-content-error";
+import { useCachedContent } from "../hooks/use-cached-content";
 import { client } from "../app/runtime";
 import { useSiteConfig } from "../hooks/useSiteConfig";
 import { siteName } from "../utils/constants";
 
-type Hashtag = {
-    id: number;
-    name: string;
-    createdAt: Date;
-    updatedAt: Date;
-    count: number;
-}
-
 export function HashtagsPage() {
     const { t } = useTranslation();
     const siteConfig = useSiteConfig();
-    const [hashtags, setHashtags] = useState<Hashtag[]>();
+    const { data: hashtags, loading, error, reload } = useCachedContent({
+        key: "tags",
+        getCached: () => client.tag.getCachedList(),
+        load: () => client.tag.list(),
+    });
     const [sortBy, setSortBy] = useState<'latest' | 'popular'>('latest');
-    const ref = useRef(false);
-
-    useEffect(() => {
-        if (ref.current) return;
-        client.tag.list().then(({ data }) => {
-            if (data) {
-                setHashtags(data as any);
-            }
-        });
-        ref.current = true;
-    }, []);
 
     const sortedHashtags = hashtags
         ?.filter(({ count }) => count > 0)
@@ -56,8 +43,8 @@ export function HashtagsPage() {
                 <meta property="og:type" content="article" />
                 <meta property="og:url" content={document.URL} />
             </Helmet>
-            <Waiting for={hashtags}>
-                <main className="w-full flex flex-col justify-center items-center mb-8 ani-show">
+            <Waiting for={!loading}>
+                {error ? <CachedContentError error={error} onRetry={reload} /> : <main className="w-full flex flex-col justify-center items-center mb-8 ani-show">
                     <div className="wauto text-start py-4 text-4xl font-bold">
                         <p className="text-black dark:text-white">
                             {t('hashtags')}
@@ -101,7 +88,7 @@ export function HashtagsPage() {
                             )
                         })}
                     </div>
-                </main>
+                </main>}
             </Waiting>
         </>
     )

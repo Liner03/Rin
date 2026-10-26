@@ -24,6 +24,7 @@ import { Tips } from "../components/tips";
 import { AdjacentSection } from "../components/adjacent_feed.tsx";
 import { extractFirstMarkdownImageUrl } from "../utils/image-upload";
 import { isTransientContentError } from "../api/public-content-cache";
+import { useCachedContent } from "../hooks/use-cached-content";
 
 export function FeedPage({ id, TOC }: { id: string, TOC: ReactNode }) {
   const { t } = useTranslation();
@@ -615,27 +616,15 @@ function CommentInput({
 
 function Comments({ id }: { id: string }) {
   const config = useContext(ClientConfigContext);
-  const [comments, setComments] = useState<Comment[]>([]);
-  const [error, setError] = useState<string>();
-  const ref = useRef("");
+  const feedId = Number(id);
+  const { data, loading, error, reload: loadComments } = useCachedContent({
+    key: `comments:${id}`,
+    enabled: config.getBoolean("comment.enabled") && Number.isSafeInteger(feedId),
+    getCached: () => client.comment.getCached(feedId),
+    load: () => client.comment.list(feedId),
+  });
+  const comments = Array.isArray(data) ? data : [];
   const { t } = useTranslation();
-
-  function loadComments() {
-    client.comment
-      .list(parseInt(id))
-      .then(({ data, error }) => {
-        if (error) {
-          setError(error.value as string);
-        } else if (data && Array.isArray(data)) {
-          setComments(data);
-        }
-      });
-  }
-  useEffect(() => {
-    if (ref.current == id) return;
-    loadComments();
-    ref.current = id;
-  }, [id]);
   return (
     <>
       {config.getBoolean('comment.enabled') &&
@@ -657,7 +646,7 @@ function Comments({ id }: { id: string }) {
               </button>
             </div>
           )}
-          {!error && comments.length === 0 && (
+          {!loading && !error && comments.length === 0 && (
             <p className="py-6 text-center text-[13px] text-neutral-500 dark:text-neutral-400">
               {t("comment.empty_state")}
             </p>

@@ -140,6 +140,23 @@ describe('FeedService', () => {
     describe('browser page-data caching policy', () => {
         const adminHeaders = { Authorization: 'Bearer mock_token_1', 'Content-Type': 'application/json' };
 
+        it('marks archives public while excluding drafts, private, future content and pages', async () => {
+            sqlite.exec(`INSERT INTO contents (id, title, text, uid, type, status, created_at) VALUES
+                (201, 'Public post', 'Body', 1, 'post', 'publish', 0),
+                (202, 'Draft post', 'Body', 1, 'post', 'draft', 0),
+                (203, 'Private post', 'Body', 1, 'post', 'private', 0),
+                (204, 'Future post', 'Body', 1, 'post', 'publish', 32472086400),
+                (205, 'Public page', 'Body', 1, 'page', 'publish', 0)`);
+            for (const headers of [{}, adminHeaders]) {
+                const response = await app.request('/timeline', { headers }, env);
+                expect(response.status).toBe(200);
+                expect(response.headers.get('Cache-Control')).toBe('private, no-store');
+                expect(response.headers.get('X-Rin-Content-Cache')).toBe('public');
+                const rows = await response.json() as { id: number }[];
+                expect(rows.map((row) => row.id)).toEqual([201]);
+            }
+        });
+
         it('marks only public lists, including server-cache hits', async () => {
             await clientConfig.set('cache.enabled', true);
             for (let visit = 0; visit < 2; visit++) {
