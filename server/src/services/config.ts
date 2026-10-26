@@ -41,7 +41,7 @@ export function ConfigService(): Hono {
         // Build test config with overrides
         const testConfig = {
             provider: body.provider || config.provider,
-            model: body.model || config.model,
+            model: body.model !== undefined ? body.model : config.model,
             api_url: body.api_url !== undefined ? body.api_url : config.api_url,
             api_key: body.api_key !== undefined ? body.api_key : config.api_key,
         };

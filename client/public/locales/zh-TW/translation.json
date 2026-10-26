@@ -401,11 +401,14 @@
       },
       "provider": {
         "title": "AI 供應商",
-        "desc": "選擇或輸入 AI 服務供應商"
+        "desc": "選擇 AI 服務供應商，其他相容服務請選擇 OpenAI 相容",
+        "openai_compatible": "OpenAI 相容（自訂）",
+        "openai_compatible_desc": "使用自己的 API Key、API 地址和模型名稱，接入提供 OpenAI 相容介面的服務。"
       },
       "model": {
         "title": "模型",
-        "desc": "選擇或輸入模型名稱"
+        "desc": "選擇或輸入模型名稱",
+        "custom_placeholder": "輸入供應商提供的模型 ID"
       },
       "api_key": {
         "title": "API Key",
@@ -415,7 +418,7 @@
       },
       "api_url": {
         "title": "API URL",
-        "desc": "自訂 API 地址（OpenAI 相容格式）"
+        "desc": "填寫供應商的 Base URL（通常以 /v1 結尾），也可填寫完整的 /chat/completions 地址。"
       },
       "save": {
         "title": "儲存設定",

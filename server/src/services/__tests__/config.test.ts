@@ -580,6 +580,91 @@ describe("ConfigService", () => {
     });
 
     describe("POST /test-ai - Test AI configuration", () => {
+        it.each([
+            { model: "", api_url: "https://models.example.com/v1" },
+            { model: "custom-model", api_url: "" },
+        ])("rejects an incomplete custom target without calling a saved target: %j", async (target) => {
+            const fetchMock = mock(async () => Response.json({
+                choices: [{ message: { content: "Old model response" } }],
+            }));
+            globalThis.fetch = fetchMock as unknown as typeof fetch;
+            const headers = {
+                "Content-Type": "application/json",
+                Authorization: "Bearer mock_token_1",
+            };
+            const saveResponse = await app.request("/", {
+                method: "POST",
+                headers,
+                body: JSON.stringify({ serverConfig: {
+                    "ai_summary.provider": "openai",
+                    "ai_summary.model": "saved-model",
+                    "ai_summary.api_url": "https://saved.example.com/v1",
+                    "ai_summary.api_key": "saved-test-key",
+                } }),
+            });
+            expect(saveResponse.status).toBe(200);
+
+            const res = await app.request("/test-ai", {
+                method: "POST",
+                headers,
+                body: JSON.stringify({ provider: "openai-compatible", ...target }),
+            });
+
+            const result = await res.json() as { success: boolean; error?: string };
+            expect(result.success).toBe(false);
+            expect(result.error).toBe(target.model ? "API URL not configured" : "Model not configured");
+            expect(fetchMock).not.toHaveBeenCalled();
+        });
+
+        it("saves an OpenAI-compatible provider and tests it using the stored BYOK credentials", async () => {
+            const requests: Array<{ url: string; init?: RequestInit }> = [];
+            globalThis.fetch = mock(async (url: string | URL | Request, init?: RequestInit) => {
+                requests.push({ url: String(url), init });
+                return Response.json({ choices: [{ message: { content: "Custom model response" } }] });
+            }) as typeof fetch;
+
+            const headers = {
+                "Content-Type": "application/json",
+                Authorization: "Bearer mock_token_1",
+            };
+            const saveResponse = await app.request("/", {
+                method: "POST",
+                headers,
+                body: JSON.stringify({
+                    serverConfig: {
+                        "ai_summary.enabled": true,
+                        "ai_summary.provider": "openai-compatible",
+                        "ai_summary.model": "my-org/custom-model",
+                        "ai_summary.api_url": "https://models.example.com/v1/chat/completions/",
+                        "ai_summary.api_key": "test-byok-key",
+                    },
+                }),
+            });
+
+            expect(saveResponse.status).toBe(200);
+            const saved = await saveResponse.json() as { serverConfig: Record<string, unknown> };
+            expect(saved.serverConfig["ai_summary.provider"]).toBe("openai-compatible");
+            expect(saved.serverConfig["ai_summary.model"]).toBe("my-org/custom-model");
+            expect(saved.serverConfig["ai_summary.api_key"]).toBe("••••••••");
+
+            const res = await app.request("/test-ai", {
+                method: "POST",
+                headers,
+                body: JSON.stringify({ testPrompt: "Hello" }),
+            });
+
+            expect(res.status).toBe(200);
+            const result = await res.json() as { success: boolean; response?: string };
+            expect(result).toEqual({ success: true, response: "Custom model response" });
+            expect(requests).toHaveLength(1);
+            expect(requests[0].url).toBe("https://models.example.com/v1/chat/completions");
+            expect(new Headers(requests[0].init?.headers).get("Authorization")).toBe("Bearer test-byok-key");
+            expect(JSON.parse(String(requests[0].init?.body))).toMatchObject({
+                model: "my-org/custom-model",
+                messages: [{ role: "user", content: "Hello" }],
+            });
+        });
+
         it("should require authentication to test AI", async () => {
             const res = await app.request("/test-ai", {
                 method: "POST",

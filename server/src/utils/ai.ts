@@ -160,6 +160,10 @@ export async function testAIModel(
     testPrompt: string
 ): Promise<{ success: boolean; response?: string; error?: string; details?: string }> {
     try {
+        if (!config.model.trim()) {
+            throw new Error("Model not configured");
+        }
+
         let result: string | null;
 
         if (config.provider === 'worker-ai') {

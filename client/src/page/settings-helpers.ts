@@ -18,6 +18,7 @@ export type SettingsLoadState = {
 
 export const AI_PROVIDER_PRESETS = [
   { value: "worker-ai", label: "Cloudflare Worker AI (Free)", url: "", requiresApiKey: false, requiresApiUrl: false },
+  { value: "openai-compatible", label: "OpenAI Compatible (Custom)", url: "", requiresApiKey: true, requiresApiUrl: true },
   { value: "openai", label: "OpenAI", url: "https://api.openai.com/v1", requiresApiKey: true, requiresApiUrl: true },
   { value: "claude", label: "Claude", url: "https://api.anthropic.com/v1", requiresApiKey: true, requiresApiUrl: true },
   { value: "gemini", label: "Gemini", url: "https://generativelanguage.googleapis.com/v1beta/openai", requiresApiKey: true, requiresApiUrl: true },
@@ -145,7 +146,7 @@ export function buildAITestRequest({
   const preset = AI_PROVIDER_PRESETS.find((item) => item.value === provider);
   const requestBody: Record<string, string> = { provider, model };
 
-  if (provider !== "worker-ai" && (apiUrl || preset?.url)) {
+  if (provider !== "worker-ai") {
     requestBody.api_url = apiUrl || preset?.url || "";
   }
   if (apiKey.trim()) {

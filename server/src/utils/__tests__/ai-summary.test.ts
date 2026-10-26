@@ -76,17 +76,18 @@ describe("generateAISummaryResult", () => {
     });
   });
 
-  it("sends summary system prompt to external AI providers", async () => {
+  it.each(["openai", "openai-compatible"])("sends summary system prompt and BYOK credentials to %s", async (provider) => {
     const serverConfig = createAIConfigReader({
       enabled: true,
-      provider: "openai",
+      provider,
       model: "gpt-4o-mini",
       api_key: "secret",
-      api_url: "https://api.openai.com/v1",
+      api_url: "https://models.example.com/v1",
     });
 
     const requests: Array<any> = [];
-    globalThis.fetch = mock(async (_url: string | URL | Request, init?: RequestInit) => {
+    globalThis.fetch = mock(async (url: string | URL | Request, init?: RequestInit) => {
+      expect(String(url)).toBe("https://models.example.com/v1/chat/completions");
       requests.push(init);
       return new Response(JSON.stringify({
         choices: [{ message: { content: "summary" } }],
@@ -102,7 +103,9 @@ describe("generateAISummaryResult", () => {
 
     expect(result.summary).toBe("summary");
     expect(requests).toHaveLength(1);
+    expect(new Headers(requests[0].headers).get("Authorization")).toBe("Bearer secret");
     const body = JSON.parse(String(requests[0].body));
+    expect(body.model).toBe("gpt-4o-mini");
     expect(body.messages[0]).toEqual({
       role: "system",
       content: AI_SUMMARY_SYSTEM_PROMPT,

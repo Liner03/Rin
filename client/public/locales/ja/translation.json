@@ -392,11 +392,14 @@
       },
       "provider": {
         "title": "AI プロバイダー",
-        "desc": "AI サービスプロバイダーを選択または入力"
+        "desc": "AI プロバイダーを選択してください。その他の互換サービスには OpenAI 互換を選択します",
+        "openai_compatible": "OpenAI 互換（カスタム）",
+        "openai_compatible_desc": "独自の API キー、API URL、モデル名を使って OpenAI 互換サービスに接続します。"
       },
       "model": {
         "title": "モデル",
-        "desc": "モデル名を選択または入力"
+        "desc": "モデル名を選択または入力",
+        "custom_placeholder": "プロバイダーのモデル ID を入力"
       },
       "api_key": {
         "title": "API キー",
@@ -406,7 +409,7 @@
       },
       "api_url": {
         "title": "API URL",
-        "desc": "カスタム API URL（OpenAI 互換形式）"
+        "desc": "プロバイダーのベース URL（通常は /v1 で終わる URL）、または完全な /chat/completions URL を入力してください。"
       },
       "save": {
         "title": "設定を保存",

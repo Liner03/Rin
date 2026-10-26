@@ -51,7 +51,7 @@ export function AISummarySettings({
     onChange({
       provider: nextProvider,
       apiUrl: preset?.url ?? "",
-      model: models[0] ?? value.model,
+      model: nextProvider === "openai-compatible" ? "" : models[0] ?? value.model,
     });
   };
 
@@ -124,13 +124,18 @@ export function AISummarySettings({
         <>
           <SettingsCard>
             <SettingsCardRow
-              header={<SettingsCardHeader title={t("settings.ai_summary.provider.title")} description={t("settings.ai_summary.provider.desc")} />}
+              header={
+                <SettingsCardHeader
+                  title={t("settings.ai_summary.provider.title")}
+                  description={t(value.provider === "openai-compatible" ? "settings.ai_summary.provider.openai_compatible_desc" : "settings.ai_summary.provider.desc")}
+                />
+              }
               action={
                 <SearchableSelect
                   value={value.provider}
                   onChange={handleProviderChange}
                   options={AI_PROVIDER_PRESETS.map((preset) => ({
-                    label: preset.label,
+                    label: preset.value === "openai-compatible" ? t("settings.ai_summary.provider.openai_compatible") : preset.label,
                     value: preset.value,
                   }))}
                   placeholder={t("settings.ai_summary.provider.title")}
@@ -142,21 +147,34 @@ export function AISummarySettings({
               <div className="grid gap-4 lg:grid-cols-2">
                 <div className="space-y-2">
                   <p className="text-sm font-medium t-primary">{t("settings.ai_summary.model.title")}</p>
-                  <SearchableSelect
-                    value={value.model}
-                    onChange={(nextValue) => {
-                      onChange({ model: nextValue });
-                    }}
-                    options={modelOptions.map((option) => ({
-                      label: option,
-                      value: option,
-                    }))}
-                    placeholder={t("settings.ai_summary.model.desc")}
-                    searchPlaceholder={t("settings.ai_summary.model.desc")}
-                    emptyLabel={t("no_more")}
-                    allowCustomValue
-                    customValueLabel={(nextValue) => `${t("update.title")}: ${nextValue}`}
-                  />
+                  {value.provider === "openai-compatible" ? (
+                    <input
+                      type="text"
+                      aria-label={t("settings.ai_summary.model.title")}
+                      value={value.model}
+                      onChange={(event) => {
+                        onChange({ model: event.target.value });
+                      }}
+                      placeholder={t("settings.ai_summary.model.custom_placeholder")}
+                      className="w-full rounded-xl border border-black/10 bg-w px-4 py-3 text-sm t-primary outline-none transition-colors placeholder:text-neutral-400 focus:border-black/20 focus:ring-2 focus:ring-theme/10 dark:border-white/10 dark:placeholder:text-neutral-500 dark:focus:border-white/20"
+                    />
+                  ) : (
+                    <SearchableSelect
+                      value={value.model}
+                      onChange={(nextValue) => {
+                        onChange({ model: nextValue });
+                      }}
+                      options={modelOptions.map((option) => ({
+                        label: option,
+                        value: option,
+                      }))}
+                      placeholder={t("settings.ai_summary.model.desc")}
+                      searchPlaceholder={t("settings.ai_summary.model.desc")}
+                      emptyLabel={t("no_more")}
+                      allowCustomValue
+                      customValueLabel={(nextValue) => `${t("update.title")}: ${nextValue}`}
+                    />
+                  )}
                 </div>
                 {providerFields.requiresApiKey ? (
                   <div className="space-y-2">
@@ -170,6 +188,7 @@ export function AISummarySettings({
                     </p>
                     <input
                       type="password"
+                      aria-label={t("settings.ai_summary.api_key.title")}
                       name="rin-ai-api-key"
                       autoComplete="new-password"
                       autoCapitalize="off"
@@ -189,13 +208,15 @@ export function AISummarySettings({
                     <p className="text-sm font-medium t-primary">{t("settings.ai_summary.api_url.title")}</p>
                     <input
                       type="text"
+                      aria-label={t("settings.ai_summary.api_url.title")}
                       value={value.apiUrl}
                       onChange={(event) => {
                         onChange({ apiUrl: event.target.value });
                       }}
-                      placeholder="https://api.openai.com/v1"
+                      placeholder={value.provider === "openai-compatible" ? "https://api.example.com/v1" : "https://api.openai.com/v1"}
                       className="w-full rounded-xl border border-black/10 bg-w px-4 py-3 text-sm t-primary outline-none transition-colors placeholder:text-neutral-400 focus:border-black/20 focus:ring-2 focus:ring-theme/10 dark:border-white/10 dark:placeholder:text-neutral-500 dark:focus:border-white/20"
                     />
+                    <p className="text-xs text-neutral-500 dark:text-neutral-400">{t("settings.ai_summary.api_url.desc")}</p>
                   </div>
                 ) : null}
               </div>

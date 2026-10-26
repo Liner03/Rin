@@ -401,11 +401,14 @@
       },
       "provider": {
         "title": "AI Provider",
-        "desc": "Select or enter an AI service provider"
+        "desc": "Select an AI provider, or choose OpenAI Compatible for other compatible services",
+        "openai_compatible": "OpenAI Compatible (Custom)",
+        "openai_compatible_desc": "Connect an OpenAI-compatible service using your own API key, API URL, and model name."
       },
       "model": {
         "title": "Model",
-        "desc": "Select or enter model name"
+        "desc": "Select or enter model name",
+        "custom_placeholder": "Enter the model ID from your provider"
       },
       "api_key": {
         "title": "API Key",
@@ -415,7 +418,7 @@
       },
       "api_url": {
         "title": "API URL",
-        "desc": "Custom API URL (OpenAI compatible format)"
+        "desc": "Enter your provider's base URL (usually ending in /v1), or the full /chat/completions URL."
       },
       "save": {
         "title": "Save Configuration",
