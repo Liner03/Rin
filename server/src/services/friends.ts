@@ -158,6 +158,7 @@ export function FriendService(): Hono {
             url: wrap(url),
             accepted: finalAccepted === undefined ? undefined : finalAccepted,
             sort_order: finalSortOrder === undefined ? undefined : finalSortOrder,
+            updatedAt: new Date(),
         }).where(eq(friends.id, parseInt(id))));
         
         if (!admin) {

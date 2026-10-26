@@ -194,6 +194,7 @@ export function CategoryService(): Hono {
                 parent,
                 order,
                 listed: listed === undefined ? undefined : (listed ? 1 : 0),
+                updatedAt: new Date(),
             }).where(eq(metas.id, id)));
         } catch (error) {
             // The unique constraint also protects concurrent edits after the availability check.
