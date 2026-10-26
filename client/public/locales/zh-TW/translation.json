@@ -470,8 +470,14 @@
       },
       "avatar": {
         "title": "網站頭像",
-        "desc": "設定顯示在導覽列的頭像，支援填寫 URL、上傳圖片或拖拽上傳",
-        "label": "頭像 URL"
+        "desc": "支援頭像 URL、上傳、拖拽，也可以透過信箱產生 Gravatar 頭像。",
+        "label": "頭像 URL",
+        "gravatar": {
+          "title": "使用 Gravatar 信箱頭像",
+          "desc": "根據 Gravatar 信箱產生頭像連結，僅儲存雜湊連結；沒有頭像時顯示預設圖案。",
+          "button": "產生頭像",
+          "failed": "無法產生頭像，請檢查信箱後重試。"
+        }
       },
       "page_size": {
         "title": "分頁大小",
@@ -491,9 +497,9 @@
       },
       "copyright": {
         "title": "版權文案",
-        "desc": "頁尾顯示的自訂版權文字（留空使用預設）",
+        "desc": "支援連結和行內 HTML，使用 {year} 自動顯示目前年份；留空使用預設文案。",
         "label": "版權",
-        "placeholder": "© 2026 你的名字"
+        "placeholder": "&copy; {year} <a href=\"https://example.com\">你的名字</a>"
       },
       "rss_title": {
         "title": "RSS 標題",
@@ -590,7 +596,8 @@
     "wordpress": {
       "desc": "上傳 WordPress 匯出的 XML 文件",
       "title": "從 WordPress 匯入"
-    }
+    },
+    "saving": "正在儲存…"
   },
   "sitename": "網站名稱",
   "sort_order": "排序",

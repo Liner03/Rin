@@ -470,8 +470,14 @@
       },
       "avatar": {
         "title": "站点头像",
-        "desc": "设置显示在导航栏的头像，支持填写 URL、上传图片或拖拽上传",
-        "label": "头像 URL"
+        "desc": "支持头像 URL、上传、拖拽，也可以通过邮箱生成 Gravatar 头像。",
+        "label": "头像 URL",
+        "gravatar": {
+          "title": "使用 Gravatar 邮箱头像",
+          "desc": "根据 Gravatar 邮箱生成头像链接，仅保存哈希链接；没有头像时显示默认图案。",
+          "button": "生成头像",
+          "failed": "无法生成头像，请检查邮箱后重试。"
+        }
       },
       "page_size": {
         "title": "分页大小",
@@ -491,9 +497,9 @@
       },
       "copyright": {
         "title": "版权文案",
-        "desc": "页脚显示的自定义版权文字（留空使用默认）",
+        "desc": "支持链接和行内 HTML，使用 {year} 自动显示当前年份；留空使用默认文案。",
         "label": "版权",
-        "placeholder": "© 2026 你的名字"
+        "placeholder": "&copy; {year} <a href=\"https://example.com\">你的名字</a>"
       },
       "rss_title": {
         "title": "RSS 标题",
@@ -590,7 +596,8 @@
     "wordpress": {
       "desc": "上传 WordPress 导出的 XML 文件",
       "title": "从 WordPress 导入"
-    }
+    },
+    "saving": "正在保存…"
   },
   "sitename": "站点名称",
   "sort_order": "排序",

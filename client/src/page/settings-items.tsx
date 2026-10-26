@@ -4,6 +4,7 @@ import { useTranslation } from "react-i18next";
 import ReactLoading from "react-loading";
 import { Button } from "../components/button";
 import { useConfirm } from "../components/dialog";
+import { GravatarInput } from "../components/gravatar-input";
 import { ImageUploadInput } from "../components/image-upload-input";
 import { ImageWithFallback } from "../components/image-with-fallback";
 import {
@@ -199,6 +200,7 @@ export function ItemImageInput({
   onChange,
   onError,
   shape = "rounded",
+  allowGravatar = false,
 }: {
   title: string;
   description: string;
@@ -208,6 +210,7 @@ export function ItemImageInput({
   onChange: (value: string) => void;
   onError?: (message: string) => void;
   shape?: "rounded" | "circle";
+  allowGravatar?: boolean;
 }) {
   const [isOpen, setIsOpen] = useState(false);
 
@@ -252,6 +255,7 @@ export function ItemImageInput({
               placeholder={placeholder || configKeyTitle}
               shape={shape}
             />
+            {allowGravatar && <GravatarInput onChange={onChange} />}
           </SettingsCardBody>
         ) : null}
       </SettingsCard>

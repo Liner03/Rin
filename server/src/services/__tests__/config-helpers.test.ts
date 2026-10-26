@@ -1,6 +1,6 @@
 import { describe, expect, it, beforeEach, afterEach } from "bun:test";
 import type { Database } from "bun:sqlite";
-import { buildClientConfigResponse, buildServerConfigResponse, resolveWebhookConfig } from "../config-helpers";
+import { buildClientConfigResponse, buildServerConfigResponse, resolveWebhookConfig, persistConfigUpdates } from "../config-helpers";
 import { cleanupTestDB, createMockDB, createMockEnv } from "../../../tests/fixtures";
 
 it("loads independent bootstrap settings without serial database waits", async () => {
@@ -121,5 +121,30 @@ describe("resolveWebhookConfig", () => {
 
         expect(config.webhookUrl).toBe("https://override.example.com/webhook");
         expect(config.webhookMethod).toBe("GET");
+    });
+});
+
+
+describe("config update persistence", () => {
+    it("flushes ordinary and AI settings together while keeping a stored API key", async () => {
+        const values = new Map<string, unknown>([["ai_summary.api_key", "stored-secret"]]);
+        let saves = 0;
+        const config = {
+            async all() { return values; },
+            async set(key: string, value: unknown) { values.set(key, value); },
+            async save() { saves++; },
+        };
+        await persistConfigUpdates(config, { friend_ua: "New user agent" }, { enabled: true, model: "custom", api_key: "" });
+        expect(saves).toBe(1);
+        expect(values.get("friend_ua")).toBe("New user agent");
+        expect(values.get("ai_summary.enabled")).toBe(true);
+        expect(values.get("ai_summary.model")).toBe("custom");
+        expect(values.get("ai_summary.api_key")).toBe("stored-secret");
+    });
+
+    it("does not save untouched configuration groups", async () => {
+        let saves = 0;
+        await persistConfigUpdates({ async all() { return new Map(); }, async set() {}, async save() { saves++; } }, {});
+        expect(saves).toBe(0);
     });
 });

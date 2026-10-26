@@ -60,7 +60,7 @@ describe("initial app configuration", () => {
 
   it("renders a loading state without mounting routes until the async config arrives", () => {
     render(<App />);
-    expect(screen.getByRole("status").textContent).toBe("bootstrap.loading");
+    expect(screen.getByRole("status", { name: "bootstrap.loading" }).getAttribute("aria-busy")).toBe("true");
     expect(routes).not.toHaveBeenCalled();
     finishConfig();
     expect(screen.getByText("Article content")).not.toBeNull();

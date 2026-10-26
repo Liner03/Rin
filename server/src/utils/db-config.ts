@@ -5,7 +5,7 @@ type ConfigReader = {
     get(key: string): Promise<unknown>;
 };
 
-type ConfigWriter = ConfigReader & {
+type ConfigWriter = {
     set(key: string, value: unknown, save?: boolean): Promise<void>;
     save(): Promise<void>;
 };
@@ -62,7 +62,7 @@ export async function getFrontendAIEnabled(config: ConfigReader): Promise<boolea
     return enabled == null ? DEFAULT_AI_CONFIG.enabled : enabled === true || enabled === "true";
 }
 
-export async function setAIConfig(config: ConfigWriter, updates: Partial<AIConfig>): Promise<void> {
+export async function setAIConfig(config: ConfigWriter, updates: Partial<AIConfig>, save = true): Promise<void> {
     for (const field of AI_CONFIG_FIELDS) {
         const value = updates[field];
         if (value === undefined) {
@@ -76,7 +76,7 @@ export async function setAIConfig(config: ConfigWriter, updates: Partial<AIConfi
         await config.set(AI_CONFIG_PREFIX + field, value, false);
     }
 
-    await config.save();
+    if (save) await config.save();
 }
 
 export async function getAIConfigForFrontend(

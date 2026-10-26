@@ -10,7 +10,7 @@ import {
     buildClientConfigResponse,
     buildServerConfigResponse,
     isConfigType,
-    persistRegularConfig,
+    persistConfigUpdates,
     resolveWebhookConfig,
     splitConfigPayload,
 } from "./config-helpers";
@@ -260,13 +260,9 @@ export function ConfigService(): Hono {
         const { regularConfig: regularServerConfig, aiConfigUpdates } = splitConfigPayload(nextServerConfig);
 
         await Promise.all([
-            persistRegularConfig(clientConfig, regularClientConfig),
-            persistRegularConfig(serverConfig, regularServerConfig),
+            persistConfigUpdates(clientConfig, regularClientConfig),
+            persistConfigUpdates(serverConfig, regularServerConfig, aiConfigUpdates),
         ]);
-
-        if (Object.keys(aiConfigUpdates).length > 0) {
-            await setAIConfig(serverConfig, aiConfigUpdates);
-        }
 
         await invalidateClientBootstrap(c);
         return c.json(await buildCombinedConfigResponse(clientConfig, serverConfig, env));
@@ -286,9 +282,8 @@ export function ConfigService(): Hono {
         const { regularConfig, aiConfigUpdates } = splitConfigPayload(body);
         
         const config = type === 'server' ? serverConfig : clientConfig;
-        await persistRegularConfig(config, regularConfig);
-        
-        if (Object.keys(aiConfigUpdates).length > 0) {
+        await persistConfigUpdates(config, regularConfig, type === 'server' ? aiConfigUpdates : {});
+        if (type === 'client' && Object.keys(aiConfigUpdates).length > 0) {
             await setAIConfig(serverConfig, aiConfigUpdates);
         }
 

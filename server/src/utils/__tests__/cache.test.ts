@@ -875,3 +875,67 @@ describe.each(['database', 's3'] as const)('CacheImpl - deferred invalidation (%
         expect(await reloaded.get('oneXfeed')).toBe('suffix decoy');
     });
 });
+
+
+describe("settings persistence round trips", () => {
+    it("persists a settings group in one SQL write", async () => {
+        const { sqlite } = createTestDB();
+        const writes: string[] = [];
+        const db = drizzle(sqlite, { schema, logger: { logQuery(query) {
+            if (query.startsWith("insert")) writes.push(query);
+        } } });
+        const config = new CacheImpl(db as any, createMockEnv(), "client.config", "database");
+        try {
+            for (let index = 0; index < 12; index++) {
+                await config.set(`site.setting_${index}`, `value_${index}`, false);
+            }
+            await config.save();
+            expect(writes).toHaveLength(1);
+            const persisted = new CacheImpl(db as any, createMockEnv(), "client.config", "database");
+            expect(await persisted.get("site.setting_11")).toBe("value_11");
+        } finally {
+            sqlite.close();
+        }
+    });
+});
+
+
+describe("batched settings durability", () => {
+    it("chunks large updates, upserts existing keys, and preserves unrelated keys", async () => {
+        const { sqlite } = createTestDB();
+        const parameters: number[] = [];
+        const db = drizzle(sqlite, { schema, logger: { logQuery(query, params) {
+            if (query.startsWith("insert")) parameters.push(params.length);
+        } } });
+        try {
+            const config = new CacheImpl(db as any, createMockEnv(), "server.config", "database");
+            await config.set("untouched", "keep");
+            await config.set("setting_0", "old");
+            parameters.length = 0;
+            for (let index = 0; index < 45; index++) await config.set(`setting_${index}`, index, false);
+            await config.save();
+            expect(parameters).toHaveLength(3);
+            expect(parameters.every((count) => count <= 100)).toBe(true);
+            const fresh = new CacheImpl(db as any, createMockEnv(), "server.config", "database");
+            expect(await fresh.get("setting_0")).toBe(0);
+            expect(await fresh.get("setting_44")).toBe(44);
+            expect(await fresh.get("untouched")).toBe("keep");
+            await config.save();
+            expect(parameters).toHaveLength(3);
+        } finally { sqlite.close(); }
+    });
+
+    it("reports failed SQL writes and retains pending changes for retry", async () => {
+        const { db, sqlite } = createTestDB();
+        try {
+            sqlite.exec("CREATE TRIGGER reject_settings BEFORE INSERT ON cache BEGIN SELECT RAISE(ABORT, 'storage unavailable'); END");
+            const config = new CacheImpl(db as any, createMockEnv(), "client.config", "database");
+            await config.set("site.name", "Retry me", false);
+            await expect(config.save()).rejects.toThrow("storage unavailable");
+            sqlite.exec("DROP TRIGGER reject_settings");
+            await config.save();
+            const fresh = new CacheImpl(db as any, createMockEnv(), "client.config", "database");
+            expect(await fresh.get("site.name")).toBe("Retry me");
+        } finally { sqlite.close(); }
+    });
+});

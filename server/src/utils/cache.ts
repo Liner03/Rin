@@ -48,6 +48,7 @@ interface StorageProvider {
     getByPrefix?(prefix: string): Promise<Array<[string, any]>>;
     getBySuffix?(suffix: string): Promise<Array<[string, any]>>;
     set?(key: string, value: any): Promise<void>;
+    setMany?(entries: Array<[string, any]>): Promise<void>;
     delete(key: string): Promise<void>;
     deletePrefix?(prefix: string): Promise<void>;
     deleteSuffix?(suffix: string): Promise<void>;
@@ -141,6 +142,23 @@ class DatabaseStorageProvider implements StorageProvider {
                 updatedAt: new Date(),
             },
         });
+    }
+
+    async setMany(entries: Array<[string, any]>): Promise<void> {
+        const values = entries.filter(([, value]) => value !== undefined);
+        // Four parameters per row; stay below D1's bound-parameter limit.
+        for (let offset = 0; offset < values.length; offset += 20) {
+            const updatedAt = new Date();
+            await this.db.insert(cache).values(values.slice(offset, offset + 20).map(([key, value]) => ({
+                key,
+                value: serializeCacheValue(value),
+                type: this.type,
+                updatedAt,
+            }))).onConflictDoUpdate({
+                target: [cache.key, cache.type],
+                set: { value: sql`excluded.value`, updatedAt: sql`excluded.updated_at` },
+            });
+        }
     }
 
     async delete(key: string): Promise<void> {
@@ -538,10 +556,17 @@ export class CacheImpl {
             }
             this.pendingDeletes.clear();
 
-            for (const key of this.dirtyKeys) {
-                await this.storageProvider.set(key, this.cache.get(key));
+            const entries = Array.from(this.dirtyKeys, (key): [string, any] => [key, this.cache.get(key)]);
+            if (this.storageProvider.setMany) {
+                await this.storageProvider.setMany(entries);
+            } else {
+                for (const [key, value] of entries) {
+                    await this.storageProvider.set(key, value);
+                }
             }
-            this.dirtyKeys.clear();
+            for (const [key, value] of entries) {
+                if (this.cache.get(key) === value) this.dirtyKeys.delete(key);
+            }
             return;
         }
         await this.storageProvider.save();
