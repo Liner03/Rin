@@ -14,6 +14,7 @@ import {
     getUniqueSlug,
     hashContentPassword,
     isContentUnlocked,
+    isScheduled,
     parseCookies,
     serializeContentDetail,
     setContentFields,
@@ -21,6 +22,25 @@ import {
 
 export function PageService(): Hono {
     const app = new Hono();
+
+    // Client data reuse is explicit; HTTP caches must still run permission checks.
+    app.use('*', async (c, next) => {
+        c.header('Cache-Control', 'private, no-store');
+        await next();
+    });
+
+    // A public projection for navigation, including authenticated visitors.
+    app.get('/navigation/list', async (c: AppContext) => {
+        const rows = await c.get('db').query.contents.findMany({
+            where: and(eq(contents.type, CONTENT_TYPE.PAGE), eq(contents.status, CONTENT_STATUS.PUBLISH),
+                lte(contents.createdAt, new Date()), eq(contents.password, "")),
+            columns: { title: true, slug: true },
+            orderBy: [asc(contents.order), asc(contents.id)],
+        });
+        c.header('X-Rin-Content-Cache', 'public');
+        return c.json(rows.flatMap((page) => page.title !== null && page.slug
+            ? [{ title: page.title, slug: page.slug }] : []));
+    });
 
     // GET /page - 页面列表
     app.get('/', async (c: AppContext) => {
@@ -90,6 +110,9 @@ export function PageService(): Hono {
             return c.json(serializeContentDetail(page, { content: "", locked: true, fields: [] }));
         }
 
+        if (page.status === CONTENT_STATUS.PUBLISH && !isScheduled(page) && !page.password) {
+            c.header('X-Rin-Content-Cache', 'public');
+        }
         return c.json(serialize());
     });
 

@@ -1,14 +1,14 @@
-import { useEffect, useRef, useState } from "react"
 import { Helmet } from 'react-helmet'
 import { useTranslation } from "react-i18next"
 import { Link, useSearch } from "wouter"
 import { FeedCard } from "../components/feed_card"
 import { Waiting } from "../components/loading"
+import { CachedContentError } from "../components/cached-content-error"
+import { useCachedContent } from "../hooks/use-cached-content"
 import { client } from "../app/runtime"
 import { usePublishRouteMetadata } from "../app/route-metadata";
 
 import { useSiteConfig } from "../hooks/useSiteConfig";
-import type { FeedListResponse } from "@rin/api";
 import { siteName } from "../utils/constants"
 import { tryInt } from "../utils/int"
 
@@ -16,32 +16,15 @@ export function SearchPage({ keyword }: { keyword: string }) {
     const { t } = useTranslation()
     const siteConfig = useSiteConfig();
     const query = new URLSearchParams(useSearch());
-    const [status, setStatus] = useState<'loading' | 'idle'>('idle')
-    const [feeds, setFeeds] = useState<FeedListResponse>()
     const page = tryInt(1, query.get("page"))
     const limit = tryInt(siteConfig.pageSize, query.get("limit"))
+    const { data: feeds, loading, error, reload } = useCachedContent({
+        key: `search:${keyword}:${page}:${limit}`,
+        getCached: () => client.search.getCached(keyword, { page, limit }),
+        load: () => client.search.search(keyword, { page, limit }),
+    })
     const feedListClass = siteConfig.feedLayout === "masonry" ? "wauto columns-1 gap-5 md:columns-2" : "wauto flex flex-col";
     const feedData = Array.isArray(feeds?.data) ? feeds.data : [];
-    const ref = useRef("")
-    function fetchFeeds() {
-        if (!keyword) return
-        client.search.search(keyword, {
-            page,
-            limit,
-        }).then(({ data }) => {
-            if (data) {
-                setFeeds(data)
-                setStatus('idle')
-            }
-        })
-    }
-    useEffect(() => {
-        const key = `${page} ${limit} ${keyword}`
-        if (ref.current == key) return
-        setStatus('loading')
-        fetchFeeds()
-        ref.current = key
-    }, [page, limit, keyword])
     const title = t('article.search.title$keyword', { keyword })
     usePublishRouteMetadata({ kind: "search", title });
     return (
@@ -54,8 +37,8 @@ export function SearchPage({ keyword }: { keyword: string }) {
                 <meta property="og:type" content="article" />
                 <meta property="og:url" content={document.URL} />
             </Helmet>
-            <Waiting for={status === 'idle'}>
-                <main className="w-full flex flex-col justify-center items-center mb-8">
+            <Waiting for={!loading}>
+                {error ? <CachedContentError error={error} onRetry={reload} /> : <main className="w-full flex flex-col justify-center items-center mb-8">
                     <div className="wauto text-start text-black dark:text-white py-4 text-4xl font-bold">
                         <p>
                             {t('article.search.title')}
@@ -66,7 +49,7 @@ export function SearchPage({ keyword }: { keyword: string }) {
                             </p>
                         </div>
                     </div>
-                    <Waiting for={status === 'idle'}>
+                    <Waiting for={!loading}>
                         <div className={feedListClass}>
                             {feedData.map(({ id, ...feed }) => (
                                 <FeedCard key={id} id={id} {...feed} />
@@ -88,7 +71,7 @@ export function SearchPage({ keyword }: { keyword: string }) {
                             }
                         </div>
                     </Waiting>
-                </main>
+                </main>}
             </Waiting>
         </>
     )

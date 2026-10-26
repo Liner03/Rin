@@ -23,6 +23,7 @@ describe('clearFeedCache', () => {
             'search_',
             'category_',
             'page_',
+            'adjacent_v1_',
             '42_previous_feed',
             '42_next_feed'
         ]);
@@ -72,6 +73,7 @@ describe('clearFeedCache', () => {
             'prefix:search_',
             'prefix:category_',
             'prefix:page_',
+            'prefix:adjacent_v1_',
             'delete:feed_detail_v2_id_42:false',
             'delete:feed_detail_v2_alias_about:false',
             'prefix:42_previous_feed',

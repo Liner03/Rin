@@ -1,5 +1,6 @@
 import i18next from "i18next";
-import { useCallback, useContext, useEffect, useRef, useState } from "react";
+import { useCallback, useContext, useState } from "react";
+import type { Friend } from "@rin/api";
 import { Helmet } from 'react-helmet';
 import { useTranslation } from "react-i18next";
 import { FlatActionButton, FlatPanel, Modal, SearchableSelect } from "@rin/ui";
@@ -13,22 +14,11 @@ import { ClientConfigContext } from "../state/config";
 import { ProfileContext } from "../state/profile";
 
 import { useSiteConfig } from "../hooks/useSiteConfig";
+import { useCachedContent } from "../hooks/use-cached-content";
 import { siteName } from "../utils/constants";
 
 
-type FriendItem = {
-    name: string;
-    id: number;
-    uid: number;
-    avatar: string;
-    createdAt: Date;
-    updatedAt: Date;
-    desc: string | null;
-    url: string;
-    accepted: number;
-    health: string;
-    sort_order?: number;
-};
+type FriendItem = Friend;
 
 async function publish({ name, avatar, desc, url, showAlert }: { name: string, avatar: string, desc: string, url: string, showAlert: ShowAlertType }) {
     const t = i18next.t
@@ -51,43 +41,24 @@ export function FriendsPage() {
     const { t } = useTranslation()
     const siteConfig = useSiteConfig();
     const config = useContext(ClientConfigContext)
-    let [apply] = useState<FriendItem>()
     const [name, setName] = useState("")
     const [desc, setDesc] = useState("")
     const [avatar, setAvatar] = useState("")
     const [url, setUrl] = useState("")
     const profile = useContext(ProfileContext);
-    const [friendsAvailable, setFriendsAvailable] = useState<FriendItem[]>([])
-    const [waitList, setWaitList] = useState<FriendItem[]>([])
-    const [refusedList, setRefusedList] = useState<FriendItem[]>([])
-    const [friendsUnavailable, setFriendsUnavailable] = useState<FriendItem[]>([])
-    const [status, setStatus] = useState<'loading' | 'success' | 'error'>('loading')
-    const ref = useRef(false)
+    const { data, loading, error, reload: fetchFriends } = useCachedContent({
+        key: `friends:${profile?.id ?? "public"}:${profile?.permission ?? false}`,
+        getCached: () => client.friend.getCachedPublic(),
+        load: () => profile ? client.friend.list() : client.friend.listPublic(),
+    })
+    const friendList = Array.isArray(data?.friend_list) ? data.friend_list : []
+    const friendsAvailable = friendList.filter(({ health, accepted }) => !health && accepted === 1)
+    const friendsUnavailable = friendList.filter(({ health, accepted }) => health && accepted === 1)
+    const waitList = profile?.permission ? friendList.filter(({ accepted }) => accepted === 0) : []
+    const refusedList = profile?.permission ? friendList.filter(({ accepted }) => accepted === -1) : []
+    const apply = profile ? data?.apply_list ?? undefined : undefined
+    const status = loading ? 'loading' : error || !Array.isArray(data?.friend_list) ? 'error' : 'success'
     const { showAlert, AlertUI } = useAlert()
-    function fetchFriends() {
-        setStatus('loading')
-        return client.friend.list().then(({ data, error }) => {
-            if (!error && data && Array.isArray(data.friend_list)) {
-                const friend_list = data.friend_list
-                const friends_available = friend_list.filter(({ health, accepted }: any) => health.length === 0 && accepted === 1) || []
-                setFriendsAvailable(friends_available as any)
-                const friends_unavailable = friend_list.filter(({ health, accepted }: any) => health.length > 0 && accepted === 1) || []
-                setFriendsUnavailable(friends_unavailable as any)
-                const waitList = friend_list.filter(({ accepted }: any) => accepted === 0) || []
-                setWaitList(waitList as any)
-                const refuesdList = friend_list.filter(({ accepted }: any) => accepted === -1) || []
-                setRefusedList(refuesdList as any)
-                setStatus('success')
-            } else {
-                setStatus('error')
-            }
-        }).catch(() => setStatus('error'))
-    }
-    useEffect(() => {
-        if (ref.current) return
-        void fetchFriends()
-        ref.current = true
-    }, [])
     function publishButton() {
         publish({ name, desc, avatar, url, showAlert })
     }

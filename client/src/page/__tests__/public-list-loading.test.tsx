@@ -7,12 +7,13 @@ const { cleanup, fireEvent, render, screen, waitFor } = await import("@testing-l
 
 const mockedRuntime = {
   client: {
-    friend: { list: jest.fn() },
-    moments: { list: jest.fn() },
+    friend: { list: jest.fn(), listPublic: jest.fn(), getCachedPublic: () => undefined },
+    moments: { list: jest.fn(), getCachedList: () => undefined },
   },
 };
 mock.module("../../app/runtime", () => mockedRuntime);
 const { client } = mockedRuntime;
+client.friend.listPublic = client.friend.list;
 mock.module("react-i18next", () => ({ useTranslation: () => ({ t: (key: string) => key }) }));
 mock.module("../../components/dialog", () => ({
   useAlert: () => ({ showAlert: jest.fn(), AlertUI: () => null }),

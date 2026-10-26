@@ -89,6 +89,11 @@ export interface TimelineItem {
   createdAt: string;
 }
 
+export interface PageNavigationItem {
+  title: string;
+  slug: string;
+}
+
 export interface CreateFeedRequest {
   title: string;
   content: string;
@@ -400,7 +405,7 @@ export interface Moment {
   user: {
     id: number;
     username: string;
-    avatar: string;
+    avatar: string | null;
   };
 }
 

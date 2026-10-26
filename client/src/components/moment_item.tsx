@@ -2,18 +2,7 @@ import { useTranslation } from "react-i18next";
 import { Markdown } from "./markdown";
 import { timeago } from "../utils/timeago";
 import { ImageWithFallback } from "./image-with-fallback";
-
-interface Moment {
-    id: number;
-    content: string;
-    createdAt: Date;
-    updatedAt: Date;
-    user: {
-        id: number;
-        username: string;
-        avatar: string;
-    };
-}
+import type { Moment } from "@rin/api";
 
 export function MomentItem({ 
     moment, 

@@ -9,6 +9,19 @@ import { resolveWebhookConfig } from "./config-helpers";
 
 export function FriendService(): Hono {
     const app = new Hono();
+    app.use('*', async (c, next) => {
+        c.header('Cache-Control', 'private, no-store');
+        await next();
+    });
+
+    app.get('/public', async (c: AppContext) => {
+        const friend_list = await c.get('db').query.friends.findMany({
+            where: eq(friends.accepted, 1),
+            orderBy: (friends, { asc, desc }) => [desc(friends.sort_order), asc(friends.createdAt)],
+        });
+        c.header('X-Rin-Content-Cache', 'public');
+        return c.json({ friend_list, apply_list: null });
+    });
 
     // GET /friend
     app.get('/', async (c: AppContext) => {

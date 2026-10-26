@@ -4,6 +4,7 @@
 import { getAuthToken } from "../utils/auth";
 import { endpoint } from "../config";
 import { isRecord, PublicContentCache } from "./public-content-cache";
+import { shouldResetFollowingMoments } from "./moment-pagination";
 
 // Import shared types
 import type {
@@ -24,6 +25,7 @@ import type {
   CreateCategoryRequest,
   UpdateCategoryRequest,
   Page,
+  PageNavigationItem,
   CreatePageRequest,
   UpdatePageRequest,
   Comment,
@@ -33,6 +35,7 @@ import type {
   CreateFriendRequest,
   UpdateFriendRequest,
   Moment,
+  MomentListResponse,
   CreateMomentRequest,
   ConfigType,
   ConfigResponse,
@@ -330,23 +333,88 @@ function isFeedList(data: unknown): data is FeedListResponse {
       && (item.status === undefined || item.status === "publish") && typeof item.summary === "string");
 }
 
-class FeedAPI {
+function isPublicPage(data: unknown): data is Page {
+  return isRecord(data) && typeof data.id === "number" && typeof data.title === "string"
+    && typeof data.content === "string" && (data.slug === null || typeof data.slug === "string")
+    && typeof data.parent === "number" && typeof data.order === "number" && typeof data.template === "string"
+    && typeof data.uid === "number"
+    && (data.fields === undefined || (Array.isArray(data.fields) && data.fields.every((field) => isRecord(field)
+      && typeof field.name === "string" && ["str", "int", "float", "json"].includes(String(field.type)))))
+    && typeof data.createdAt === "string" && typeof data.updatedAt === "string"
+    && data.status === "publish" && !data.locked && !data.hasPassword
+    && new Date(data.createdAt).getTime() <= Date.now();
+}
+
+function isTimeline(data: unknown): data is TimelineItem[] {
+  return Array.isArray(data) && data.every((item) => isRecord(item) && typeof item.id === "number"
+    && (item.title === null || typeof item.title === "string") && typeof item.createdAt === "string"
+    && new Date(item.createdAt).getTime() <= Date.now());
+}
+
+function isNavigation(data: unknown): data is PageNavigationItem[] {
+  return Array.isArray(data) && data.every((page) => isRecord(page)
+    && typeof page.title === "string" && typeof page.slug === "string");
+}
+
+function isPublicSummary(data: unknown): boolean {
+  return isRecord(data) && typeof data.id === "number"
+    && (data.title === null || typeof data.title === "string") && typeof data.summary === "string"
+    && typeof data.createdAt === "string" && typeof data.updatedAt === "string"
+    && new Date(data.createdAt).getTime() <= Date.now()
+    && (data.status === undefined || data.status === "publish") && !data.locked && !data.hasPassword
+    && Array.isArray(data.hashtags);
+}
+
+function isCategoryDetail(data: unknown): data is CategoryDetail {
+  return isRecord(data) && typeof data.id === "number" && typeof data.name === "string"
+    && Array.isArray(data.feeds) && data.feeds.every(isPublicSummary);
+}
+
+function isTags(data: unknown): data is Tag[] {
+  return Array.isArray(data) && data.every((tag) => isRecord(tag) && typeof tag.id === "number"
+    && typeof tag.name === "string" && typeof tag.count === "number"
+    && typeof tag.createdAt === "string" && typeof tag.updatedAt === "string");
+}
+
+function isTagDetail(data: unknown): data is TagDetail {
+  return isRecord(data) && typeof data.id === "number" && typeof data.name === "string"
+    && Array.isArray(data.feeds) && data.feeds.every(isPublicSummary);
+}
+
+function isPublicFriends(data: unknown): data is FriendListResponse {
+  return isRecord(data) && data.apply_list === null && Array.isArray(data.friend_list)
+    && data.friend_list.every((friend) => isRecord(friend) && friend.accepted === 1
+      && typeof friend.id === "number" && typeof friend.name === "string"
+      && typeof friend.url === "string" && typeof friend.health === "string");
+}
+
+function isMoments(data: unknown): data is MomentListResponse {
+  return isRecord(data) && typeof data.hasNext === "boolean" && Array.isArray(data.data)
+    && data.data.every((moment) => isRecord(moment) && typeof moment.id === "number"
+      && typeof moment.content === "string" && typeof moment.createdAt === "string"
+      && typeof moment.updatedAt === "string" && isRecord(moment.user) && typeof moment.user.username === "string");
+}
+
+function isComments(data: unknown): data is Comment[] {
+  return Array.isArray(data) && data.every((comment) => isRecord(comment) && typeof comment.id === "number"
+    && typeof comment.content === "string" && typeof comment.createdAt === "string"
+    && (comment.approved === 1 || comment.approved === true) && !("guestEmail" in comment));
+}
+
+function isAdjacent(data: unknown): data is AdjacentFeedResponse {
+  return isRecord(data) && (data.previousFeed === null || isPublicSummary(data.previousFeed))
+    && (data.nextFeed === null || isPublicSummary(data.nextFeed));
+}
+
+class PublicContentClient {
   constructor(private http: HttpClient, private cache: PublicContentCache) {}
 
-  private listKey(params?: FeedListParams) {
-    return `list:${params?.type || "normal"}:${params?.page || 1}:${params?.limit || 20}`;
+  get<T>(key: string, validate: (data: unknown) => data is T): T | undefined {
+    return this.cache.get(key, validate);
   }
 
-  getCachedList(params?: FeedListParams): FeedListResponse | undefined {
-    if (params?.type && params.type !== "normal") return;
-    return this.cache.get(this.listKey(params), isFeedList);
-  }
-
-  getCached(id: number | string): Feed | undefined {
-    return this.cache.get(`article:${id}`, isPublicFeed);
-  }
-
-  private async load<T>(key: string, path: string, validate: (data: unknown) => data is T, options?: RequestOptions): Promise<ApiResponse<T>> {
+  async load<T>(key: string, path: string, validate: (data: unknown) => data is T, options?: RequestOptions,
+    resetScopeWhen?: (data: T) => boolean): Promise<ApiResponse<T>> {
     const ticket = this.cache.begin(key);
     let publicContent = false;
     const result = await this.http.get<T>(path, {
@@ -354,8 +422,35 @@ class FeedAPI {
       ...options,
       onResponse: (response) => { publicContent = response.headers.get("X-Rin-Content-Cache") === "public"; },
     });
-    this.cache.finish(ticket, result.data, publicContent && !result.error && validate(result.data), result.error?.status);
+    const cacheable = publicContent && !result.error && validate(result.data);
+    this.cache.finish(ticket, result.data, cacheable, result.error?.status,
+      cacheable && result.data !== undefined && Boolean(resetScopeWhen?.(result.data)));
     return result;
+  }
+}
+
+class FeedAPI {
+  constructor(private http: HttpClient, private content: PublicContentClient) {}
+
+  private listKey(params?: FeedListParams) {
+    return `list:${params?.type || "normal"}:${params?.page || 1}:${params?.limit || 20}`;
+  }
+
+  getCachedList(params?: FeedListParams): FeedListResponse | undefined {
+    if (params?.type && params.type !== "normal") return;
+    return this.content.get(this.listKey(params), isFeedList);
+  }
+
+  getCached(id: number | string): Feed | undefined {
+    return this.content.get(`article:${id}`, isPublicFeed);
+  }
+
+  getCachedTimeline(): TimelineItem[] | undefined {
+    return this.content.get("timeline", isTimeline);
+  }
+
+  getCachedAdjacent(id: number | string): AdjacentFeedResponse | undefined {
+    return this.content.get(`adjacent:${id}`, isAdjacent);
   }
 
   // GET /api/feed
@@ -366,17 +461,17 @@ class FeedAPI {
     if (params?.type) searchParams.set("type", params.type);
     
     const query = searchParams.toString();
-    return this.load(this.listKey(params), `/api/feed${query ? `?${query}` : ""}`, isFeedList, options);
+    return this.content.load(this.listKey(params), `/api/feed${query ? `?${query}` : ""}`, isFeedList, options);
   }
 
   // GET /api/feed/timeline
-  async timeline(): Promise<ApiResponse<TimelineItem[]>> {
-    return this.http.get<TimelineItem[]>("/api/feed/timeline");
+  async timeline(options?: RequestOptions): Promise<ApiResponse<TimelineItem[]>> {
+    return this.content.load("timeline", "/api/feed/timeline", isTimeline, options);
   }
 
   // GET /api/feed/:id
   async get(id: number | string, options?: RequestOptions): Promise<ApiResponse<Feed>> {
-    return this.load(`article:${id}`, `/api/feed/${encodeURIComponent(id)}`, isPublicFeed, options);
+    return this.content.load(`article:${id}`, `/api/feed/${encodeURIComponent(id)}`, isPublicFeed, options);
   }
 
   // POST /api/feed
@@ -396,7 +491,7 @@ class FeedAPI {
 
   // GET /api/feed/adjacent/:id
   async adjacent(id: number | string): Promise<ApiResponse<AdjacentFeedResponse>> {
-    return this.http.get<AdjacentFeedResponse>(`/api/feed/adjacent/${id}`, { timeoutMs: 20_000 });
+    return this.content.load(`adjacent:${id}`, `/api/feed/adjacent/${encodeURIComponent(id)}`, isAdjacent);
   }
 
   // POST /api/feed/top/:id
@@ -414,7 +509,19 @@ class FeedAPI {
  * Page API methods
  */
 class PageAPI {
-  constructor(private http: HttpClient) {}
+  constructor(private http: HttpClient, private content: PublicContentClient) {}
+
+  getCached(slug: string): Page | undefined {
+    return this.content.get(`page:${slug}`, isPublicPage);
+  }
+
+  getCachedNavigation(): PageNavigationItem[] | undefined {
+    return this.content.get("navigation:pages", isNavigation);
+  }
+
+  async navigation(): Promise<ApiResponse<PageNavigationItem[]>> {
+    return this.content.load("navigation:pages", "/api/page/navigation/list", isNavigation);
+  }
 
   // GET /api/page
   async list(): Promise<ApiResponse<Page[]>> {
@@ -422,8 +529,8 @@ class PageAPI {
   }
 
   // GET /api/page/:slug
-  async get(slug: string): Promise<ApiResponse<Page>> {
-    return this.http.get<Page>(`/api/page/${encodeURIComponent(slug)}`);
+  async get(slug: string, options?: RequestOptions): Promise<ApiResponse<Page>> {
+    return this.content.load(`page:${slug}`, `/api/page/${encodeURIComponent(slug)}`, isPublicPage, options);
   }
 
   // POST /api/page
@@ -451,7 +558,11 @@ class PageAPI {
  * Category API methods
  */
 class CategoryAPI {
-  constructor(private http: HttpClient) {}
+  constructor(private http: HttpClient, private content: PublicContentClient) {}
+
+  getCached(slug: string): CategoryDetail | undefined {
+    return this.content.get(`category:${slug}`, isCategoryDetail);
+  }
 
   // GET /api/category
   async list(): Promise<ApiResponse<Category[]>> {
@@ -460,7 +571,7 @@ class CategoryAPI {
 
   // GET /api/category/:slug
   async get(slug: string): Promise<ApiResponse<CategoryDetail>> {
-    return this.http.get<CategoryDetail>(`/api/category/${encodeURIComponent(slug)}`);
+    return this.content.load(`category:${slug}`, `/api/category/${encodeURIComponent(slug)}`, isCategoryDetail);
   }
 
   // POST /api/category
@@ -483,16 +594,24 @@ class CategoryAPI {
  * Tag API methods
  */
 class TagAPI {
-  constructor(private http: HttpClient) {}
+  constructor(private content: PublicContentClient) {}
+
+  getCachedList(): Tag[] | undefined {
+    return this.content.get("tags", isTags);
+  }
+
+  getCached(name: string): TagDetail | undefined {
+    return this.content.get(`tag:${name}`, isTagDetail);
+  }
 
   // GET /api/tag
   async list(): Promise<ApiResponse<Tag[]>> {
-    return this.http.get<Tag[]>("/api/tag");
+    return this.content.load("tags", "/api/tag", isTags);
   }
 
   // GET /api/tag/:name
   async get(name: string): Promise<ApiResponse<TagDetail>> {
-    return this.http.get<TagDetail>(`/api/tag/${encodeURIComponent(name)}`);
+    return this.content.load(`tag:${name}`, `/api/tag/${encodeURIComponent(name)}`, isTagDetail);
   }
 }
 
@@ -500,11 +619,15 @@ class TagAPI {
  * Comment API methods
  */
 class CommentAPI {
-  constructor(private http: HttpClient) {}
+  constructor(private http: HttpClient, private content: PublicContentClient) {}
+
+  getCached(feedId: number): Comment[] | undefined {
+    return this.content.get(`comments:${feedId}`, isComments);
+  }
 
   // GET /api/comment/:feed
   async list(feedId: number): Promise<ApiResponse<Comment[]>> {
-    return this.http.get<Comment[]>(`/api/comment/${feedId}`);
+    return this.content.load(`comments:${feedId}`, `/api/comment/${feedId}`, isComments);
   }
 
   // POST /api/comment/:feed
@@ -549,11 +672,19 @@ class UserAPI {
  * Friend API methods
  */
 class FriendAPI {
-  constructor(private http: HttpClient) {}
+  constructor(private http: HttpClient, private content: PublicContentClient) {}
+
+  getCachedPublic(): FriendListResponse | undefined {
+    return this.content.get("friends:public", isPublicFriends);
+  }
+
+  async listPublic(): Promise<ApiResponse<FriendListResponse>> {
+    return this.content.load("friends:public", "/api/friend/public", isPublicFriends);
+  }
 
   // GET /api/friend
   async list(): Promise<ApiResponse<FriendListResponse>> {
-    return this.http.get<FriendListResponse>("/api/friend");
+    return this.http.get<FriendListResponse>("/api/friend", { timeoutMs: 20_000 });
   }
 
   // POST /api/friend
@@ -576,16 +707,22 @@ class FriendAPI {
  * Moments API methods
  */
 class MomentsAPI {
-  constructor(private http: HttpClient) {}
+  constructor(private http: HttpClient, private content: PublicContentClient) {}
+
+  getCachedList(params?: { page?: number; limit?: number }): MomentListResponse | undefined {
+    return this.content.get(`moments:${params?.page || 1}:${params?.limit || 20}`, isMoments);
+  }
 
   // GET /api/moments
   async list(params?: { page?: number; limit?: number }): Promise<ApiResponse<{ data: Moment[]; hasNext: boolean }>> {
+    const previous = this.getCachedList(params);
     const searchParams = new URLSearchParams();
     if (params?.page) searchParams.set("page", params.page.toString());
     if (params?.limit) searchParams.set("limit", params.limit.toString());
     
     const query = searchParams.toString();
-    return this.http.get<{ data: Moment[]; hasNext: boolean }>(`/api/moments${query ? `?${query}` : ""}`);
+    return this.content.load(`moments:${params?.page || 1}:${params?.limit || 20}`, `/api/moments${query ? `?${query}` : ""}`, isMoments,
+      undefined, data => (params?.page || 1) === 1 && shouldResetFollowingMoments(previous, data));
   }
 
   // POST /api/moments
@@ -732,7 +869,11 @@ class StorageAPI {
  * Search API methods
  */
 class SearchAPI {
-  constructor(private http: HttpClient) {}
+  constructor(private content: PublicContentClient) {}
+
+  getCached(keyword: string, params?: { page?: number; limit?: number }): FeedListResponse | undefined {
+    return this.content.get(`search:${keyword}:${params?.page || 1}:${params?.limit || 20}`, isFeedList);
+  }
 
   // GET /api/search/:keyword
   async search(keyword: string, params?: { page?: number; limit?: number }): Promise<ApiResponse<FeedListResponse>> {
@@ -741,7 +882,7 @@ class SearchAPI {
     if (params?.limit) searchParams.set("limit", params.limit.toString());
 
     const query = searchParams.toString();
-    return this.http.get<FeedListResponse>(`/api/search/${encodeURIComponent(keyword)}${query ? `?${query}` : ""}`);
+    return this.content.load(`search:${keyword}:${params?.page || 1}:${params?.limit || 20}`, `/api/search/${encodeURIComponent(keyword)}${query ? `?${query}` : ""}`, isFeedList);
   }
 }
 
@@ -804,6 +945,7 @@ class RSSAPI {
 // ============================================================================
 
 export class ApiClient {
+  subscribeContentChanges: (listener: () => void) => () => void;
   private http: HttpClient;
   feed: FeedAPI;
   page: PageAPI;
@@ -823,19 +965,21 @@ export class ApiClient {
 
   constructor(baseUrl: string) {
     const contentCache = new PublicContentCache(baseUrl);
-    this.http = new HttpClient(baseUrl, () => contentCache.clear());
-    this.feed = new FeedAPI(this.http, contentCache);
-    this.page = new PageAPI(this.http);
-    this.category = new CategoryAPI(this.http);
-    this.tag = new TagAPI(this.http);
-    this.comment = new CommentAPI(this.http);
+    this.http = new HttpClient(baseUrl, () => contentCache.clear(true));
+    this.subscribeContentChanges = (listener) => contentCache.subscribe(listener);
+    const content = new PublicContentClient(this.http, contentCache);
+    this.feed = new FeedAPI(this.http, content);
+    this.page = new PageAPI(this.http, content);
+    this.category = new CategoryAPI(this.http, content);
+    this.tag = new TagAPI(content);
+    this.comment = new CommentAPI(this.http, content);
     this.user = new UserAPI(this.http);
-    this.friend = new FriendAPI(this.http);
-    this.moments = new MomentsAPI(this.http);
+    this.friend = new FriendAPI(this.http, content);
+    this.moments = new MomentsAPI(this.http, content);
     this.config = new ConfigAPI(this.http);
     this.aiConfig = new AIConfigAPI(this.http);
     this.storage = new StorageAPI(this.http);
-    this.search = new SearchAPI(this.http);
+    this.search = new SearchAPI(content);
     this.auth = new AuthAPI(this.http);
     this.wp = new WordPressAPI(this.http);
     this.rss = new RSSAPI(baseUrl);

@@ -199,6 +199,7 @@ export function FeedService(): Hono<{
         const db = c.get('db');
         const where = and(eq(contents.type, CONTENT_TYPE.POST), publishedWhere());
 
+        c.header('X-Rin-Content-Cache', 'public');
         return c.json(await profileAsync(c, 'feed_timeline_db', () => db.query.contents.findMany({
             where: where,
             columns: { id: true, title: true, createdAt: true },
@@ -396,18 +397,25 @@ export function FeedService(): Hono<{
 
         const feed = await profileAsync(c, 'feed_adjacent_current', () => db.query.contents.findFirst({
             where: and(eq(contents.id, id_num), eq(contents.type, CONTENT_TYPE.POST)),
-            columns: { createdAt: true },
+            columns: { id: true, uid: true, status: true, password: true, createdAt: true },
         }));
 
         if (!feed) {
             return c.text("Not found", 404);
         }
 
+        const admin = c.get('admin');
+        const uid = c.get('uid');
+        if (!canViewContent(feed, { admin, uid }) || (isScheduled(feed) && !admin && feed.uid !== uid)
+            || (feed.password && !admin && !isContentUnlocked(feed, parseCookies(c.req.header('cookie'))))) {
+            return c.text('Permission denied', 403);
+        }
+
         const created_at = feed.createdAt;
 
         async function formatAndCacheData(feed: any, feedDirection: "previous_feed" | "next_feed") {
             if (feed) {
-                const cacheKey = `${feed.id}_${feedDirection}_${id_num}`;
+                const cacheKey = `adjacent_v1_${id_num}_${feedDirection}`;
                 const cacheData = {
                     id: feed.id,
                     title: feed.title,
@@ -417,7 +425,7 @@ export function FeedService(): Hono<{
                     createdAt: feed.createdAt,
                     updatedAt: feed.updatedAt,
                 };
-                await cache.set(cacheKey, cacheData);
+                await cache.set(cacheKey, { t: Date.now(), data: cacheData });
                 return cacheData;
             }
             return null;
@@ -430,9 +438,9 @@ export function FeedService(): Hono<{
             where: ReturnType<typeof baseWhere>,
             order: SQL,
         ) {
-            const cached = await profileAsync(c, `feed_adjacent_${direction === "previous_feed" ? "prev" : "next"}_cache`, () => cache.getBySuffix(`${direction}_${id_num}`));
-            if (cached && cached.length > 0) {
-                return cached[0];
+            const cached = await profileAsync(c, `feed_adjacent_${direction === "previous_feed" ? "prev" : "next"}_cache`, () => cache.get(`adjacent_v1_${id_num}_${direction}`));
+            if (cached && Date.now() - cached.t < LIST_CACHE_TTL) {
+                return cached.data;
             }
             const row = await profileAsync(c, `feed_adjacent_${direction === "previous_feed" ? "prev" : "next"}_db`, () => db.query.contents.findFirst({
                 where,
@@ -443,7 +451,7 @@ export function FeedService(): Hono<{
             }));
             if (!row) return null;
             const { tags, categories } = await getTaxonomiesForContents(db, [row.id]);
-            const summary = row.summary.length > 0
+            const summary = row.password ? "" : row.summary.length > 0
                 ? row.summary
                 : stripMarkdown(row.text).slice(0, 50);
             return formatAndCacheData({
@@ -458,6 +466,9 @@ export function FeedService(): Hono<{
             loadAdjacentFeed("previous_feed", baseWhere(contents.createdAt, lt), desc(contents.createdAt)),
             loadAdjacentFeed("next_feed", baseWhere(contents.createdAt, gt), asc(contents.createdAt)),
         ]);
+        if (feed.status === CONTENT_STATUS.PUBLISH && !isScheduled(feed) && !feed.password) {
+            c.header('X-Rin-Content-Cache', 'public');
+        }
         return c.json({ previousFeed, nextFeed });
     });
 
@@ -601,6 +612,11 @@ export function SearchService(): Hono<{
         Variables: Variables;
     }>();
 
+    app.use('*', async (c, next) => {
+        c.header('Cache-Control', 'private, no-store');
+        await next();
+    });
+
     // GET /search/:keyword
     app.get('/:keyword', async (c) => {
         const db = c.get('db');
@@ -613,6 +629,7 @@ export function SearchService(): Hono<{
         const page_num = parsePositiveInteger(page, 1) - 1;
         const limit_num = parsePositiveInteger(limit, 20, 50);
 
+        if (!admin) c.header('X-Rin-Content-Cache', 'public');
         if (keyword === undefined || keyword.trim().length === 0) {
             return c.json({ size: 0, data: [], hasNext: false });
         }

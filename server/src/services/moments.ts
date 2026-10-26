@@ -7,6 +7,10 @@ import { momentCreateSchema, momentUpdateSchema } from "@rin/api";
 
 export function MomentsService(): Hono {
     const app = new Hono();
+    app.use('*', async (c, next) => {
+        c.header('Cache-Control', 'private, no-store');
+        await next();
+    });
 
     // GET /moments
     app.get('/', async (c: AppContext) => {
@@ -18,6 +22,7 @@ export function MomentsService(): Hono {
         const page_num = (page ? parseInt(page) > 0 ? parseInt(page) : 1 : 1) - 1;
         const limit_num = limit ? parseInt(limit) > 50 ? 50 : parseInt(limit) : 20;
         const cacheKey = `moments_${page_num}_${limit_num}`;
+        c.header('X-Rin-Content-Cache', 'public');
         const cached = await profileAsync(c, 'moments_list_cache_get', () => cache.get(cacheKey));
         
         if (cached) {

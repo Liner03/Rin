@@ -1,28 +1,16 @@
-import type { AdjacentFeed, AdjacentFeedResponse } from "@rin/api";
-import {useEffect, useState} from "react";
+import type { AdjacentFeed } from "@rin/api";
+import { useCachedContent } from "../hooks/use-cached-content";
 import { client } from "../app/runtime";
 import {timeago} from "../utils/timeago.ts";
 import {Link} from "wouter";
 import {useTranslation} from "react-i18next";
 
 export function AdjacentSection({id}: { id: string }) {
-    const [adjacentFeeds, setAdjacentFeeds] = useState<AdjacentFeedResponse>();
-
-    useEffect(() => {
-        let cancelled = false;
-        setAdjacentFeeds(undefined);
-        client.feed
-            .adjacent(id)
-            .then(({data, error}) => {
-                if (!cancelled && !error && data && typeof data !== "string") {
-                    setAdjacentFeeds(data);
-                }
-            })
-            .catch(() => {
-                // Optional navigation must not replace an already loaded article with an error.
-            });
-        return () => { cancelled = true; };
-    }, [id]);
+    const { data: adjacentFeeds } = useCachedContent({
+        key: `adjacent:${id}`,
+        getCached: () => client.feed.getCachedAdjacent(id),
+        load: () => client.feed.adjacent(id),
+    });
     if (!adjacentFeeds) return null;
     return (
         <div className="adjacent-feeds rounded-2xl bg-w m-2 grid grid-cols-1 sm:grid-cols-2">

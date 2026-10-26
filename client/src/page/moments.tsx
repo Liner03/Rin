@@ -1,4 +1,7 @@
 import { Modal } from "@rin/ui"
+import type { Moment, MomentListResponse } from "@rin/api"
+import { isTransientContentError } from "../api/public-content-cache"
+import { shouldResetFollowingMoments } from "../api/moment-pagination"
 import { useContext, useEffect, useRef, useState } from "react"
 import { Helmet } from 'react-helmet'
 import { client } from "../app/runtime"
@@ -15,86 +18,103 @@ import { Button } from "../components/button"
 import { Waiting } from "../components/loading"
 import { MomentItem } from "../components/moment_item"
 
-interface Moment {
-    id: number;
-    content: string;
-    createdAt: Date;
-    updatedAt: Date;
-    user: {
-        id: number;
-        username: string;
-        avatar: string;
-    };
+export function MomentsPage() {
+    const query = new URLSearchParams(useSearch());
+    const siteConfig = useSiteConfig();
+    const limit = tryInt(siteConfig.pageSize, query.get("limit"))
+    return <MomentsContent key={limit} limit={limit} />
 }
 
-export function MomentsPage() {
-    const [moments, setMoments] = useState<Moment[]>([])
-    const [length, setLength] = useState(0)
+function MomentsContent({ limit }: { limit: number }) {
+    const siteConfig = useSiteConfig();
+    const active = useRef(true)
+    const loadingMoreRef = useRef(false)
+    const [pages, setPages] = useState<Record<number, MomentListResponse>>((): Record<number, MomentListResponse> => {
+        const cached = client.moments.getCachedList({ page: 1, limit })
+        return cached ? { 1: cached } : {}
+    })
+    const moments = Array.from(new Map(Object.keys(pages).sort((a, b) => Number(a) - Number(b))
+        .flatMap(page => pages[Number(page)].data).map(moment => [moment.id, moment])).values())
+    const length = moments.length
+    const requestVersion = useRef(0)
     const [content, setContent] = useState("")
     const [saving, setSaving] = useState(false)
-    const [loadStatus, setLoadStatus] = useState<'loading' | 'success' | 'error'>('loading')
+    const [loadStatus, setLoadStatus] = useState<'loading' | 'success' | 'error'>(() => pages[1] ? 'success' : 'loading')
     const [isModalOpen, setIsModalOpen] = useState(false)
     const [editingMoment, setEditingMoment] = useState<Moment | null>(null)
-    const query = new URLSearchParams(useSearch());
     const ref = useRef("")
     const { t } = useTranslation()
-    const siteConfig = useSiteConfig();
     const profile = useContext(ProfileContext);
     const { showAlert, AlertUI } = useAlert()
     const { showConfirm, ConfirmUI } = useConfirm()
     
     const [currentPage, setCurrentPage] = useState(1)
-    const [hasNextPage, setHasNextPage] = useState(false)
+    const hasNextPage = pages[currentPage]?.hasNext ?? false
     const [loadingMore, setLoadingMore] = useState(false)
     const [loadMoreError, setLoadMoreError] = useState(false)
     
-    const limit = tryInt(siteConfig.pageSize, query.get("limit"))
     
     function fetchMoments(page = 1, append = false) {
-        if (loadingMore) return
-        
         const isInitialLoad = page === 1 && !append
+        if (!isInitialLoad && loadingMoreRef.current) return
+        const version = isInitialLoad ? ++requestVersion.current : requestVersion.current
+        const params = { page, limit }
+        const cached = client.moments.getCachedList(params)
+        const applyData = (data: MomentListResponse) => {
+            if (!active.current || version !== requestVersion.current) return
+            const resetFollowingPages = isInitialLoad && shouldResetFollowingMoments(cached, data)
+            if (resetFollowingPages) {
+                // Later pages belong to the previous first-page boundary.
+                // Invalidate their pending responses as well as rendered data.
+                requestVersion.current++
+                loadingMoreRef.current = false
+                setLoadingMore(false)
+                setLoadMoreError(false)
+            }
+            setPages(previous => resetFollowingPages ? { 1: data } : { ...previous, [page]: data })
+            setCurrentPage(previous => resetFollowingPages ? 1 : Math.max(previous, page))
+            setLoadStatus('success')
+        }
         if (isInitialLoad) {
-            setLoadStatus('loading')
+            setPages(cached ? { 1: cached } : {})
+            setCurrentPage(1)
+            setLoadStatus(cached ? 'success' : 'loading')
+            loadingMoreRef.current = false
+            setLoadingMore(false)
         } else {
+            if (cached) applyData(cached)
+            loadingMoreRef.current = true
             setLoadingMore(true)
         }
         setLoadMoreError(false)
-        const handleFailure = () => {
-            if (isInitialLoad) {
+        const handleFailure = (transient = true) => {
+            if (!active.current || version !== requestVersion.current) return
+            const fallback = transient ? client.moments.getCachedList(params) : undefined
+            if (fallback) applyData(fallback)
+            else if (isInitialLoad) {
+                requestVersion.current++
+                loadingMoreRef.current = false
+                setLoadingMore(false)
+                setPages({})
                 setLoadStatus('error')
             } else {
+                setPages(previous => Object.fromEntries(Object.entries(previous).filter(([key]) => Number(key) < page)))
+                setCurrentPage(page - 1)
                 setLoadMoreError(true)
             }
         }
-        
-        return client.moments.list({
-            page: page,
-            limit: limit
-        }).then(({ data, error }) => {
-            if (!error && data && Array.isArray(data.data)) {
-                const momentData = data.data;
-                setLength(momentData.length)
-                setHasNextPage(data.hasNext)
-                
-                if (append) {
-                    setMoments(prev => [...prev, ...momentData] as any)
-                } else {
-                    setMoments(momentData as any)
-                }
-                
-                setCurrentPage(page)
-                setLoadStatus('success')
-            } else {
-                handleFailure()
-            }
-        }).catch(handleFailure).finally(() => {
-            if (!isInitialLoad) {
+        return client.moments.list(params).then(({ data, error }) => {
+            if (!active.current || version !== requestVersion.current) return
+            if (!error && data && Array.isArray(data.data)) applyData(data)
+            else handleFailure(error !== undefined && isTransientContentError(error.status))
+        }).catch(() => handleFailure()).finally(() => {
+            if (active.current && version === requestVersion.current && !isInitialLoad) {
+                loadingMoreRef.current = false
                 setLoadingMore(false)
             }
         })
     }
-    
+
     function loadMore() {
         if (hasNextPage && !loadingMore) {
             fetchMoments(currentPage + 1, true)
@@ -168,11 +188,13 @@ export function MomentsPage() {
     }
     
     useEffect(() => {
-        const key = `${limit}`
-        if (ref.current === key) return
-        fetchMoments(1, false)
-        ref.current = key
-    }, [limit])
+        active.current = true
+        if (!ref.current) {
+            ref.current = "loaded"
+            void fetchMoments(1, false)
+        }
+        return () => { active.current = false }
+    }, [])
     
     return (
         <>

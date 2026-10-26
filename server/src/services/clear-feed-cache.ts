@@ -5,6 +5,7 @@ export async function clearFeedCollectionCaches(cache: CacheImpl, save = true) {
     await cache.deletePrefix('search_', false);
     await cache.deletePrefix('category_', false);
     await cache.deletePrefix('page_', false);
+    await cache.deletePrefix('adjacent_v1_', false);
     if (save) await cache.save();
 }
 

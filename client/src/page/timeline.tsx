@@ -1,53 +1,51 @@
-import {useEffect, useRef, useState} from "react"
+import type { TimelineItem } from "@rin/api"
+import {useEffect, useMemo, useRef, useState} from "react"
 import {Helmet} from 'react-helmet'
 import {Link} from "wouter"
 import {Waiting} from "../components/loading"
+import {Button} from "../components/button"
 import { client } from "../app/runtime"
+import { isTransientContentError } from "../api/public-content-cache"
 import {useSiteConfig} from "../hooks/useSiteConfig";
 import {siteName} from "../utils/constants"
 import {useTranslation} from "react-i18next";
 
-interface FeedItem {
-    id: number;
-    createdAt: Date;
-    title: string | null;
-}
-
 export function TimelinePage() {
-    const [feeds, setFeeds] = useState<Partial<Record<number, FeedItem[]>>>()
-    const [length, setLength] = useState(0)
-    const ref = useRef(false)
+    const [data, setData] = useState<TimelineItem[] | undefined>(() => client.feed.getCachedTimeline())
+    const [error, setError] = useState("")
+    const [reloadVersion, setReloadVersion] = useState(0)
+    const request = useRef<{ version: number; promise: ReturnType<typeof client.feed.timeline> }>()
     const { t } = useTranslation()
     const siteConfig = useSiteConfig();
-    function fetchFeeds() {
-        client.feed.timeline()
-        .then(({ data }) => {
-            if (data) {
-                const arr = Array.isArray(data) ? data : []
-                setLength(arr.length)
-                // 兼容的分组逻辑
-                const groups = (Object.groupBy
-                    ? Object.groupBy(arr, ({ createdAt }) => new Date(createdAt).getFullYear())
-                    : arr.reduce<Record<number, any[]>>((acc, item) => {
-                        const key = new Date(item.createdAt).getFullYear()
-                        ;(acc[key] ||= []).push(item)
-                        return acc
-                    }, {})
-                )
-
-                setFeeds(groups as any)
-            }
-        })
-        .catch(err => {
-            console.error("fetchFeeds error:", err)
-        })
-    }
+    const loadFailedMessage = t("article.load_failed")
+    const feeds = useMemo(() => data?.reduce<Record<number, TimelineItem[]>>((groups, item) => {
+        const year = new Date(item.createdAt).getFullYear()
+        ;(groups[year] ||= []).push(item)
+        return groups
+    }, {}), [data])
+    const length = data?.length ?? 0
 
     useEffect(() => {
-        if (ref.current) return
-        fetchFeeds()
-        ref.current = true
-    }, [])
+        let cancelled = false
+        setData(client.feed.getCachedTimeline())
+        setError("")
+        if (!request.current || request.current.version !== reloadVersion) {
+            request.current = { version: reloadVersion, promise: client.feed.timeline() }
+        }
+        function fail(message: string, transient: boolean) {
+            if (cancelled) return
+            const cached = transient ? client.feed.getCachedTimeline() : undefined
+            setData(cached)
+            setError(cached ? "" : message)
+        }
+        request.current.promise.then(({ data, error }) => {
+            if (cancelled) return
+            if (error) fail(String(error.value), isTransientContentError(error.status))
+            else if (Array.isArray(data)) setData(data)
+            else fail(loadFailedMessage, false)
+        }).catch((error: unknown) => fail(error instanceof Error ? error.message : String(error), true))
+        return () => { cancelled = true }
+    }, [reloadVersion, loadFailedMessage])
     return (
         <>
             <Helmet>
@@ -58,8 +56,11 @@ export function TimelinePage() {
                 <meta property="og:type" content="article" />
                 <meta property="og:url" content={document.URL} />
             </Helmet>
-            <Waiting for={feeds}>
-                <main className="w-full flex flex-col justify-center items-center mb-8 ani-show">
+            <Waiting for={data !== undefined || Boolean(error)}>
+                {error ? <div role="alert" className="wauto mx-auto flex flex-col items-center gap-4 rounded-2xl bg-w p-6">
+                    <p>{error}</p>
+                    <Button title={t("error.retry")} onClick={() => setReloadVersion((version) => version + 1)} />
+                </div> : <main className="w-full flex flex-col justify-center items-center mb-8 ani-show">
                     <div className="wauto text-start text-black dark:text-white py-4 text-4xl font-bold">
                         <p>
                             {t('timeline')}
@@ -88,7 +89,7 @@ export function TimelinePage() {
                             </div>
                         </div>
                     ))}
-                </main>
+                </main>}
             </Waiting>
         </>
     )

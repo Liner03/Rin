@@ -1,12 +1,12 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 import { Helmet } from "react-helmet";
 import { useTranslation } from "react-i18next";
-import type { Page } from "@rin/api";
 import { client } from "../app/runtime";
 import { usePublishRouteMetadata } from "../app/route-metadata";
 import { Input } from "../components/input";
 import { Waiting } from "../components/loading";
 import { preloadMarkdown } from "../components/markdown";
+import { usePageContent } from "../hooks/use-page-content";
 import { useSiteConfig } from "../hooks/useSiteConfig";
 import { getPageTemplate } from "../components/page-templates";
 import { siteName } from "../utils/constants";
@@ -15,40 +15,18 @@ import { ErrorPage } from "./error";
 export function PageDetail({ slug }: { slug: string }) {
   const { t } = useTranslation();
   const siteConfig = useSiteConfig();
-  const [status, setStatus] = useState<"loading" | "idle">("loading");
-  const [page, setPage] = useState<Page>();
+  const { page, loading, error: loadError, reload } = usePageContent(decodeURI(slug));
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
-  const [loadError, setLoadError] = useState("");
-  const [reloadVersion, setReloadVersion] = useState(0);
-  const request = useRef<{ slug: string; version: number; promise: ReturnType<typeof client.page.get> }>();
 
   usePublishRouteMetadata(page ? { kind: "page", title: page.title }
-    : status === "idle" ? { kind: "error", title: t("error.title") } : undefined);
+    : !loading ? { kind: "error", title: t("error.title") } : undefined);
 
   useEffect(() => {
-    let cancelled = false;
-    setStatus("loading");
-    setPage(undefined);
     setPassword("");
     setError("");
-    setLoadError("");
     preloadMarkdown().catch((error) => console.error("Failed to preload Markdown", error));
-    if (!request.current || request.current.slug !== slug || request.current.version !== reloadVersion) {
-      request.current = { slug, version: reloadVersion, promise: client.page.get(decodeURI(slug)) };
-    }
-    request.current.promise.then(({ data, error }) => {
-      if (cancelled) return;
-      setPage(data);
-      if (error) setLoadError(String(error.value));
-      setStatus("idle");
-    }).catch((error: unknown) => {
-      if (cancelled) return;
-      setLoadError(error instanceof Error ? error.message : String(error));
-      setStatus("idle");
-    });
-    return () => { cancelled = true; };
-  }, [slug, reloadVersion]);
+  }, [slug]);
 
   async function unlock() {
     if (!page || page.id === undefined) return;
@@ -57,7 +35,7 @@ export function PageDetail({ slug }: { slug: string }) {
       setError(error.value as string);
     } else {
       setError("");
-      setReloadVersion((version) => version + 1);
+      reload();
     }
   }
 
@@ -71,7 +49,7 @@ export function PageDetail({ slug }: { slug: string }) {
         <meta property="og:type" content="article" />
         <meta property="og:url" content={document.URL} />
       </Helmet>
-      <Waiting for={status === "idle"}>
+      <Waiting for={!loading}>
         {page?.locked ? (
           <div className="mx-auto mt-16 flex w-full max-w-md flex-col items-center gap-4 rounded-2xl border border-black/10 bg-w p-8 text-center dark:border-white/10">
             <p className="text-lg font-semibold t-primary">{page.title}</p>

@@ -5,13 +5,26 @@ import { comments, contents, users } from "../db/schema";
 import { profileAsync } from "../core/server-timing";
 import { notify } from "../utils/webhook";
 import { resolveWebhookConfig } from "./config-helpers";
+import { canViewContent, isScheduled, isContentUnlocked, parseCookies } from "./content-helpers";
 
 export function CommentService(): Hono {
     const app = new Hono();
+    app.use('*', async (c, next) => {
+        c.header('Cache-Control', 'private, no-store');
+        await next();
+    });
 
     app.get('/:feed', async (c: AppContext) => {
         const db = c.get('db');
         const feedId = parseInt(c.req.param('feed'));
+        const parent = await db.query.contents.findFirst({ where: eq(contents.id, feedId) });
+        if (!parent) return c.text('Not found', 404);
+        const admin = c.get('admin');
+        const uid = c.get('uid');
+        if (!canViewContent(parent, { admin, uid }) || (isScheduled(parent) && !admin && parent.uid !== uid)
+            || (parent.password && !admin && !isContentUnlocked(parent, parseCookies(c.req.header('cookie'))))) {
+            return c.text('Permission denied', 403);
+        }
         
         const comment_list = await profileAsync(c, 'comment_list_db', () => db.query.comments.findMany({
             where: and(eq(comments.contentId, feedId), eq(comments.approved, 1)),
@@ -40,6 +53,9 @@ export function CommentService(): Hono {
             };
         });
         
+        if (parent.status === 'publish' && !isScheduled(parent) && !parent.password) {
+            c.header('X-Rin-Content-Cache', 'public');
+        }
         return c.json(result);
     });
 

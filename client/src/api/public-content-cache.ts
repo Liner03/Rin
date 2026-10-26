@@ -8,6 +8,7 @@ interface Entry {
   key: string;
   expiresAt: number;
   data: unknown;
+  scopeGeneration?: string;
 }
 
 interface Snapshot {
@@ -23,6 +24,7 @@ interface RequestTicket {
   key: string;
   sequence: number;
   generation: string;
+  scopeGeneration: string | undefined;
 }
 
 export function isRecord(value: unknown): value is Record<string, unknown> {
@@ -36,6 +38,7 @@ export function isTransientContentError(status: number) {
 export class PublicContentCache {
   private readonly storageKey: string;
   private readonly generationKey: string;
+  private readonly mutationEvent: string;
   private snapshot: Snapshot = { generation: "", entries: [] };
   private raw: string | null | undefined;
   private blockedGeneration: string | undefined;
@@ -47,6 +50,20 @@ export class PublicContentCache {
     // Old clients can keep writing v1 without reviving data in this cache.
     this.storageKey = `rin:public-content:v2:${baseUrl}`;
     this.generationKey = `${this.storageKey}:generation`;
+    this.mutationEvent = `${this.storageKey}:mutation`;
+  }
+
+  subscribe(listener: () => void): () => void {
+    if (typeof window === "undefined") return () => {};
+    const onStorage = (event: StorageEvent) => {
+      if (event.key === this.generationKey || event.key === null) listener();
+    };
+    window.addEventListener(this.mutationEvent, listener);
+    window.addEventListener("storage", onStorage);
+    return () => {
+      window.removeEventListener(this.mutationEvent, listener);
+      window.removeEventListener("storage", onStorage);
+    };
   }
 
   private read(): Snapshot {
@@ -99,10 +116,23 @@ export class PublicContentCache {
     }
   }
 
+  private scopeStorageKey(key: string) {
+    return `${this.storageKey}:scope:${key.split(":", 1)[0]}:generation`;
+  }
+
+  private readScopeGeneration(key: string): string | undefined {
+    try {
+      const stored = localStorage.getItem(this.scopeStorageKey(key));
+      return stored?.length === 36 ? stored : undefined;
+    } catch { return undefined; }
+  }
+
   get<T>(key: string, validate: (data: unknown) => data is T): T | undefined {
     const entry = this.read().entries.find((entry) => entry.key === key);
     const now = Date.now();
-    if (!entry || entry.expiresAt <= now || entry.expiresAt > now + MAX_AGE_MS || !validate(entry.data)) return;
+    const scopeGeneration = this.readScopeGeneration(key);
+    if (!entry || !scopeGeneration || entry.scopeGeneration !== scopeGeneration
+      || entry.expiresAt <= now || entry.expiresAt > now + MAX_AGE_MS || !validate(entry.data)) return;
     return entry.data;
   }
 
@@ -118,23 +148,42 @@ export class PublicContentCache {
     }
     const sequence = ++this.sequence;
     this.latest.set(key, sequence);
-    return { key, sequence, generation: current.generation };
+    let scopeGeneration = this.readScopeGeneration(key);
+    if (!scopeGeneration) {
+      try { localStorage.setItem(this.scopeStorageKey(key), crypto.randomUUID()); } catch { /* No reusable scope. */ }
+      scopeGeneration = this.readScopeGeneration(key);
+    }
+    return { key, sequence, generation: current.generation, scopeGeneration };
   }
 
-  finish<T>(ticket: RequestTicket, data: T | undefined, cacheable: boolean, errorStatus?: number) {
+  finish<T>(ticket: RequestTicket, data: T | undefined, cacheable: boolean, errorStatus?: number, resetScope = false) {
     const current = this.read();
     if (this.latest.get(ticket.key) !== ticket.sequence) return;
     this.latest.delete(ticket.key);
     if (!ticket.generation || current.generation !== ticket.generation || this.blockedGeneration === current.generation) return;
+    if (ticket.scopeGeneration === undefined || ticket.scopeGeneration !== this.readScopeGeneration(ticket.key)) return;
     if (errorStatus !== undefined && isTransientContentError(errorStatus)) return;
     if (!cacheable || data === undefined) {
       // Also evict aliases and lists when content is revoked or becomes protected.
       this.clear();
       return;
     }
+    let scopeGeneration = ticket.scopeGeneration;
+    const scopeKey = this.scopeStorageKey(ticket.key);
+    if (resetScope) {
+      // Revoke sibling-page tickets without moving any entries to a new
+      // global generation: a concurrent logout must still revoke this write.
+      scopeGeneration = crypto.randomUUID();
+      try { localStorage.setItem(scopeKey, scopeGeneration); }
+      catch {
+        this.clear();
+        return;
+      }
+    }
     const now = Date.now();
-    const entry = { key: ticket.key, data, expiresAt: now + MAX_AGE_MS };
-    const entries = current.entries.filter((entry) => entry.key !== ticket.key && entry.expiresAt > now);
+    const entry = { key: ticket.key, data, scopeGeneration, expiresAt: now + MAX_AGE_MS };
+    const entries = current.entries.filter((entry) => entry.key !== ticket.key && entry.expiresAt > now
+      && (!resetScope || this.scopeStorageKey(entry.key) !== scopeKey));
     if (JSON.stringify(entry).length < MAX_CHARACTERS / 2) entries.push(entry);
     const snapshot = { generation: current.generation, entries: entries.slice(-MAX_ENTRIES) };
     while (snapshot.entries.length && JSON.stringify(snapshot).length > MAX_CHARACTERS) snapshot.entries.shift();
@@ -144,7 +193,7 @@ export class PublicContentCache {
     this.write(snapshot);
   }
 
-  clear() {
+  clear(notify = false) {
     const previousGeneration = this.read().generation;
     this.latest.clear();
     const generation = crypto.randomUUID();
@@ -167,5 +216,6 @@ export class PublicContentCache {
     this.blockedGeneration = published ? undefined : previousGeneration;
     this.raw = undefined;
     try { localStorage.removeItem(this.storageKey); } catch { /* Storage denied. */ }
+    if (notify && typeof window !== "undefined") window.dispatchEvent(new Event(this.mutationEvent));
   }
 }
