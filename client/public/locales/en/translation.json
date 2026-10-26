@@ -470,8 +470,14 @@
       },
       "avatar": {
         "title": "Site Avatar",
-        "desc": "Set the avatar shown in the navigation bar by URL, upload, or drag and drop",
-        "label": "Avatar URL"
+        "desc": "Set the navigation avatar by URL, upload, drag and drop, or a Gravatar email.",
+        "label": "Avatar URL",
+        "gravatar": {
+          "title": "Use a Gravatar email",
+          "desc": "Generate an avatar URL from your Gravatar email. Only the hashed URL is saved; an identicon is used if no avatar exists.",
+          "button": "Use Gravatar",
+          "failed": "Could not generate an avatar. Check the email and try again."
+        }
       },
       "page_size": {
         "title": "Page Size",
@@ -491,9 +497,9 @@
       },
       "copyright": {
         "title": "Copyright",
-        "desc": "Custom copyright text shown in the footer (leave empty for default)",
+        "desc": "Supports links and inline HTML. Use {year} for the current year; leave empty for the default.",
         "label": "Copyright",
-        "placeholder": "© 2026 Your Name"
+        "placeholder": "&copy; {year} <a href=\"https://example.com\">Your name</a>"
       },
       "rss_title": {
         "title": "RSS Title",
@@ -590,7 +596,8 @@
     "wordpress": {
       "desc": "Upload the XML file exported from WordPress",
       "title": "Import from WordPress"
-    }
+    },
+    "saving": "Saving…"
   },
   "sitename": "Site Name",
   "sort_order": "Sort Order",

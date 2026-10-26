@@ -3,10 +3,29 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <link rel="stylesheet" href="/src/app/blog-skeleton.css" />
+    <style>body { margin: 0; }</style>
     <script id="rin-client-config" async data-cfasync="false" src="/api/config/client/bootstrap.js"></script>
   </head>
   <body>
-    <div id="root"><p role="status" style="padding: 3rem; text-align: center; font-family: system-ui, sans-serif">Loading…</p></div>
+    <div id="root">
+      <main class="blog-skeleton" role="status" aria-label="Loading" aria-busy="true">
+        <div aria-hidden="true">
+          <div class="blog-skeleton-nav">
+            <div class="blog-skeleton-line blog-skeleton-brand"></div>
+            <div class="blog-skeleton-menu"><div class="blog-skeleton-line"></div><div class="blog-skeleton-line"></div><div class="blog-skeleton-line"></div></div>
+          </div>
+          <div class="blog-skeleton-hero">
+            <div class="blog-skeleton-line blog-skeleton-title"></div>
+            <div class="blog-skeleton-line blog-skeleton-description"></div>
+          </div>
+          <div class="blog-skeleton-content">
+            <div class="blog-skeleton-post"><div class="blog-skeleton-line blog-skeleton-post-title"></div><div class="blog-skeleton-line blog-skeleton-meta"></div><div class="blog-skeleton-line"></div><div class="blog-skeleton-line blog-skeleton-short"></div></div>
+            <div class="blog-skeleton-post"><div class="blog-skeleton-line blog-skeleton-post-title"></div><div class="blog-skeleton-line blog-skeleton-meta"></div><div class="blog-skeleton-line"></div><div class="blog-skeleton-line blog-skeleton-short"></div></div>
+          </div>
+        </div>
+      </main>
+    </div>
     <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>

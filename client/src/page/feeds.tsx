@@ -4,7 +4,7 @@ import { Helmet } from 'react-helmet'
 import { Link, useSearch } from "wouter"
 import { FeedCard } from "../components/feed_card"
 import { Button } from "../components/button"
-import { Waiting } from "../components/loading"
+import { FeedListSkeleton } from "../app/blog-skeleton"
 import { client } from "../app/runtime"
 import { ProfileContext } from "../state/profile"
 
@@ -92,7 +92,7 @@ export function FeedsPage() {
                     {getPageTemplate(frontPage.template).render({ page: frontPage })}
                 </main>
             ) : (
-            <Waiting for={data || loadFailed}>
+            !data && !loadFailed ? <FeedListSkeleton layout={siteConfig.feedLayout} variant={siteConfig.feedCardVariant} /> : (
                 <main className="w-full flex flex-col justify-center items-center mb-8">
                     {loadFailed ? (
                         <div role="alert" className="wauto flex flex-col items-center gap-4 rounded-2xl bg-w p-6">
@@ -142,7 +142,7 @@ export function FeedsPage() {
                         </div>
                     </>}
                 </main>
-            </Waiting>
+            )
             )}
         </>
     )

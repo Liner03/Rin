@@ -27,6 +27,7 @@ import {
   importWordPressFile,
   loadSettingsConfigState,
   mergeSessionConfig,
+  mergeSavedSettingsDraft,
   saveSettingsConfigState,
   type SettingsDraft,
   updateDraftConfig,
@@ -112,10 +113,11 @@ export function Settings() {
   }
 
   async function handleSave() {
+    if (saving) return;
     setSaving(true);
     try {
-      const state = await saveSettingsConfigState(draft);
-      setDraft(state.draft);
+      const state = await saveSettingsConfigState(draft, initialDraft);
+      setDraft((current) => mergeSavedSettingsDraft(current, draft, state.draft));
       setInitialDraft(state.draft);
       initialDraftRef.current = state.draft;
       setHasStoredAiApiKey(state.hasStoredAiApiKey || aiValue.apiKey.trim().length > 0);
@@ -206,6 +208,7 @@ export function Settings() {
             }}
           />
           <ItemImageInput
+            allowGravatar
             title={t("settings.site.avatar.title")}
             description={t("settings.site.avatar.desc")}
             configKeyTitle={t("settings.site.avatar.label")}
@@ -729,7 +732,7 @@ export function Settings() {
                 action={
                   <>
                     <Button secondary title={t("reset")} onClick={handleReset} disabled={saving} />
-                    <Button title={t("save")} onClick={handleSave} disabled={saving || loading} />
+                    <Button title={t(saving ? "settings.saving" : "save")} onClick={handleSave} disabled={saving || loading} aria-busy={saving} />
                   </>
                 }
               />

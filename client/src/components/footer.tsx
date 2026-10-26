@@ -7,6 +7,8 @@ import { siteName } from '../utils/constants';
 import { useTranslation } from "react-i18next";
 import { buildLoginPath, HIDDEN_LOGIN_REDIRECT } from "../utils/auth-redirect";
 
+import { Copyright } from "./copyright";
+
 type ThemeMode = 'light' | 'dark' | 'system';
 function Footer() {
     const { t } = useTranslation()
@@ -104,7 +106,7 @@ function Footer() {
                         }
                     }}>
                         {footerCopyright ? (
-                            footerCopyright
+                            <Copyright value={footerCopyright} />
                         ) : (
                             <>© {new Date().getFullYear()} Powered by <a className='hover:underline' href="https://github.com/openRin/Rin" target="_blank">Rin</a></>
                         )}

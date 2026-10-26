@@ -4,7 +4,7 @@ import {
   SENSITIVE_SERVER_CONFIG_FIELDS,
   WEBHOOK_URL_KEY,
 } from "@rin/config";
-import { getFrontendAIEnabled, readAIConfigFromMap } from "../utils/db-config";
+import { getFrontendAIEnabled, readAIConfigFromMap, setAIConfig } from "../utils/db-config";
 
 type ConfigMapLike = {
   all(): Promise<Map<string, unknown>>;
@@ -161,12 +161,17 @@ export function splitConfigPayload(body: Record<string, unknown>) {
   return { regularConfig, aiConfigUpdates };
 }
 
-export async function persistRegularConfig(
+export async function persistConfigUpdates(
   config: ConfigMapLike,
   updates: Record<string, unknown>,
+  aiConfigUpdates: Parameters<typeof setAIConfig>[1] = {},
 ) {
+  if (Object.keys(updates).length === 0 && Object.keys(aiConfigUpdates).length === 0) return;
   for (const key in updates) {
     await config.set(key, updates[key], false);
+  }
+  if (Object.keys(aiConfigUpdates).length > 0) {
+    await setAIConfig(config, aiConfigUpdates, false);
   }
   await config.save();
 }

@@ -1,0 +1,49 @@
+/* Available before React and its translations load. */
+.blog-skeleton, .feed-skeleton {
+  --skeleton-canvas: #fff;
+  --skeleton-hero: #fafafa;
+  --skeleton-fill: #ececeb;
+  --skeleton-rule: #f1f1f0;
+  color-scheme: light;
+}
+.blog-skeleton { min-height: 100vh; background: var(--skeleton-canvas); }
+.blog-skeleton *, .feed-skeleton * { box-sizing: border-box; }
+.blog-skeleton-nav { height: 60px; display: flex; align-items: center; justify-content: space-between; padding: 0 5%; }
+.blog-skeleton-line { height: 12px; width: 100%; border-radius: 3px; background: var(--skeleton-fill); }
+.blog-skeleton-brand { width: 88px; height: 20px; }
+.blog-skeleton-menu { display: flex; gap: 24px; width: 240px; }
+.blog-skeleton-hero { height: 385px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 20px; background: var(--skeleton-hero); }
+.blog-skeleton-title { width: min(240px, 55vw); height: 36px; }
+.blog-skeleton-description { width: min(320px, 65vw); }
+.blog-skeleton-content { max-width: 952px; margin: 0 auto; padding: 64px 60px 56px; }
+.blog-skeleton-post { padding: 0 0 40px; margin-bottom: 40px; border-bottom: 1px solid var(--skeleton-rule); }
+.blog-skeleton-post:last-child { margin-bottom: 0; }
+.blog-skeleton-post-title { width: 60%; height: 24px; margin-bottom: 18px; }
+.blog-skeleton-meta { width: 24%; height: 10px; margin-bottom: 26px; }
+.blog-skeleton-post > .blog-skeleton-line + .blog-skeleton-line { margin-top: 12px; }
+.blog-skeleton-short { width: 76%; }
+.feed-skeleton { width: 100%; padding: 16px 0 32px; }
+.feed-skeleton-grid { display: grid; gap: 24px; }
+.feed-skeleton-cover { height: 220px; margin-bottom: 24px; border-radius: 8px; background: var(--skeleton-fill); }
+.feed-skeleton[data-layout="masonry"] .feed-skeleton-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.feed-skeleton .blog-skeleton-post { margin-bottom: 0; }
+@media (max-width: 767px) {
+  .blog-skeleton-nav { height: 56px; padding: 0 24px; }
+  .blog-skeleton-menu { width: 100px; gap: 12px; }
+  .blog-skeleton-hero { height: 282px; }
+  .blog-skeleton-title { height: 28px; }
+  .blog-skeleton-content { padding: 48px 24px; }
+  .feed-skeleton[data-layout="masonry"] .feed-skeleton-grid { grid-template-columns: 1fr; }
+}
+@media (min-width: 768px) and (max-width: 1301px) {
+  .blog-skeleton-content { max-width: 808px; }
+}
+[data-color-mode="dark"] .blog-skeleton, [data-color-mode="dark"] .feed-skeleton {
+  --skeleton-canvas: #2c2a2a; --skeleton-hero: #343232; --skeleton-fill: #454242; --skeleton-rule: #3b3838; color-scheme: dark;
+}
+@media (prefers-color-scheme: dark) {
+  html:not([data-color-mode="light"]) .blog-skeleton, html:not([data-color-mode="light"]) .feed-skeleton {
+    --skeleton-canvas: #2c2a2a; --skeleton-hero: #343232; --skeleton-fill: #454242; --skeleton-rule: #3b3838; color-scheme: dark;
+  }
+}
+/* A still skeleton avoids distracting motion while visitors begin reading. */

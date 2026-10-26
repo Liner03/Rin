@@ -43,11 +43,15 @@ export function mergeSessionConfig(updates: Record<string, unknown>) {
 
 export async function loadSettingsConfigState() {
   const response = await client.config.getAll();
+  if (response.error) throw new Error(String(response.error.value));
+  if (!response.data) throw new Error("Empty settings response");
   return normalizeSettingsState(response.data);
 }
 
-export async function saveSettingsConfigState(draft: SettingsDraft) {
-  const response = await client.config.updateAll(draft);
+export async function saveSettingsConfigState(draft: SettingsDraft, initialDraft?: SettingsDraft) {
+  const response = await client.config.updateAll(initialDraft ? changedSettingsDraft(draft, initialDraft) : draft);
+  if (response.error) throw new Error(String(response.error.value));
+  if (!response.data) throw new Error("Empty settings response");
   return normalizeSettingsState(response.data);
 }
 
@@ -202,4 +206,22 @@ export function buildAIConfigDraftValue(
 
 export function areSettingsDraftsEqual(left: SettingsDraft, right: SettingsDraft) {
   return JSON.stringify(left) === JSON.stringify(right);
+}
+
+export function changedSettingsDraft(draft: SettingsDraft, initialDraft: SettingsDraft): SettingsDraft {
+  const changes = (current: Record<string, unknown>, initial: Record<string, unknown>) =>
+    Object.fromEntries(Object.entries(current).filter(([key, value]) => JSON.stringify(value) !== JSON.stringify(initial[key])));
+  return {
+    clientConfig: changes(draft.clientConfig, initialDraft.clientConfig),
+    serverConfig: changes(draft.serverConfig, initialDraft.serverConfig),
+  };
+}
+
+// Keep edits made while a save request was in flight.
+export function mergeSavedSettingsDraft(current: SettingsDraft, submitted: SettingsDraft, saved: SettingsDraft): SettingsDraft {
+  const edits = changedSettingsDraft(current, submitted);
+  return {
+    clientConfig: { ...saved.clientConfig, ...edits.clientConfig },
+    serverConfig: { ...saved.serverConfig, ...edits.serverConfig },
+  };
 }

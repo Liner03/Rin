@@ -461,8 +461,14 @@
       },
       "avatar": {
         "title": "サイトアバター",
-        "desc": "ナビゲーションバーに表示する画像を URL、アップロード、またはドラッグ&ドロップで設定します",
-        "label": "アバター URL"
+        "desc": "URL、アップロード、ドラッグ＆ドロップ、Gravatar のメールアドレスからアバターを設定できます。",
+        "label": "アバター URL",
+        "gravatar": {
+          "title": "Gravatar のメールアドレスを使う",
+          "desc": "メールアドレスからアバター URL を生成します。ハッシュ化された URL のみ保存され、未登録の場合は既定の模様を表示します。",
+          "button": "アバターを生成",
+          "failed": "生成できませんでした。メールアドレスを確認して再試行してください。"
+        }
       },
       "page_size": {
         "title": "ページサイズ",
@@ -482,9 +488,9 @@
       },
       "copyright": {
         "title": "著作権表記",
-        "desc": "フッターに表示するカスタム著作権テキスト（空欄でデフォルト）",
+        "desc": "リンクとインライン HTML に対応。{year} で現在の年を表示します。空欄で既定の文面を使います。",
         "label": "著作権",
-        "placeholder": "© 2026 名前"
+        "placeholder": "&copy; {year} <a href=\"https://example.com\">名前</a>"
       },
       "rss_title": {
         "title": "RSS タイトル",
@@ -581,7 +587,8 @@
     "wordpress": {
       "desc": "WordPressからエクスポートされたXMLファイルをアップロードする",
       "title": "WordPressからインポート"
-    }
+    },
+    "saving": "保存中…"
   },
   "sitename": "サイト名",
   "sort_order": "ソート順",
