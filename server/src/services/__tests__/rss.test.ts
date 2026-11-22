@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach, afterEach } from 'bun:test';
-import { RSSService, rssCrontab } from '../rss';
+import { RSSService, rssCrontab, absoluteFeedImage } from '../rss';
 import { Hono } from "hono";
 import type { Variables } from "../../core/hono-types";
 import { createMockDB, createMockEnv, setupTestApp, cleanupTestDB } from '../../../tests/fixtures';
@@ -313,5 +313,23 @@ describe('rssCrontab', () => {
         await rssCrontab(env, db);
 
         expect(putCalls).toBe(0);
+    });
+});
+
+describe('absoluteFeedImage', () => {
+    it('resolves relative post images against the frontend URL', () => {
+        expect(
+            absoluteFeedImage('/api/blob/typecho/a.png', 'https://blog.lin03.cn')
+        ).toBe('https://blog.lin03.cn/api/blob/typecho/a.png');
+    });
+
+    it('keeps absolute URLs unchanged', () => {
+        expect(
+            absoluteFeedImage('https://cdn.example.com/a.png', 'https://blog.lin03.cn')
+        ).toBe('https://cdn.example.com/a.png');
+    });
+
+    it('drops images that cannot be parsed', () => {
+        expect(absoluteFeedImage(undefined, 'https://blog.lin03.cn')).toBeUndefined();
     });
 });
