@@ -143,6 +143,17 @@ async function handleFeed(c: AppContext, fileName: string) {
     }
 }
 
+// The feed library calls `new URL()` on the enclosure and throws on relative
+// paths, which failed the whole RSS cron for posts with `/api/blob/...` images.
+export function absoluteFeedImage(image: string | undefined, baseUrl: string) {
+    if (!image) return undefined;
+    try {
+        return new URL(image, baseUrl).href;
+    } catch {
+        return undefined;
+    }
+}
+
 // Extract feed generation logic for reuse
 async function generateFeed(env: Env, db: DB, frontendUrl: string, c?: AppContext, clientConfig?: CacheImpl) {
     if (c) {
@@ -280,7 +291,7 @@ async function generateFeed(env: Env, db: DB, frontendUrl: string, c?: AppContex
                     : content,
             content: contentHtml,
             author: user ? [{ name: user.username }] : undefined,
-            image: extractImage(content),
+            image: absoluteFeedImage(extractImage(content), frontendUrl),
         });
     }
     
